@@ -1,0 +1,15 @@
+#!/bin/sh
+# commit-msg hook: strips co-author trailers and "Generated with ... Claude" lines
+# from commit messages. Enable with: git config core.hooksPath .githooks
+set -eu
+
+msg_file="$1"
+tmp_file="$(mktemp "${TMPDIR:-/tmp}/commit-msg.XXXXXX")"
+
+# Drop matching lines (case-insensitive). grep exits 1 when nothing is left, which is fine.
+grep -v -i -E 'co-authored-by:|generated with.*claude|claude.*generated with' "$msg_file" > "$tmp_file" || true
+
+# Remove trailing blank lines left behind by the removed trailers.
+sed -e ':a' -e '/^[[:space:]]*$/{$d;N;ba' -e '}' "$tmp_file" > "$tmp_file.trim" && mv "$tmp_file.trim" "$tmp_file"
+
+mv "$tmp_file" "$msg_file"

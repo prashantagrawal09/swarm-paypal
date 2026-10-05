@@ -1,0 +1,7 @@
+# PayPal Agent Toolkit (https://github.com/paypal/agent-toolkit).
+#
+# Installed with `pip install --no-deps -r requirements-toolkit.txt` because the package
+# hard-pins openai-agents, langchain and crewai-tools, none of which Swarm uses. We only
+# import its framework-neutral core (paypal_agent_toolkit.shared), whose runtime needs
+# (requests, httpx, pydantic, python-dotenv) are already in pyproject.toml.
+paypal-agent-toolkit==1.11.0
