@@ -22,13 +22,13 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import itertools
 import secrets
 import zlib
 from collections import defaultdict, deque
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from typing import Any, TypeVar
 
 from app.clock import Clock, SystemClock
@@ -47,6 +47,7 @@ from app.paypal.interface import (
     CreateOrderRequest,
     Invoice,
     InvoiceDraft,
+    InvoiceLine,
     InvoicePaymentMethod,
     Order,
     PayoutBatch,
@@ -131,10 +132,53 @@ class SimulatedPayPalState:
     sender_batch_ids: set[str] = field(default_factory=set)
     invoice_numbers: set[tuple[str, str]] = field(default_factory=set)
     idempotency: dict[tuple[str, str, str], Any] = field(default_factory=dict)
-    _counter: itertools.count[int] = field(default_factory=lambda: itertools.count(1))
+    next_number: int = 1
 
     def next_id(self, kind: str) -> str:
-        return f"SIM-{kind}-{next(self._counter):06d}"
+        number = self.next_number
+        self.next_number += 1
+        return f"SIM-{kind}-{number:06d}"
+
+    # -- persistence (JSON snapshot, so simulated holds survive a restart) --------------
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "version": 1,
+            "next_number": self.next_number,
+            "webhook_secret": base64.b64encode(self.webhook_secret).decode(),
+            "orders": {k: _order_to_dict(v) for k, v in self.orders.items()},
+            "authorizations": {k: _auth_to_dict(v) for k, v in self.authorizations.items()},
+            "captures": {k: _capture_to_dict(v) for k, v in self.captures.items()},
+            "refunds": self.refunds,
+            "payouts": self.payouts,
+            "invoices": {k: _invoice_to_dict(v) for k, v in self.invoices.items()},
+            "vaults": self.vaults,
+            "sender_batch_ids": sorted(self.sender_batch_ids),
+            "invoice_numbers": sorted([list(pair) for pair in self.invoice_numbers]),
+            "idempotency": [
+                [list(key), _result_to_dict(value)] for key, value in self.idempotency.items()
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SimulatedPayPalState:
+        return cls(
+            webhook_secret=base64.b64decode(data["webhook_secret"]),
+            orders={k: _order_from_dict(v) for k, v in data["orders"].items()},
+            authorizations={k: _auth_from_dict(v) for k, v in data["authorizations"].items()},
+            captures={k: _capture_from_dict(v) for k, v in data["captures"].items()},
+            refunds=dict(data["refunds"]),
+            payouts=dict(data["payouts"]),
+            invoices={k: _invoice_from_dict(v) for k, v in data["invoices"].items()},
+            vaults=dict(data["vaults"]),
+            sender_batch_ids=set(data["sender_batch_ids"]),
+            invoice_numbers={(a, b) for a, b in data["invoice_numbers"]},
+            idempotency={
+                (key[0], key[1], key[2]): _result_from_dict(value)
+                for key, value in data["idempotency"]
+            },
+            next_number=int(data["next_number"]),
+        )
 
 
 # ---------------------------------------------------------------------------------------
@@ -156,6 +200,7 @@ class SimulatedPayPalClient:
         auto_approve: bool = True,
         approval_base_url: str = "http://localhost:8000",
         default_payer_email: str = "buyer@sim.swarm.example",
+        on_change: Callable[[SimulatedPayPalState], Awaitable[None]] | None = None,
     ) -> None:
         self.label = label
         self.state = state or SimulatedPayPalState()
@@ -164,6 +209,7 @@ class SimulatedPayPalClient:
         self.approval_base_url = approval_base_url.rstrip("/")
         self.default_payer_email = default_payer_email
         self._faults: dict[str, deque[PayPalError]] = defaultdict(deque)
+        self._on_change = on_change
 
     async def aclose(self) -> None:
         return None
@@ -173,6 +219,14 @@ class SimulatedPayPalClient:
     def fail_next(self, operation: str, error: PayPalError) -> None:
         """Make the next call of `operation` (for example "authorizations.capture") fail."""
         self._faults[operation].append(error)
+
+    def register_vault(self, vault_id: str, payer_email: str) -> None:
+        """Make a seeded simulated shop's saved wallet known to the simulator."""
+        self.state.vaults.setdefault(vault_id, payer_email)
+
+    async def _changed(self) -> None:
+        if self._on_change is not None:
+            await self._on_change(self.state)
 
     def approve_order(self, order_id: str, payer_email: str | None = None) -> None:
         """What the buyer does on PayPal's approval page."""
@@ -206,7 +260,7 @@ class SimulatedPayPalClient:
         if self._faults[operation]:
             raise self._faults[operation].popleft()
 
-    def _idempotent(self, operation: str, key: str, action: Callable[[], T]) -> T:
+    async def _idempotent(self, operation: str, key: str, action: Callable[[], T]) -> T:
         cache_key = (self.label, operation, key)
         if cache_key in self.state.idempotency:
             cached: T = self.state.idempotency[cache_key]
@@ -214,6 +268,7 @@ class SimulatedPayPalClient:
         self._check_fault(operation)
         result = action()
         self.state.idempotency[cache_key] = result
+        await self._changed()
         return result
 
     def _order(self, order_id: str, operation: str) -> _Order:
@@ -361,7 +416,7 @@ class SimulatedPayPalClient:
                 order.status = "COMPLETED"
             return payloads.parse_order(self._order_json(order))
 
-        return self._idempotent("orders.create", idempotency_key, action)
+        return await self._idempotent("orders.create", idempotency_key, action)
 
     async def get_order(self, order_id: str) -> Order:
         self._check_fault("orders.get")
@@ -388,7 +443,7 @@ class SimulatedPayPalClient:
             order.status = "COMPLETED"
             return payloads.parse_order(self._order_json(order))
 
-        return self._idempotent("orders.authorize", idempotency_key, action)
+        return await self._idempotent("orders.authorize", idempotency_key, action)
 
     # -----------------------------------------------------------------------------------
     # Payments v2
@@ -443,7 +498,7 @@ class SimulatedPayPalClient:
             auth.status = "CAPTURED" if final_capture or fully else "PARTIALLY_CAPTURED"
             return payloads.parse_capture(self._capture_json(capture))
 
-        return self._idempotent(op, idempotency_key, action)
+        return await self._idempotent(op, idempotency_key, action)
 
     async def void_authorization(
         self, authorization_id: str, *, idempotency_key: str
@@ -459,7 +514,7 @@ class SimulatedPayPalClient:
             auth.status = "VOIDED"
             return payloads.parse_authorization(self._auth_json(auth))
 
-        return self._idempotent(op, idempotency_key, action)
+        return await self._idempotent(op, idempotency_key, action)
 
     async def reauthorize_authorization(
         self, authorization_id: str, *, amount: Money, idempotency_key: str
@@ -490,7 +545,7 @@ class SimulatedPayPalClient:
             auth.superseded_by = new_auth.id
             return payloads.parse_authorization(self._auth_json(new_auth))
 
-        return self._idempotent(op, idempotency_key, action)
+        return await self._idempotent(op, idempotency_key, action)
 
     async def get_capture(self, capture_id: str) -> Capture:
         self._check_fault("captures.get")
@@ -533,7 +588,7 @@ class SimulatedPayPalClient:
             self.state.refunds[refund["id"]] = refund
             return payloads.parse_refund(refund)
 
-        return self._idempotent(op, idempotency_key, action)
+        return await self._idempotent(op, idempotency_key, action)
 
     # -----------------------------------------------------------------------------------
     # Payouts v1
@@ -603,7 +658,7 @@ class SimulatedPayPalClient:
             }
             return payloads.parse_payout_batch(accepted)
 
-        return self._idempotent(op, idempotency_key, action)
+        return await self._idempotent(op, idempotency_key, action)
 
     async def get_payout(self, batch_id: str) -> PayoutBatch:
         self._check_fault("payouts.get")
@@ -630,7 +685,7 @@ class SimulatedPayPalClient:
             self.state.invoices[invoice.id] = invoice
             return payloads.parse_invoice(self._invoice_json(invoice))
 
-        return self._idempotent(op, idempotency_key, action)
+        return await self._idempotent(op, idempotency_key, action)
 
     async def send_invoice(
         self,
@@ -648,7 +703,7 @@ class SimulatedPayPalClient:
                 raise _unprocessable(op, "INVALID_INVOICE_STATUS", f"Cannot send {invoice.status}")
             invoice.status = "SENT"
 
-        self._idempotent(op, idempotency_key, action)
+        await self._idempotent(op, idempotency_key, action)
 
     async def get_invoice(self, invoice_id: str) -> Invoice:
         self._check_fault("invoices.get")
@@ -681,7 +736,7 @@ class SimulatedPayPalClient:
             )
             return self.state.next_id("INVPAY")
 
-        return self._idempotent(op, idempotency_key, action)
+        return await self._idempotent(op, idempotency_key, action)
 
     # -----------------------------------------------------------------------------------
     # Webhooks v1
@@ -746,3 +801,167 @@ def _not_found(operation: str, resource_id: str) -> PayPalNotFoundError:
         details=[PayPalIssue(issue="INVALID_RESOURCE_ID", description=resource_id)],
         operation=operation,
     )
+
+
+# ---------------------------------------------------------------------------------------
+# Snapshot (de)serialisation
+# ---------------------------------------------------------------------------------------
+
+
+def _money(value: Money) -> dict[str, Any]:
+    return {"cents": value.cents, "currency": value.currency}
+
+
+def _unmoney(data: dict[str, Any]) -> Money:
+    return Money(int(data["cents"]), data["currency"])
+
+
+def _order_to_dict(order: _Order) -> dict[str, Any]:
+    request = asdict(order.request)
+    request["amount"] = _money(order.request.amount)
+    return {
+        "id": order.id,
+        "request": request,
+        "status": order.status,
+        "created": order.created.isoformat(),
+        "payer_email": order.payer_email,
+        "vault_id": order.vault_id,
+        "authorization_ids": order.authorization_ids,
+    }
+
+
+def _order_from_dict(data: dict[str, Any]) -> _Order:
+    request = dict(data["request"])
+    request["amount"] = _unmoney(request["amount"])
+    return _Order(
+        id=data["id"],
+        request=CreateOrderRequest(**request),
+        status=data["status"],
+        created=datetime.fromisoformat(data["created"]),
+        payer_email=data["payer_email"],
+        vault_id=data["vault_id"],
+        authorization_ids=list(data["authorization_ids"]),
+    )
+
+
+def _auth_to_dict(auth: _Authorization) -> dict[str, Any]:
+    return {
+        "id": auth.id,
+        "order_id": auth.order_id,
+        "amount": _money(auth.amount),
+        "status": auth.status,
+        "created": auth.created.isoformat(),
+        "original_created": auth.original_created.isoformat(),
+        "captured_cents": auth.captured_cents,
+        "superseded_by": auth.superseded_by,
+    }
+
+
+def _auth_from_dict(data: dict[str, Any]) -> _Authorization:
+    return _Authorization(
+        id=data["id"],
+        order_id=data["order_id"],
+        amount=_unmoney(data["amount"]),
+        status=data["status"],
+        created=datetime.fromisoformat(data["created"]),
+        original_created=datetime.fromisoformat(data["original_created"]),
+        captured_cents=int(data["captured_cents"]),
+        superseded_by=data["superseded_by"],
+    )
+
+
+def _capture_to_dict(capture: _Capture) -> dict[str, Any]:
+    return {
+        "id": capture.id,
+        "authorization_id": capture.authorization_id,
+        "amount": _money(capture.amount),
+        "status": capture.status,
+        "final_capture": capture.final_capture,
+        "created": capture.created.isoformat(),
+        "refunded_cents": capture.refunded_cents,
+    }
+
+
+def _capture_from_dict(data: dict[str, Any]) -> _Capture:
+    return _Capture(
+        id=data["id"],
+        authorization_id=data["authorization_id"],
+        amount=_unmoney(data["amount"]),
+        status=data["status"],
+        final_capture=bool(data["final_capture"]),
+        created=datetime.fromisoformat(data["created"]),
+        refunded_cents=int(data["refunded_cents"]),
+    )
+
+
+def _invoice_to_dict(invoice: _Invoice) -> dict[str, Any]:
+    draft = invoice.draft
+    return {
+        "id": invoice.id,
+        "invoicer": invoice.invoicer,
+        "status": invoice.status,
+        "paid_cents": invoice.paid_cents,
+        "draft": {
+            "invoice_number": draft.invoice_number,
+            "invoice_date": draft.invoice_date.isoformat(),
+            "currency": draft.currency,
+            "recipient_email": draft.recipient_email,
+            "recipient_business_name": draft.recipient_business_name,
+            "invoicer_email": draft.invoicer_email,
+            "invoicer_business_name": draft.invoicer_business_name,
+            "reference": draft.reference,
+            "note": draft.note,
+            "lines": [
+                {
+                    "name": line.name,
+                    "quantity": str(line.quantity),
+                    "unit_amount": _money(line.unit_amount),
+                    "description": line.description,
+                }
+                for line in draft.lines
+            ],
+        },
+    }
+
+
+def _invoice_from_dict(data: dict[str, Any]) -> _Invoice:
+    draft = dict(data["draft"])
+    draft["invoice_date"] = date.fromisoformat(draft["invoice_date"])
+    draft["lines"] = [
+        InvoiceLine(
+            name=line["name"],
+            quantity=Decimal(line["quantity"]),
+            unit_amount=_unmoney(line["unit_amount"]),
+            description=line["description"],
+        )
+        for line in draft["lines"]
+    ]
+    return _Invoice(
+        id=data["id"],
+        invoicer=data["invoicer"],
+        draft=InvoiceDraft(**draft),
+        status=data["status"],
+        paid_cents=int(data["paid_cents"]),
+    )
+
+
+_RESULT_PARSERS: dict[str, Callable[[dict[str, Any]], Any]] = {
+    "Order": payloads.parse_order,
+    "Authorization": payloads.parse_authorization,
+    "Capture": payloads.parse_capture,
+    "Refund": payloads.parse_refund,
+    "PayoutBatch": payloads.parse_payout_batch,
+    "Invoice": payloads.parse_invoice,
+}
+
+
+def _result_to_dict(value: Any) -> dict[str, Any]:
+    if value is None or isinstance(value, str):
+        return {"type": "scalar", "value": value}
+    return {"type": type(value).__name__, "raw": value.raw}
+
+
+def _result_from_dict(data: dict[str, Any]) -> Any:
+    if data["type"] == "scalar":
+        return data["value"]
+    return _RESULT_PARSERS[data["type"]](data["raw"])

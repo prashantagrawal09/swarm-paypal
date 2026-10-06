@@ -124,6 +124,7 @@ cp .env.example .env          # fill in PayPal / LLM / Telegram keys as you need
 make setup                    # venv + Python deps + npm install + git hooks
 make db-up                    # Postgres on localhost:5434
 make migrate                  # apply database migrations
+make seed                     # 12 shops, 3 suppliers, catalog, 8 weeks of history
 make backend                  # API on http://localhost:8000
 make frontend                 # web app on http://localhost:3000
 ```

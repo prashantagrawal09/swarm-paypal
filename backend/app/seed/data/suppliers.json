@@ -1,0 +1,43 @@
+[
+  {
+    "code": "freshdairy", "name": "FreshDairy SG", "api_credentials_ref": "PAYPAL_SUPPLIER_FRESHDAIRY",
+    "delivery_days": ["THU", "SAT"], "delivery_fee_cents": 3500, "reliability_score": 95,
+    "depot": [1.3155, 103.7495],
+    "profile": {"tagline": "Chilled dairy and cafe staples, Pandan Loop", "style": "steady, values long relationships, concedes slowly"},
+    "catalog": [
+      {"sku": "MILK-FC-1L-MEADOW", "tiers": [[1, 260], [50, 225], [200, 205]], "floor": 192, "stock": 600},
+      {"sku": "MILK-FC-1L-HILLTOP", "tiers": [[1, 250], [50, 218], [200, 199]], "floor": 186, "stock": 400},
+      {"sku": "EGGS-30-SUNNYHEN", "tiers": [[1, 950], [20, 890], [60, 840]], "floor": 790, "stock": 180},
+      {"sku": "BUTTER-250-ANCHORVALE", "tiers": [[1, 480], [30, 440], [100, 410]], "floor": 385, "stock": 250},
+      {"sku": "BEANS-1KG-ROASTWORKS", "tiers": [[1, 3800], [10, 3500], [30, 3250]], "floor": 3000, "stock": 80},
+      {"sku": "OIL-2L-SUNLITE", "tiers": [[1, 1150], [20, 1050], [60, 980]], "floor": 920, "stock": 120}
+    ]
+  },
+  {
+    "code": "packpro", "name": "PackPro", "api_credentials_ref": "PAYPAL_SUPPLIER_PACKPRO",
+    "delivery_days": ["THU"], "delivery_fee_cents": 2500, "reliability_score": 92,
+    "depot": [1.4370, 103.7860],
+    "profile": {"tagline": "Cups, lids, boxes and napkins, Woodlands", "style": "volume-driven, happy to discount big orders"},
+    "catalog": [
+      {"sku": "CUPS-12OZ-50-ECOCUP", "tiers": [[1, 650], [20, 590], [80, 540]], "floor": 500, "stock": 400},
+      {"sku": "LIDS-50-ECOCUP", "tiers": [[1, 380], [20, 340], [80, 310]], "floor": 285, "stock": 400},
+      {"sku": "BOX-50-KRAFTPACK", "tiers": [[1, 1450], [10, 1320], [40, 1200]], "floor": 1100, "stock": 200},
+      {"sku": "NAPKIN-100-SOFTLY", "tiers": [[1, 280], [20, 250], [80, 225]], "floor": 205, "stock": 300}
+    ]
+  },
+  {
+    "code": "johorfarm", "name": "Johor Farm Fresh", "api_credentials_ref": "PAYPAL_SUPPLIER_JOHORFARM",
+    "delivery_days": ["MON", "THU"], "delivery_fee_cents": 4500, "reliability_score": 88,
+    "depot": [1.4927, 103.7414],
+    "profile": {"tagline": "Farm produce, eggs and Liberica coffee from Johor (prices in SGD)", "style": "hungry for new customers, competes hard on price"},
+    "catalog": [
+      {"sku": "MILK-FC-1L-FARMGOLD", "tiers": [[1, 245], [50, 215], [200, 196]], "floor": 180, "stock": 500},
+      {"sku": "EGGS-30-KAMPUNG", "tiers": [[1, 900], [20, 850], [60, 800]], "floor": 760, "stock": 200},
+      {"sku": "BUTTER-250-ANCHORVALE", "tiers": [[1, 470], [30, 435], [100, 405]], "floor": 380, "stock": 200},
+      {"sku": "BEANS-1KG-JOHORLIBERICA", "tiers": [[1, 3400], [10, 3150], [30, 2950]], "floor": 2700, "stock": 100},
+      {"sku": "OIL-2L-GOLDENPALM", "tiers": [[1, 1080], [20, 990], [60, 930]], "floor": 870, "stock": 150},
+      {"sku": "TOMATO-1KG-CAMERON", "tiers": [[1, 420], [20, 380], [60, 350]], "floor": 320, "stock": 200},
+      {"sku": "LETTUCE-1KG-CAMERON", "tiers": [[1, 520], [20, 470], [60, 440]], "floor": 400, "stock": 150}
+    ]
+  }
+]

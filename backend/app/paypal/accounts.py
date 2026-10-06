@@ -8,6 +8,8 @@ the simulator.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 import httpx
 
 from app.clock import Clock, SystemClock
@@ -68,10 +70,12 @@ class GatewayRegistry:
         clock: Clock | None = None,
         sim_state: SimulatedPayPalState | None = None,
         http: httpx.AsyncClient | None = None,
+        sim_on_change: Callable[[SimulatedPayPalState], Awaitable[None]] | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.clock = clock or SystemClock()
         self.sim_state = sim_state or SimulatedPayPalState()
+        self.sim_on_change = sim_on_change
         self._http = http
         self._gateways: dict[tuple[str, PayPalMode], PayPalGateway] = {}
 
@@ -92,6 +96,7 @@ class GatewayRegistry:
                 state=self.sim_state,
                 clock=self.clock,
                 approval_base_url=self.settings.public_backend_url,
+                on_change=self.sim_on_change,
             )
         if self.settings.paypal_base_url == LIVE_BASE_URL:
             raise PayPalConfigError("PAYPAL_ENV=live is not supported", operation="registry")
@@ -109,16 +114,8 @@ class GatewayRegistry:
         self._gateways.clear()
 
 
-_registry: GatewayRegistry | None = None
-
-
-def get_registry() -> GatewayRegistry:
-    global _registry
-    if _registry is None:
-        _registry = GatewayRegistry()
-    return _registry
-
-
 def get_platform_gateway() -> PayPalGateway:
     """FastAPI dependency: the platform's real sandbox gateway."""
-    return get_registry().platform("REAL")
+    from app.runtime import get_runtime
+
+    return get_runtime().registry.platform("REAL")

@@ -4,7 +4,7 @@
 |---|---|---|
 | 0 | Foundation | Done |
 | 1 | Prove PayPal | Done (simulated); waiting on your sandbox run |
-| 2 | Data model and money engine | Not started |
+| 2 | Data model and money engine | Done |
 | 3 | Agents and negotiation | Not started |
 | 4 | Telegram bot | Not started |
 | 5 | Web app | Not started |
@@ -96,3 +96,65 @@
    sandbox buyer and approve.
 3. Send me the final table (or `backend/var/smoke-report.json`) and I'll update
    `docs/paypal-notes.md` with what the sandbox actually did.
+
+---
+
+## Phase 2: Data model and money engine
+
+**Built**
+- **Data model:** 22 tables, one Alembic migration (it upgrades and downgrades cleanly).
+  DB-level CHECK constraints for enums and money invariants (capture <= hold, refund <=
+  capture, delivered <= ordered). Refinements to the spec's table list are explained in
+  `docs/architecture.md`, "Data model".
+- **Seed** (`make seed`): Tiong Bahru world with 12 shops (owners, addresses, coordinates,
+  opening hours, limits, brand preferences, usual orders), 3 suppliers (tiered prices,
+  secret floors, stock, delivery fee, reliability) and 16 SKUs including brand variants. It
+  generates 8 weeks of daily sales (weekday, weekend, rain, holiday effects) and weekly
+  purchase history. Deterministic. REAL modes come from `.env`; everything is simulated
+  until PayPal credentials are set.
+- **Swarm Clock:** Singapore business calendar, week plan (Monday forecasts ... Sunday
+  report), and a position stored in the database. `app/runtime.py` loads it, together with
+  the simulator snapshot, when the API starts.
+- **Money engine:**
+  - `pricing.py`: tiers, exact largest-remainder splits, delivery split by weight and
+    distance, fees.
+  - `rules.py`: spending limit, floor clamp, stock, capture and refund caps, honor period
+    and reauthorization window.
+  - `states.py`: group-order and shop-order state machines.
+  - `ledger.py`: double-entry postings and the platform invariant.
+  - `engine.py`: holds, reauthorize/re-hold, partial capture with final_capture, voids,
+    cancellation, refunds, supplier payouts with withholding, swap charge and payout. All
+    of it is crash-safe and idempotent.
+- **Features used by later phases:**
+  - `features/demand.py`: 4-week moving average with a holiday factor, plain-English
+    explanation, propose/confirm/skip.
+  - `features/group_buy.py`: pooling per category, supplier offers, list-price quotes,
+    the award rule, brand-preference-aware award, delivery recording, savings versus
+    buying alone.
+- **Webhooks:** events are stored once (unique PayPal event ID); redeliveries return
+  "duplicate". Payments are reconciled (for example a DENIED capture marks the payment
+  FAILED and flags the shop order) and every event is audit-logged.
+- **Simulated PayPal:** JSON snapshot persistence (saved after every change) and vault
+  registration for seeded simulated shops.
+
+**Works**
+- 147 backend tests:
+  - pricing, rules, state machines, ledger templates;
+  - seed and demand;
+  - pooling, award rule, substitutions, floors;
+  - engine flows: happy path; short delivery partial capture; one failed authorization
+    while the others continue; spending-limit approval; cancel/void; late-delivery
+    reauthorization; 29-day re-hold; refunds after payout; idempotent re-runs; crash
+    recovery without double charge; withheld payouts; swaps; a REAL shop through
+    respx-mocked PayPal REST with the exact request IDs and bodies;
+  - webhook dedupe and reconciliation;
+  - the **4-week, 12-shop simulation**, which checks the ledger invariants and "no capture
+    above authorization" after every day.
+- A full simulated week on the dev database: 4 group orders, 37 holds, captures, payouts.
+  Ledger balanced, platform gap 0, Teh Time asked for approval when over its S$300 limit.
+
+**Pending**
+- Negotiation (phase 3) replaces the list-price award for the live flow.
+
+**Manual steps for you**
+- None for this phase. (`make seed` resets the local database to the demo world.)

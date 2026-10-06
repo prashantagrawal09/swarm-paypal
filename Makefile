@@ -3,7 +3,7 @@
 PY := backend/.venv/bin
 .DEFAULT_GOAL := help
 
-.PHONY: help setup hooks db-up db-down migrate backend frontend test lint format check smoke smoke-sim
+.PHONY: help setup hooks db-up db-down migrate seed backend frontend test lint format check smoke smoke-sim
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -26,6 +26,9 @@ db-down: ## Stop Postgres
 
 migrate: ## Apply database migrations
 	cd backend && .venv/bin/alembic upgrade head
+
+seed: ## Wipe the database and seed the Tiong Bahru demo world
+	cd backend && .venv/bin/python -m app.seed.seed
 
 backend: ## Run the API with auto-reload on :8000
 	cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000

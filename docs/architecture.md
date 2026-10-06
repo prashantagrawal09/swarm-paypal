@@ -111,3 +111,66 @@ order tools only capture immediately. See [paypal-notes.md](paypal-notes.md).
 `POST /webhooks/paypal` verifies each delivery with PayPal's verify-webhook-signature API, using
 the exact raw body, and rejects anything unverified with HTTP 400. Phase 2 adds exactly-once
 processing (unique `paypal_event_id`) and reconciliation of payments from the events.
+
+## Data model
+
+Twenty-two tables (`backend/app/db/models.py`, one Alembic migration). Money is always integer
+cents plus a currency code. The database itself refuses impossible states with CHECK
+constraints: a capture larger than its hold, a refund larger than its capture, a delivered
+quantity above the ordered one, or a status that is not part of the state machine.
+
+Refinements to the spec's list, and why:
+
+| Table | Why it exists |
+|---|---|
+| `shop_orders` | One shop's part of a group order. It carries the single PayPal hold for that shop and week (rather than one hold per item), the hold/captured/refunded amounts and the line state machine. `group_order_lines` keep the per-item quantities and agreed prices beneath it. |
+| `purchase_history` | Generated weekly orders from before Swarm: the "buying alone" baseline for savings, and history for demand prediction. |
+| `approval_requests` | Questions for owners (confirm needs, over the spending limit, substitutions, swaps), answered in Telegram. |
+| `app_state` | The Swarm Clock's position and the simulated PayPal's snapshot, so every process agrees on "now" and simulated holds survive restarts. |
+
+Items are SKUs. Brand variants of one product (`Meadowfresh`, `Hilltop` and `Farm Gold` full
+cream milk) share a `product_code`; shops forecast per product, suppliers quote their SKU for
+it, and a shop's line only moves to the winner's brand if its preferences allow it.
+
+## Money engine
+
+`app/money/engine.py` is the only code that moves money. Each step (hold, reauthorize,
+capture, void, refund, payout, swap charge, swap payout) follows the same pattern:
+
+```mermaid
+flowchart LR
+  A[derive stable key<br/>e.g. capture:shop order:authorization] --> B{COMPLETED payment<br/>with this key?}
+  B -- yes --> Z[already done: no call]
+  B -- no --> C[write PENDING payment<br/>and commit]
+  C --> D[call PayPal with<br/>PayPal-Request-Id = key]
+  D -- error --> E[payment FAILED, reason kept;<br/>other shops continue]
+  D -- ok --> F[commit together: payment COMPLETED,<br/>new status, balanced ledger entries]
+```
+
+A crash between the PayPal call and the final commit leaves a PENDING row; running the step
+again sends the same request ID, PayPal returns the original result, and nothing is charged
+twice (tested).
+
+Rules applied before every call (`app/money/rules.py`): weekly spending limit (over it, the
+owner is asked and nothing is held until they approve), supplier floor and stock, capture never
+above the hold, refund never above the capture. Before capturing, a hold older than the 3-day
+honor period is reauthorized; one older than 29 days is replaced by a new hold on the saved
+wallet.
+
+Amounts (`app/money/pricing.py`):
+- hold = sum(qty x agreed price) + the shop's delivery share,
+- capture = sum(delivered qty x agreed price) + the delivery share scaled by the weight that
+  actually arrived, captured with `final_capture = true` so the rest of the hold is released,
+- delivery share: proportional to `weight_grams x (500 + metres from the drop point)`, split
+  with the largest-remainder method so shares always add up to the fee exactly,
+- supplier payout = what was captured for the group order, minus refunds, minus the platform
+  fee (basis points, rounded down).
+
+## Ledger
+
+`app/money/ledger.py`. Every money event is one balanced transaction group. The accounts are
+named by shop and supplier code (`shop:cafe-mei:paypal`, `supplier:freshdairy:payable`,
+`platform:clearing`, `platform:fees`, plus memo accounts for outstanding holds). The platform's
+books obey one invariant: the money in `platform:clearing` equals fees earned plus what is
+still owed to suppliers and shops. The four-week simulation test checks this, and that the
+hold memo matches the outstanding authorizations, after every day.
