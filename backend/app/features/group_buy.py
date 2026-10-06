@@ -36,6 +36,7 @@ from app.db.models import (
     Supplier,
     SupplierItem,
 )
+from app.features.products import names
 from app.money import pricing, rules
 from app.money.states import advance_group_order
 
@@ -192,7 +193,7 @@ async def supplier_offers(
         catalog = supplier_catalog(supplier)
         missing = [product for product in products if product not in catalog]
         if missing:
-            declined.append((supplier, f"does not stock {', '.join(missing)}"))
+            declined.append((supplier, f"we don't carry {names(missing)}"))
             continue
         offers.append(SupplierOffer(supplier, {product: catalog[product] for product in products}))
     return offers, declined

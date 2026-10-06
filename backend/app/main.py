@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app import __version__
+from app.api.live import router as live_router
 from app.config import get_settings
 from app.db.session import get_engine, get_sessionmaker
 from app.paypal.webhooks import router as paypal_webhooks_router
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(paypal_webhooks_router)
+    app.include_router(live_router)
 
     @app.get("/")
     async def root() -> dict[str, str]:

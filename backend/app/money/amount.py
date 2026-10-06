@@ -79,7 +79,9 @@ class Money:
     def format(self) -> str:
         symbol = CURRENCY_SYMBOLS.get(self.currency, f"{self.currency} ")
         sign = "-" if self.cents < 0 else ""
-        return f"{sign}{symbol}{Money(abs(self.cents), self.currency).to_paypal_value()}"
+        whole, _, fraction = Money(abs(self.cents), self.currency).to_paypal_value().partition(".")
+        grouped = f"{int(whole):,}"
+        return f"{sign}{symbol}{grouped}{'.' + fraction if fraction else ''}"
 
     def __str__(self) -> str:
         return self.format()

@@ -3,7 +3,7 @@
 PY := backend/.venv/bin
 .DEFAULT_GOAL := help
 
-.PHONY: help setup hooks db-up db-down migrate seed backend frontend test lint format check smoke smoke-sim
+.PHONY: help setup hooks db-up db-down migrate seed negotiate backend frontend test lint format check smoke smoke-sim
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -29,6 +29,9 @@ migrate: ## Apply database migrations
 
 seed: ## Wipe the database and seed the Tiong Bahru demo world
 	cd backend && .venv/bin/python -m app.seed.seed
+
+negotiate: ## Play Monday + Tuesday of a Swarm week and print the agent negotiation
+	cd backend && .venv/bin/python -m app.cli negotiate
 
 backend: ## Run the API with auto-reload on :8000
 	cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000

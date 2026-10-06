@@ -105,3 +105,10 @@ def registry(clock: SwarmClock) -> GatewayRegistry:
 @pytest.fixture
 def engine(db, registry, clock, events) -> MoneyEngine:
     return MoneyEngine(db, registry, clock, events)
+
+
+@pytest.fixture
+def bus(clock):
+    from app.agents.bus import MessageBus
+
+    return MessageBus(clock)

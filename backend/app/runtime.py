@@ -9,15 +9,16 @@ holds survive a restart.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.bus import MessageBus
 from app.clock import Clock, SwarmClock, SystemClock
 from app.config import Settings, get_settings
 from app.db.app_state import CLOCK_KEY, SIM_PAYPAL_KEY, get_state, set_state
-from app.events import EventSink, NullEventSink
+from app.llm.client import LLM, build_llm
 from app.paypal.accounts import GatewayRegistry
 from app.paypal.simulated import SimulatedPayPalState
 
@@ -52,7 +53,8 @@ class Runtime:
     settings: Settings
     clock: Clock
     registry: GatewayRegistry
-    events: EventSink = field(default_factory=NullEventSink)
+    bus: MessageBus
+    llm: LLM
 
     async def reload_clock(self, session: AsyncSession) -> Clock:
         """Pick up clock moves made by another process (demo panel, CLI)."""
@@ -75,6 +77,8 @@ def get_runtime() -> Runtime:
             settings=settings,
             clock=clock,
             registry=GatewayRegistry(settings, clock=clock),
+            bus=MessageBus(clock),
+            llm=build_llm(settings),
         )
     return _runtime
 
@@ -84,7 +88,7 @@ def set_runtime(runtime: Runtime | None) -> None:
     _runtime = runtime
 
 
-async def start_runtime(session: AsyncSession, events: EventSink | None = None) -> Runtime:
+async def start_runtime(session: AsyncSession, llm: LLM | None = None) -> Runtime:
     """Build the runtime from the database: stored clock position and simulator snapshot."""
     settings = get_settings()
     clock: Clock = await load_clock(session) if settings.demo_mode else SystemClock()
@@ -92,7 +96,7 @@ async def start_runtime(session: AsyncSession, events: EventSink | None = None) 
     registry = GatewayRegistry(
         settings, clock=clock, sim_state=sim_state, sim_on_change=persist_sim_state
     )
-    runtime = Runtime(settings, clock, registry, events or NullEventSink())
+    runtime = Runtime(settings, clock, registry, MessageBus(clock), llm or build_llm(settings))
     set_runtime(runtime)
     return runtime
 
@@ -100,3 +104,8 @@ async def start_runtime(session: AsyncSession, events: EventSink | None = None) 
 def get_clock() -> Clock:
     """FastAPI dependency."""
     return get_runtime().clock
+
+
+def get_bus() -> MessageBus:
+    """FastAPI dependency."""
+    return get_runtime().bus

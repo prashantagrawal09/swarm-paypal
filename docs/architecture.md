@@ -174,3 +174,53 @@ named by shop and supplier code (`shop:cafe-mei:paypal`, `supplier:freshdairy:pa
 books obey one invariant: the money in `platform:clearing` equals fees earned plus what is
 still owed to suppliers and shops. The four-week simulation test checks this, and that the
 hold memo matches the outstanding authorizations, after every day.
+
+## Agents
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant S as Shop agents (x12)
+  participant C as Coordinator
+  participant F as FreshDairy agent
+  participant J as Johor Farm agent
+  participant P as PackPro agent
+  Note over S: Monday
+  S->>S: forecast (4-week average), owner approves on Telegram
+  S->>C: JOIN with confirmed quantities
+  Note over C: Tuesday
+  C->>F: RFQ (pooled basket, 12 shops, Thursday drop)
+  C->>J: RFQ
+  C->>P: RFQ
+  P-->>C: DECLINE (doesn't carry the basket)
+  F-->>C: QUOTE (list prices)
+  J-->>C: QUOTE (small concession)
+  C->>F: COUNTER (best competing landed price)
+  F-->>C: QUOTE (beats it by 0.5%)
+  C->>J: COUNTER
+  J-->>C: QUOTE
+  C->>F: FINAL_CALL
+  F-->>C: FINAL_QUOTE
+  C->>J: FINAL_CALL
+  J-->>C: FINAL_QUOTE
+  C->>J: AWARD (code: lowest landed cost among reliable suppliers)
+  C->>F: NOT_AWARDED
+  C->>S: AWARD_SUMMARY (prices, delivery shares, skipped brands)
+```
+
+- `app/agents/base.py`: identity, mandate, prompt and the `validate()` gate. `require()` refuses
+  and audits anything outside the agent's tools or mandate.
+- `app/agents/supplier_agent.py`: code builds the legal options (hold, small, beat, deep, and
+  floor in the final round), the model picks one and writes the reply, and a style-based
+  policy decides when no model is available.
+- `app/agents/coordinator.py`: the protocol (at most 3 rounds, stops early when nobody moves),
+  counters that reveal only the best competing landed price, and the award by rule.
+- `app/agents/shop_agent.py` and `claims_agent.py`: owner-facing messages, intents, and
+  photo-based claim assessment with code deciding the refund.
+- `app/agents/bus.py`: every message is stored in `agent_messages` and streamed over
+  Server-Sent Events (`GET /api/stream`). The money engine's events (holds, captures, payouts,
+  refunds) share the same stream.
+- `app/llm/client.py`: the only place that calls the model. It uses structured outputs (a
+  Pydantic schema per answer), effort `low` for messages and `medium` for photo review,
+  timeouts and retries, and handles `refusal`/`max_tokens` stop reasons. It logs prompt name,
+  latency and tokens, and has offline and scripted variants for the demo and the tests.

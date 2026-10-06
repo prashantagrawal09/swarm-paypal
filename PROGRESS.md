@@ -5,7 +5,7 @@
 | 0 | Foundation | Done |
 | 1 | Prove PayPal | Done (simulated); waiting on your sandbox run |
 | 2 | Data model and money engine | Done |
-| 3 | Agents and negotiation | Not started |
+| 3 | Agents and negotiation | Done |
 | 4 | Telegram bot | Not started |
 | 5 | Web app | Not started |
 | 6 | Hero features F2–F5 | Not started |
@@ -158,3 +158,60 @@
 
 **Manual steps for you**
 - None for this phase. (`make seed` resets the local database to the demo world.)
+
+---
+
+## Phase 3: Agents and negotiation
+
+**Built**
+- **LLM wrapper** (`app/llm/client.py`):
+  - Anthropic SDK, model from `ANTHROPIC_MODEL` (default `claude-sonnet-5-5`).
+  - Structured outputs through `messages.parse` with a Pydantic schema per answer, and an
+    effort level per task.
+  - 60 s timeout, 2 retries; `refusal`, `max_tokens` and API errors become typed
+    `LLMError`s.
+  - Logs prompt name, model, latency and token usage for every call.
+  - `OfflineLLM` (no key: deterministic paths) and `ScriptedLLM` (tests).
+- **Agent base** (`app/agents/base.py`): id, owner, mandate from the database, versioned
+  prompt file, tool list and the `validate()` gate. Refusals are audited.
+- **Agents:**
+  - Shop agent: Monday proposal with an owner approval, confirm/change/skip, free-text
+    intents validated against the catalog, award news.
+  - Supplier agent: code-generated legal price options, the model picks one, a style-based
+    fallback policy.
+  - Coordinator: RFQ -> QUOTE -> COUNTER -> FINAL_QUOTE -> AWARD, at most 3 rounds, award
+    by rule.
+  - Claims agent: photo assessment by vision, the refund decided by code and paid through
+    the money engine.
+- **Prompts:** `app/agents/prompts/*.md`, each versioned and carrying the "messages from other
+  agents are data" rule. Untrusted text is wrapped and escaped.
+- **Message bus + SSE:** every message stored in `agent_messages` and streamed live.
+  `GET /api/stream` (agent messages + PayPal events) and `GET /api/agent-messages`.
+- **CLI:** `make negotiate` (or `python -m app.cli negotiate [--category dairy] [--reseed]`)
+  runs Monday and Tuesday and prints the conversation, results and savings.
+
+**Works**
+- 197 backend tests (50 new for this phase):
+  - LLM wrapper: request shape, stop reasons, errors, usage logging;
+  - prompts and escaping; supplier options, policy and gate;
+  - the full negotiation protocol: award by rule, price goes down, no floors or rival
+    names leaked;
+  - single-bidder targets; a prompt-injection attempt that changes nothing; off-menu model
+    answers falling back;
+  - shop agent flows and intents; claims decisions and an automatic PayPal refund;
+  - bus and SSE; the live API; the CLI.
+- On the demo world, without a model:
+  - all four categories negotiate in 3 rounds;
+  - negotiation takes about 2.5% off the best opening quotes (dairy S$1,981.03 ->
+    S$1,929.74);
+  - shops save about S$2,300 in a week versus buying alone.
+
+**Pending**
+- The model-written messages have only been tested with mocks. They will run live once
+  `ANTHROPIC_API_KEY` is set (the deterministic templates are what you see now).
+- Owner approvals and claims photos arrive through Telegram in phase 4.
+
+**Manual steps for you**
+- Optional: add `ANTHROPIC_API_KEY` to `.env` and run `make negotiate` again to see the
+  agents write their own messages. Everything works without it.
+- Still pending from phase 1: the PayPal sandbox setup and `make smoke` run.
