@@ -22,3 +22,26 @@ def test_env_value_prefers_process_env_and_treats_empty_as_unset(monkeypatch):
     assert env_value("SWARM_TEST_KEY") == "from-env"
     monkeypatch.setenv("SWARM_TEST_KEY", "")
     assert env_value("SWARM_TEST_KEY") is None
+
+
+def test_hosting_database_urls_use_the_psycopg_driver():
+    for url in ("postgres://u:p@h:5432/d", "postgresql://u:p@h:5432/d"):
+        assert Settings(database_url=url).database_url == "postgresql+psycopg://u:p@h:5432/d"
+    already = "postgresql+psycopg://u:p@h/d"
+    assert Settings(database_url=already).database_url == already
+
+
+def test_production_problems_are_reported():
+    from pydantic import SecretStr
+
+    settings = Settings(
+        app_env="production",
+        demo_mode=False,
+        secret_key=None,
+        public_frontend_url="http://localhost:3000",
+        telegram_bot_token=SecretStr("t"),
+        telegram_webhook_secret=None,
+    )
+    problems = " ".join(settings.production_problems())
+    assert "SECRET_KEY" in problems and "localhost" in problems and "WEBHOOK_SECRET" in problems
+    assert Settings(demo_mode=True).production_problems() == []

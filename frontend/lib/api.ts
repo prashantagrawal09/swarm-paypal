@@ -86,6 +86,7 @@ export type WeekReport = {
   }[];
   group_saved_cents: number;
   swap_income_cents: number;
+  help_income_cents: number;
   swap_spent_cents: number;
   swap_saved_cents: number;
   flash_saved_cents: number;

@@ -59,7 +59,8 @@ class ShopWeek:
     shop_name: str
     week: date
     groups: list[GroupSaving] = field(default_factory=list)
-    swap_income_cents: int = 0
+    swap_income_cents: int = 0  # sold surplus to neighbours
+    help_income_cents: int = 0  # lent stock to a neighbour in an emergency
     swap_spent_cents: int = 0
     swap_saved_cents: int = 0
     flash_saved_cents: int = 0
@@ -90,6 +91,7 @@ class ShopWeek:
             ],
             "group_saved_cents": self.group_saved_cents,
             "swap_income_cents": self.swap_income_cents,
+            "help_income_cents": self.help_income_cents,
             "swap_spent_cents": self.swap_spent_cents,
             "swap_saved_cents": self.swap_saved_cents,
             "flash_saved_cents": self.flash_saved_cents,
@@ -145,7 +147,10 @@ async def shop_week(ctx: Ctx, shop: Shop, week: date) -> ShopWeek:
         if week_start(swap.expires_at) != week and week_start(swap.updated_at) != week:
             continue
         if swap.from_shop_id == shop.id:
-            report.swap_income_cents += swap.price_cents
+            if swap.kind == SwapKind.EMERGENCY:
+                report.help_income_cents += swap.price_cents
+            else:
+                report.swap_income_cents += swap.price_cents
             report.food_saved_grams += swap.food_saved_grams
         else:
             report.swap_spent_cents += swap.price_cents
@@ -169,6 +174,10 @@ def report_text(report: ShopWeek, to_date_cents: int) -> str:
         parts.append(
             f"You earned {Money(report.swap_income_cents)} selling surplus "
             f"({report.food_saved_grams / 1000:.1f} kg of food saved)."
+        )
+    if report.help_income_cents:
+        parts.append(
+            f"Helping a neighbour in a pinch brought in {Money(report.help_income_cents)}."
         )
     if report.swap_saved_cents:
         parts.append(f"Neighbour swaps saved you {Money(report.swap_saved_cents)}.")
@@ -194,7 +203,12 @@ async def send_reports(ctx: Ctx, week: date) -> int:
     sent = 0
     for shop in await ctx.session.scalars(select(Shop).order_by(Shop.code)):
         report = await shop_week(ctx, shop, week)
-        if not report.groups and not report.swap_income_cents and not report.swap_spent_cents:
+        if (
+            not report.groups
+            and not report.swap_income_cents
+            and not report.help_income_cents
+            and not report.swap_spent_cents
+        ):
             continue
         await ctx.say_to_owner(
             shop,

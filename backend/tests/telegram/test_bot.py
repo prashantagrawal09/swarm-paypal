@@ -100,3 +100,18 @@ async def test_notifier_relays_owner_messages_with_buttons(db, world, ctx, runti
         BusEvent("agent_message", {"to": "owner:teh-time", "text": "x"})
     )
     assert not await notifier.handle(BusEvent("paypal", {"kind": "captured"}))
+
+
+def test_webhook_token_is_always_telegram_safe():
+    import re
+
+    from pydantic import SecretStr
+
+    from app.telegram_bot.bot import webhook_token
+
+    assert webhook_token(Settings(telegram_webhook_secret=None)) is None
+    assert (
+        webhook_token(Settings(telegram_webhook_secret=SecretStr("abc_DEF-123"))) == "abc_DEF-123"
+    )
+    generated = webhook_token(Settings(telegram_webhook_secret=SecretStr("q+/Zx9==")))
+    assert generated is not None and re.fullmatch(r"[0-9a-f]{64}", generated)

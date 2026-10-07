@@ -1,0 +1,129 @@
+# Render Blueprint: the API (with the Telegram bot and scheduler inside it), the web app and
+# Postgres. Deploy with "New > Blueprint" on Render and point it at this repository.
+#
+# Values marked `sync: false` are asked for once when the Blueprint is created; fill the
+# PayPal ones from docs/paypal-setup.md. After the first deploy, put each service's public
+# URL into the other's settings (see docs/deploy.md) and redeploy the web app.
+
+databases:
+  - name: swarm-db
+    databaseName: swarm
+    user: swarm
+    plan: free
+    region: singapore
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: swarm-api
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install . && pip install --no-deps -r requirements-toolkit.txt
+    # Migrations run before the server starts (idempotent, safe on every boot).
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips '*'
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.11"
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      # The hosted demo runs on the Swarm Clock so judges can drive the week from /demo.
+      - key: DEMO_MODE
+        value: "true"
+      - key: AUTO_SEED
+        value: "true"
+      - key: DEMO_PANEL_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: swarm-db
+          property: connectionString
+      - key: PUBLIC_BACKEND_URL
+        sync: false
+      - key: PUBLIC_FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      # Language model (optional: without a key the agents use their deterministic policies).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-5-5
+      # PayPal sandbox
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_CURRENCY
+        value: SGD
+      - key: PLATFORM_FEE_BPS
+        value: "200"
+      - key: PAYPAL_PLATFORM_CLIENT_ID
+        sync: false
+      - key: PAYPAL_PLATFORM_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_PLATFORM_EMAIL
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: PAYPAL_SUPPLIER_FRESHDAIRY_CLIENT_ID
+        sync: false
+      - key: PAYPAL_SUPPLIER_FRESHDAIRY_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_SUPPLIER_FRESHDAIRY_EMAIL
+        sync: false
+      - key: PAYPAL_SUPPLIER_PACKPRO_CLIENT_ID
+        sync: false
+      - key: PAYPAL_SUPPLIER_PACKPRO_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_SUPPLIER_PACKPRO_EMAIL
+        sync: false
+      - key: PAYPAL_SUPPLIER_JOHORFARM_CLIENT_ID
+        sync: false
+      - key: PAYPAL_SUPPLIER_JOHORFARM_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_SUPPLIER_JOHORFARM_EMAIL
+        sync: false
+      - key: REAL_SHOP_CODES
+        sync: false
+      - key: PAYPAL_SHOP_CAFE_MEI_EMAIL
+        sync: false
+      - key: PAYPAL_SHOP_BAKERY_LIM_EMAIL
+        sync: false
+      - key: PAYPAL_SHOP_KOPI_CORNER_EMAIL
+        sync: false
+      - key: PAYPAL_SHOP_BREW_LAB_EMAIL
+        sync: false
+      - key: PAYPAL_SHOP_CAFE_MEI_VAULT_ID
+        sync: false
+      - key: PAYPAL_SHOP_BAKERY_LIM_VAULT_ID
+        sync: false
+      - key: PAYPAL_SHOP_KOPI_CORNER_VAULT_ID
+        sync: false
+      - key: PAYPAL_SHOP_BREW_LAB_VAULT_ID
+        sync: false
+      # Telegram (optional). The bot runs inside this service and uses a webhook on https.
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
+
+  - type: web
+    name: swarm-web
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # The API's public https URL, e.g. https://swarm-api.onrender.com (baked in at build time).
+      - key: NEXT_PUBLIC_API_URL
+        sync: false

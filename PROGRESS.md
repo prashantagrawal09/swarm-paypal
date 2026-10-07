@@ -10,7 +10,7 @@
 | 5 | Web app | Done |
 | 6 | Hero features F2–F5 | Done (backend; UI in phase 5) |
 | 7 | Supporting features and polish | Done |
-| 8 | Deploy and submission | Not started |
+| 8 | Deploy and submission | Ready to deploy (needs your Render and GitHub accounts) |
 
 ---
 
@@ -398,3 +398,60 @@ Phase 6's backend was built before the phase 5 web app, so the UI could show eve
 
 **Manual steps for you**
 - None new.
+
+---
+
+## Phase 8: Deploy and submission (prepared)
+
+**Built**
+- `render.yaml`:
+  - Postgres 16, the API (migrations on start, health check, seeded on first start) and the
+    web app, all on the free plan in Singapore;
+  - every secret is either asked for once (`sync: false`) or generated (`SECRET_KEY`,
+    `TELEGRAM_WEBHOOK_SECRET`).
+- Hosting fixes:
+  - `postgres://` URLs from hosts are switched to the psycopg driver;
+  - Telegram webhook secrets are made Telegram-safe (Render's generated values contain
+    `+/=`, which Telegram rejects);
+  - the API logs any setting that is still unsafe for production at start.
+- `docs/deploy.md`: Blueprint, wiring the two URLs, PayPal webhooks, REAL shops, Telegram,
+  troubleshooting.
+- `docs/demo-script.md`: the 3-minute video, step by step against the demo panel buttons,
+  with the demo's actual numbers.
+- Screenshots in `docs/screenshots/`: live board (light, dark, phone), demo panel, shop,
+  supplier invoices, money. Taken from the running app.
+- README:
+  - what Swarm is and who it's for;
+  - screenshots;
+  - tools used (AG Grid, Render, Agent Toolkit, LLM);
+  - Telegram and deploy setup;
+  - the demo walkthrough;
+  - more limitations.
+- Architecture doc: live updates and who may act for a shop.
+- Fix: the weekly report no longer calls emergency help "selling surplus".
+
+**Section 12 checklist**
+1. What Swarm is, who it's for, why it matters: README intro and "Why it matters".
+2. Features with screenshots: done (a screen recording is still to come).
+3. Architecture and agent diagrams (mermaid): README and `docs/architecture.md`.
+4. "How Swarm uses PayPal" table with every capability and the Agent Toolkit actions.
+5. "How Swarm uses AI": the agents, what the model decides vs. what code decides, safety rules.
+6. Tools used: AG Grid, Render, PayPal Agent Toolkit, and the LLM line exactly as Rule 2.
+7. Setup: PayPal sandbox (`docs/paypal-setup.md`), `.env`, docker-compose, migrations,
+   seed, backend, frontend, bot, smoke test.
+8. Demo walkthrough matching `docs/demo-script.md`.
+9. Limitations and production path.
+10. MIT license at the repo root.
+
+**Works**
+- 243 backend tests, eslint, tsc and `next build` all pass.
+
+**Manual steps for you** (in this order)
+1. PayPal sandbox setup and `make smoke` (`docs/paypal-setup.md`), so the REAL accounts
+   are proven before they go on the hosted app.
+2. Push to GitHub. `SWARM_SPEC.md` is your build brief; consider leaving it out of the
+   public repo.
+3. Render: New > Blueprint (`docs/deploy.md`), then wire the two URLs.
+4. Put the hosted URL at the top of the README, record the video with
+   `docs/demo-script.md`, and add it to the README and Devpost.
+5. Optional: `ANTHROPIC_API_KEY` (agents write their own messages) and a Telegram bot.

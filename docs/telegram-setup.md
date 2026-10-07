@@ -31,6 +31,17 @@ Send your bot:
 From then on you are Mei at Café Mei: the Monday order, award news, the delivery check,
 swap offers, refunds and the Sunday report arrive in this chat with buttons.
 
+With `DEMO_MODE=false` a plain shop code is refused: owners join with a signed invite,
+so nobody can take over a shop by guessing its code. Make one with
+
+```bash
+cd backend && .venv/bin/python -m app.cli invite cafe-mei --bot YourSwarmBot
+```
+
+and send the owner the `t.me/...?start=...` link it prints (it needs `SECRET_KEY`, and
+expires after 7 days). In the chat, `/connect` gives the owner a signed link to connect their
+PayPal.
+
 In demo mode one Telegram account can play several owners:
 
 - `/shops` lists the shop codes.

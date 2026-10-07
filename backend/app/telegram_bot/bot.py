@@ -8,8 +8,10 @@ Without TELEGRAM_BOT_TOKEN the bot is off and owners use the web phone in the de
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import logging
+import re
 from dataclasses import dataclass
 from typing import Annotated, Any
 
@@ -24,6 +26,7 @@ from telegram.ext import (
     filters,
 )
 
+from app.config import Settings
 from app.runtime import Runtime, get_runtime
 from app.telegram_bot import handlers
 from app.telegram_bot.notifier import TelegramNotifier
@@ -75,11 +78,7 @@ async def start_bot(runtime: Runtime) -> BotRuntime | None:
     await application.start()
     webhook = settings.public_backend_url.startswith("https://")
     if webhook:
-        secret = (
-            settings.telegram_webhook_secret.get_secret_value()
-            if settings.telegram_webhook_secret
-            else None
-        )
+        secret = webhook_token(settings)
         await application.bot.set_webhook(
             f"{settings.public_backend_url.rstrip('/')}/telegram/webhook",
             secret_token=secret,
@@ -107,6 +106,20 @@ async def stop_bot(bot: BotRuntime | None) -> None:
     await bot.application.shutdown()
 
 
+def webhook_token(settings: Settings) -> str | None:
+    """The secret Telegram echoes on every webhook call. Telegram only allows A-Z, a-z, 0-9,
+    `_` and `-` (up to 256 characters), so any other secret (for example a generated base64
+    value) is hashed into a hex token."""
+    if settings.telegram_webhook_secret is None:
+        return None
+    secret = settings.telegram_webhook_secret.get_secret_value()
+    if not secret:
+        return None
+    if re.fullmatch(r"[A-Za-z0-9_-]{1,256}", secret):
+        return secret
+    return hashlib.sha256(secret.encode()).hexdigest()
+
+
 def runtime_dep() -> Runtime:
     return get_runtime()
 
@@ -120,9 +133,9 @@ async def webhook(
     bot: BotRuntime | None = getattr(request.app.state, "telegram", None)
     if bot is None:
         raise HTTPException(status_code=503, detail="Telegram bot is not running")
-    expected = runtime.settings.telegram_webhook_secret
+    expected = webhook_token(runtime.settings)
     if expected is not None and not hmac.compare_digest(
-        x_telegram_bot_api_secret_token or "", expected.get_secret_value()
+        x_telegram_bot_api_secret_token or "", expected
     ):
         raise HTTPException(status_code=401, detail="Bad webhook secret")
     update = Update.de_json(await request.json(), bot.application.bot)

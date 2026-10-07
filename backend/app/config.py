@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import dotenv_values
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -55,6 +55,35 @@ class Settings(BaseSettings):
     telegram_webhook_secret: SecretStr | None = None
     # Signs the links Swarm sends owners (connect PayPal). Required when DEMO_MODE=false.
     secret_key: SecretStr | None = None
+
+    @field_validator("database_url", "test_database_url")
+    @classmethod
+    def _async_driver(cls, value: str) -> str:
+        """Hosting providers hand out `postgres://` / `postgresql://` URLs; the app talks to
+        Postgres through psycopg 3."""
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value[len(prefix) :]
+        return value
+
+    def production_problems(self) -> list[str]:
+        """Configuration that is fine for a laptop demo but not for real owners."""
+        problems = []
+        if not self.demo_mode and (
+            self.secret_key is None or not self.secret_key.get_secret_value()
+        ):
+            problems.append("SECRET_KEY is not set: owner invites and Connect PayPal links are off")
+        if self.app_env == "production" and self.public_frontend_url.startswith("http://localhost"):
+            problems.append("PUBLIC_FRONTEND_URL still points at localhost")
+        if (
+            self.app_env == "production"
+            and self.telegram_bot_token
+            and not self.telegram_webhook_secret
+        ):
+            problems.append(
+                "TELEGRAM_WEBHOOK_SECRET is not set: the bot webhook is unauthenticated"
+            )
+        return problems
 
     @property
     def cors_origin_list(self) -> list[str]:

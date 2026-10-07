@@ -47,6 +47,8 @@ async def _seed_if_empty() -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Load the Swarm Clock and simulator snapshot, then start the bot and scheduler."""
     settings = get_settings()
+    for problem in settings.production_problems():
+        logger.warning("Configuration: %s", problem)
     try:
         if settings.auto_seed:
             await _seed_if_empty()

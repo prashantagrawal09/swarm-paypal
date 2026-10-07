@@ -52,7 +52,7 @@ _last: datetime | None = None
 
 
 def stamp_rows_with(now: Callable[[], datetime] | None) -> None:
-    """Use `now` for new rows' created_at (None restores the database default)."""
+    """Use `now` for rows' created_at / updated_at (None restores the database defaults)."""
     global _now, _last
     _now, _last = now, None
 
@@ -72,3 +72,6 @@ def _stamp_new_rows(session: Session, _context: Any, _instances: Any) -> None:
     for obj in session.new:
         if isinstance(obj, Timestamps) and obj.created_at is None:
             obj.created_at = obj.updated_at = _next_stamp(_now())
+    for obj in session.dirty:
+        if isinstance(obj, Timestamps) and session.is_modified(obj, include_collections=False):
+            obj.updated_at = _next_stamp(_now())

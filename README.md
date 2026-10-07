@@ -11,7 +11,10 @@ emergency.
 
 The demo world is 12 fictional shops and 3 suppliers in Tiong Bahru, Singapore, trading in SGD.
 
-> **Status:** in active development. See [PROGRESS.md](PROGRESS.md) for what works today.
+**Hosted demo:** _link added after deployment_ · open `/demo` and press **Run the rest of
+the week**, with `/live` open in another window.
+
+![The live board at the end of a Swarm week](docs/screenshots/live-board.png)
 
 ---
 
@@ -39,7 +42,19 @@ street buying 290 litres together get the bottom tier, one delivery run instead 
 and a single invoice that someone actually checks. Swarm gives independent shops that
 buying power without asking them to coordinate with each other by hand.
 
-_Full write-up arrives with the submission (phase 8)._
+Who it is for: the owner of a café, hawker stall or bakery who orders supplies on a phone
+between customers. They don't want another dashboard. Their agent messages them on
+Telegram on Monday ("about 13 L milk this week, rain expected, shall I order that?"), and
+they tap a button. Everything else happens between agents, and every cent moves through
+PayPal:
+
+- money is held, not taken, when the deal is agreed;
+- shops pay only for what actually arrived;
+- an overcharged invoice is caught before anyone pays it;
+- surplus is sold to a neighbour instead of thrown away.
+
+In the demo week, twelve shops save about **S$2,340** (31% on dairy) and keep 8.4 kg of
+food out of the bin. It takes 94 PayPal calls, and the books balance to the cent.
 
 ## Features
 
@@ -52,7 +67,15 @@ _Full write-up arrives with the submission (phase 8)._
 | F5 | Emergency borrow | "Out of eggs, need 30 now" is matched to a nearby shop in under two minutes. |
 | F6–F9 | Supporting | Demand forecasts, weekly savings report, supplier flash deals, spending limits. |
 
-_Screenshots and GIFs are added in phase 8._
+| Live board | Demo panel and the owner's phone |
+|---|---|
+| ![Live board](docs/screenshots/live-board-full.png) | ![Demo panel](docs/screenshots/demo-panel.png) |
+| **Shop page** | **Invoice check (supplier page)** |
+| ![Shop page](docs/screenshots/shop.png) | ![Invoices](docs/screenshots/supplier-invoices.png) |
+| **Money and ledger** | **Dark mode, phone** |
+| ![Money](docs/screenshots/money.png) | ![Dark](docs/screenshots/live-board-dark.png) ![Phone](docs/screenshots/mobile-live.png) |
+
+_A short screen recording of the full week goes here with the submission video._
 
 ## Architecture
 
@@ -85,7 +108,7 @@ flowchart LR
 | Invoicing | Supplier agents (via PayPal Agent Toolkit) | Suppliers bill the platform; Swarm checks every line before paying. |
 | Webhooks | `/webhooks/paypal` | Signature-verified, de-duplicated payment events keep the ledger in sync. |
 
-The PayPal Agent Toolkit handles invoicing (create, send, get, record payment). Holds,
+The PayPal Agent Toolkit handles invoicing (create, send, get, cancel, record payment). Holds,
 captures, voids, reauthorizations, refunds, payouts and vaulting go through Swarm's own typed
 REST client, because the toolkit's order tools only support immediate capture. Details and
 verified field names are in [docs/paypal-notes.md](docs/paypal-notes.md).
@@ -139,13 +162,19 @@ Safety rules, enforced in code:
 
 ## Tools used
 
-- **PayPal REST APIs** (sandbox): Orders v2, Payments v2, Payouts v1, Invoicing v2, Webhooks v1.
-- **PayPal Agent Toolkit** (Python): invoicing actions for supplier agents.
+- **PayPal REST APIs** (sandbox): Orders v2 (with vault), Payments v2, Payouts v1,
+  Invoicing v2, Webhooks v1, through Swarm's own typed client with idempotency keys.
+- **PayPal Agent Toolkit** (Python): the supplier agents' invoicing actions.
 - **LLM:** Anthropic API (model configurable via ANTHROPIC_MODEL).
-- **Backend:** Python 3.11, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, httpx, PostgreSQL.
-- **Frontend:** Next.js (App Router), React 19, TypeScript, Tailwind CSS v4, AG Grid Community, SWR, Motion, Lucide icons.
+- **AG Grid Community:** the tables on the shop, supplier, group order and money pages
+  (orders, PayPal activity, quotes, swaps, claims), themed from the same tokens as the rest
+  of the app in light and dark mode.
+- **Render:** hosting for the API, web app and Postgres, from `render.yaml`.
+- **Backend:** Python 3.11, FastAPI, Pydantic v2, SQLAlchemy 2 (async), Alembic, httpx,
+  APScheduler, PostgreSQL 16.
+- **Frontend:** Next.js (App Router), React 19, TypeScript, Tailwind CSS v4, SWR, Motion,
+  Lucide icons. Live updates over Server-Sent Events.
 - **Messaging:** Telegram Bot API (python-telegram-bot).
-- **Hosting:** Render.
 
 ## Setup
 
@@ -165,6 +194,16 @@ make seed                     # 12 shops, 3 suppliers, catalog, 8 weeks of histo
 make backend                  # API on http://localhost:8000
 make frontend                 # web app on http://localhost:3000
 ```
+
+Open http://localhost:3000/live and http://localhost:3000/demo side by side, then press
+**Run the rest of the week**. With no keys at all, everything runs on the PayPal simulator
+and the agents use their deterministic policies.
+
+### Telegram bot (optional)
+
+Create a bot with @BotFather, put `TELEGRAM_BOT_TOKEN` in `.env` and restart `make backend`.
+The bot runs inside the API (polling locally, a webhook when deployed). Send it
+`/start cafe-mei`. Details: [docs/telegram-setup.md](docs/telegram-setup.md).
 
 ### Watch the agents negotiate
 
@@ -193,6 +232,11 @@ cd backend && .venv/bin/python -m app.cli invite cafe-mei --bot YourSwarmBot
 It prints a signed `/start` invite for Telegram and a signed Connect PayPal link (both need
 `SECRET_KEY`). In the chat, `/connect` gives the owner a fresh link at any time.
 
+### Deploy
+
+`render.yaml` deploys the API (with the bot and scheduler), the web app and Postgres to
+Render's free tier. Step by step: [docs/deploy.md](docs/deploy.md).
+
 ### Checks
 
 ```bash
@@ -201,7 +245,25 @@ make check                    # ruff, mypy, eslint, tsc, prettier and pytest
 
 ## Demo walkthrough
 
-_Arrives with `docs/demo-script.md` in phase 8._
+The full 3-minute script, mapped to the demo panel buttons, is in
+[docs/demo-script.md](docs/demo-script.md). In short:
+
+1. **Monday:** each shop's agent proposes next week's order from its last four weeks,
+   adjusted for the weather forecast, and says why. The owner approves.
+2. **Tuesday:** twelve orders pool into one. The coordinator negotiates with three supplier
+   agents over three rounds. The live board shows the price ladder (one shop alone vs.
+   twelve together vs. negotiated) and each supplier's price falling round by round.
+3. **Wednesday:** PayPal authorizes each shop's share. The money is held, not taken.
+4. **Thursday:** Café Mei receives 34 of 38 L milk. PayPal captures only what arrived and
+   releases the rest. Johor Farm's invoice overcharges S$69.00 for milk; Swarm rejects it,
+   gets a corrected invoice and pays that by Payouts, minus the 2% fee.
+5. **Friday:** Café Mei's expiring milk goes to Brew Lab at 35% off. Brew Lab is charged,
+   Café Mei is paid out, and 8.4 kg of food is saved.
+6. **Saturday:** Kopi Corner runs out of eggs; Little Pasta, a minute's walk away, lends a tray,
+   paid instantly. A supplier's flash deal is bought by two shops within their owners'
+   rules.
+7. **Sunday:** every owner gets a savings report. The live board shows the street's
+   total, and the ledger balances.
 
 ## Limitations and production path
 
@@ -209,6 +271,12 @@ _Arrives with `docs/demo-script.md` in phase 8._
   to suppliers with the platform fee taken automatically.
 - Prices for the Malaysian supplier are quoted in SGD; cross-border MYR settlement is on the roadmap.
 - Sales history is generated; a real deployment would read it from the shops' POS systems.
+- Weather outlooks come from a config file; production would read a forecast API.
+- The web phone on `/demo` lets anyone act as any owner, so it only works in demo mode. Real
+  owners use Telegram with signed invites, and connect PayPal through signed links.
+- Free hosting sleeps when idle; the first request after a while takes about a minute.
+- Supplier payouts settle immediately in the sandbox. In production they would wait for
+  payout status webhooks before the books mark a supplier as paid.
 
 ## Roadmap
 

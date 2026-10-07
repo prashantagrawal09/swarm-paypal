@@ -23,7 +23,12 @@ const PIN = 15;
 
 // The estate's bounding box (a little wider than the shops) and its main streets.
 const BOUNDS = { south: 1.2826, north: 1.2866, west: 103.8284, east: 103.8342 };
-const STREETS: { name: string; points: [number, number][]; major?: boolean }[] = [
+const STREETS: {
+  name: string;
+  sign?: string;
+  points: [number, number][];
+  major?: boolean;
+}[] = [
   {
     name: "Tiong Bahru Road",
     points: [
@@ -48,6 +53,7 @@ const STREETS: { name: string; points: [number, number][]; major?: boolean }[] =
   },
   {
     name: "Moh Guan Terrace",
+    sign: "Moh Guan Tce",
     points: [
       [1.283, 103.8289],
       [1.2858, 103.8289],
@@ -55,6 +61,7 @@ const STREETS: { name: string; points: [number, number][]; major?: boolean }[] =
   },
   {
     name: "Kim Pong Road",
+    sign: "Kim Pong Rd",
     points: [
       [1.283, 103.8305],
       [1.2862, 103.8305],
@@ -62,6 +69,7 @@ const STREETS: { name: string; points: [number, number][]; major?: boolean }[] =
   },
   {
     name: "Yong Siak Street",
+    sign: "Yong Siak St",
     points: [
       [1.283, 103.8313],
       [1.2848, 103.8313],
@@ -69,6 +77,7 @@ const STREETS: { name: string; points: [number, number][]; major?: boolean }[] =
   },
   {
     name: "Guan Chuan Street",
+    sign: "Guan Chuan St",
     points: [
       [1.283, 103.8335],
       [1.285, 103.8335],
@@ -213,13 +222,14 @@ export function ShopMap({ shops, className }: { shops: ShopSummary[]; className?
           const pts = street.points.map(([lat, lng]) => project(lat, lng));
           const [a, b] = pts;
           const angle = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI;
-          // Labels sit beside the street, starting near its south or west end.
+          // East-west streets are labelled along their west end; north-south streets get a
+          // short sign just below their south end, clear of the shop pins.
           const vertical = Math.abs(angle) > 45;
-          const south = vertical ? (a[1] > b[1] ? a : b) : null;
-          const label: [number, number] = south
-            ? [south[0], south[1] - 10]
-            : [a[0] + (b[0] - a[0]) * 0.04, a[1] + (b[1] - a[1]) * 0.04];
-          const rotation = vertical ? -90 : angle;
+          const south = a[1] > b[1] ? a : b;
+          const label: [number, number] = vertical
+            ? [south[0], south[1] + 18]
+            : [a[0] + (b[0] - a[0]) * 0.04, a[1] + (b[1] - a[1]) * 0.04 - 8];
+          const rotation = vertical ? 0 : angle;
           return (
             <g key={street.name}>
               <line
@@ -244,10 +254,10 @@ export function ShopMap({ shops, className }: { shops: ShopSummary[]; className?
                 x={label[0]}
                 y={label[1]}
                 transform={`rotate(${rotation} ${label[0]} ${label[1]})`}
-                dy={-8}
+                textAnchor={vertical ? "middle" : "start"}
                 className="fill-[var(--muted)] text-[10px] tracking-wide uppercase"
               >
-                {street.name}
+                {vertical ? (street.sign ?? street.name) : street.name}
               </text>
             </g>
           );

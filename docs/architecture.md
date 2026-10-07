@@ -73,6 +73,27 @@ Which one a shop or supplier uses is decided by its `paypal_mode` (`REAL` or `SI
 
 All scheduling reads the Swarm Clock (`app/clock.py`), never the system clock, so the demo
 can move through a week in minutes and tests can check time rules such as the honor period.
+New and updated rows are stamped with the same clock (`app/db/base.py`), so a payment made
+on the demo's Thursday morning shows Thursday 08:00 everywhere.
+
+## Live updates
+
+The message bus (`app/agents/bus.py`) stores every agent message and broadcasts it, along
+with money engine events (holds, captures, payouts, refunds, invoice checks), to
+`/api/stream` as Server-Sent Events. The web app keeps one `EventSource` open
+(`frontend/lib/live.tsx`) for the feeds, map pulses and swap arcs. Shortly after any event it
+revalidates every cached query, so tiles, grids and charts always agree with the database.
+
+## Who may act for a shop
+
+| Path | Demo mode | Production (`DEMO_MODE=false`) |
+|---|---|---|
+| Telegram `/start` | Shop code, or `/as` to switch | Signed invite from `python -m app.cli invite` (7 days) |
+| Connect PayPal | Open to anyone | Signed link for that one shop (2 days), from the bot's `/connect` |
+| Web phone (`/api/owners/*`) | Behind `DEMO_PANEL_KEY` if set | Off |
+| Demo controls (`/api/demo/*`) | Behind `DEMO_PANEL_KEY` if set | Off |
+
+Links are HMAC-signed with `SECRET_KEY` over purpose, shop and expiry (`app/security.py`).
 
 ## PayPal flows
 

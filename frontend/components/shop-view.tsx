@@ -188,11 +188,15 @@ export function ShopView({ code }: { code: string }) {
                 detail="vs. buying alone"
               />
               <StatTile
-                label="Neighbour swaps"
-                value={money((report?.swap_income_cents ?? 0) + (report?.swap_saved_cents ?? 0))}
+                label="Neighbours"
+                value={money(
+                  (report?.swap_income_cents ?? 0) +
+                    (report?.help_income_cents ?? 0) +
+                    (report?.swap_saved_cents ?? 0),
+                )}
                 detail={
                   report
-                    ? `${money(report.swap_income_cents)} sold · ${money(report.swap_saved_cents)} saved`
+                    ? `${money(report.swap_income_cents + report.help_income_cents)} earned · ${money(report.swap_saved_cents)} saved`
                     : undefined
                 }
                 accent={<Repeat2 className="text-muted h-3.5 w-3.5" aria-hidden />}
