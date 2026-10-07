@@ -42,11 +42,13 @@ from app.db.enums import (
 )
 from app.db.models import (
     ApprovalRequest,
+    FlashDeal,
     GroupOrder,
     GroupOrderLine,
     Payment,
     Shop,
     ShopOrder,
+    Supplier,
     SwapOffer,
 )
 from app.events import EventSink, NullEventSink
@@ -129,6 +131,8 @@ class MoneyEngine:
         mode: PayPalModeEnum,
         call: Callable[[], Awaitable[T]],
         account: str = "platform",
+        shop_id: uuid.UUID | None = None,
+        supplier_id: uuid.UUID | None = None,
     ) -> tuple[Payment, T | None]:
         """Run one PayPal mutation with crash-safe idempotency (see module docstring).
 
@@ -146,6 +150,8 @@ class MoneyEngine:
                 account=account,
                 related_type=related_type,
                 related_id=related_id,
+                shop_id=shop_id,
+                supplier_id=supplier_id,
                 amount_cents=amount_cents,
                 currency=currency,
                 idempotency_key=key,
@@ -236,6 +242,11 @@ class MoneyEngine:
         for swap in swaps:
             if week_start(swap.expires_at) == week:
                 total += swap.price_cents
+        deals = await self.session.scalars(select(FlashDeal).where(FlashDeal.taken_qty > 0))
+        for deal in deals:
+            for purchase in deal.details.get("purchases", []):
+                if purchase["shop_id"] == str(shop_id) and purchase["week"] == str(week):
+                    total += int(purchase["amount_cents"])
         return total
 
     async def _approved_extra(self, related_id: uuid.UUID) -> int:
@@ -357,6 +368,7 @@ class MoneyEngine:
                 currency=group.currency,
                 mode=shop.paypal_mode,
                 call=authorize,
+                shop_id=shop.id,
             )
         except PayPalError as exc:
             return await self._fail_hold(so, _friendly(exc))
@@ -476,6 +488,8 @@ class MoneyEngine:
                 currency=group.currency,
                 mode=so.paypal_mode,
                 call=capture,
+                shop_id=shop.id,
+                supplier_id=supplier.id,
             )
         except PayPalError as exc:
             so.failure_reason = f"Capture failed: {_friendly(exc)}"
@@ -551,6 +565,7 @@ class MoneyEngine:
                 currency=currency,
                 mode=so.paypal_mode,
                 call=reauthorize,
+                shop_id=so.shop_id,
             )
             so.authorization_id = auth.id if auth else payment.paypal_id
         else:
@@ -577,6 +592,7 @@ class MoneyEngine:
                 currency=currency,
                 mode=so.paypal_mode,
                 call=rehold,
+                shop_id=so.shop_id,
             )
             so.authorization_id = auth.id if auth else payment.paypal_id
             so.original_authorized_at = now
@@ -639,6 +655,7 @@ class MoneyEngine:
             currency=so.group_order.currency,
             mode=so.paypal_mode,
             call=void,
+            shop_id=so.shop_id,
         )
         now = self.clock.now()
         so.status = advance_shop_order(so.status, ShopOrderStatus.VOIDED)
@@ -719,6 +736,8 @@ class MoneyEngine:
             currency=currency,
             mode=so.paypal_mode,
             call=refund,
+            shop_id=so.shop_id,
+            supplier_id=supplier.id,
         )
         if result is None:
             return payment  # this refund already happened
@@ -810,6 +829,7 @@ class MoneyEngine:
                 currency=group.currency,
                 mode=supplier.paypal_mode,
                 call=pay,
+                supplier_id=supplier.id,
             )
             await ledger.post(
                 self.session,
@@ -883,6 +903,12 @@ class MoneyEngine:
         if not check.allowed:
             approval = await self._ask_owner_over_limit(buyer, swap.id, check, "This swap")
             await self.session.commit()
+            await self._emit(
+                "approval_needed",
+                shop=buyer.code,
+                approval_id=approval.id,
+                question=approval.question,
+            )
             raise NeedsOwnerApproval(approval.id, approval.question)
         if not buyer.vault_id:
             raise rules.RuleViolation("NOT_CONNECTED", "Buyer has not connected PayPal")
@@ -909,6 +935,7 @@ class MoneyEngine:
             currency=swap.currency,
             mode=buyer.paypal_mode,
             call=authorize,
+            shop_id=buyer.id,
         )
         swap.authorization_id = auth.id if auth else payment.paypal_id
         swap.details = {**swap.details, "buyer_mode": buyer.paypal_mode.value}
@@ -966,6 +993,7 @@ class MoneyEngine:
             currency=swap.currency,
             mode=buyer.paypal_mode,
             call=capture,
+            shop_id=buyer.id,
         )
         if result is not None:
             await ledger.post(
@@ -1018,6 +1046,7 @@ class MoneyEngine:
             currency=swap.currency,
             mode=seller.paypal_mode,
             call=pay_seller,
+            shop_id=seller.id,
         )
         if paid is not None:
             await ledger.post(
@@ -1042,6 +1071,148 @@ class MoneyEngine:
             payout_paypal_id=payout.paypal_id,
         )
         return swap
+
+    # ===================================================================================
+    # Instant purchases (supplier flash deals)
+    # ===================================================================================
+
+    async def purchase_now(
+        self,
+        *,
+        shop_id: uuid.UUID,
+        supplier_id: uuid.UUID,
+        amount_cents: int,
+        key: str,
+        related_id: uuid.UUID,
+        memo: str,
+    ) -> Payment:
+        """Charge a shop on its saved PayPal straight away and pay the supplier its share.
+
+        Used for one-tap flash deals: there is no delivery to wait for, so the hold is
+        captured immediately (still authorize-then-capture, so the same rules and request
+        IDs apply) and the supplier is paid out minus the platform fee.
+        """
+        shop = await self.session.get(Shop, shop_id)
+        supplier = await self.session.get(Supplier, supplier_id)
+        if shop is None or supplier is None:
+            raise LookupError("Shop or supplier not found")
+        currency = shop.currency
+        if amount_cents <= 0:
+            raise rules.RuleViolation("INVALID_AMOUNT", "Amount must be positive")
+        now = self.clock.now()
+        week = week_start(now)
+        check = rules.check_spend_limit(
+            shop.weekly_spend_limit_cents,
+            await self.committed_this_week(shop.id, week),
+            amount_cents,
+            await self._approved_extra(related_id),
+        )
+        if not check.allowed:
+            approval = await self._ask_owner_over_limit(shop, related_id, check, "This deal")
+            await self.session.commit()
+            await self._emit(
+                "approval_needed",
+                shop=shop.code,
+                approval_id=approval.id,
+                question=approval.question,
+            )
+            raise NeedsOwnerApproval(approval.id, approval.question)
+        if not shop.vault_id:
+            raise rules.RuleViolation("NOT_CONNECTED", "PayPal is not connected for this shop")
+        gateway = self._gateway(shop.paypal_mode)
+        self._sim_ready(gateway, shop)
+        request = CreateOrderRequest(
+            amount=Money(amount_cents, currency),
+            reference_id=f"buy-{related_id.hex[:24]}",
+            description=memo[:120],
+            custom_id=str(related_id),
+            vault_id=shop.vault_id,
+        )
+
+        async def charge() -> Any:
+            auth = await _authorize_with_vault(gateway, request, f"{key}:hold")
+            return await gateway.capture_authorization(
+                auth.id,
+                amount=Money(amount_cents, currency),
+                final_capture=True,
+                idempotency_key=f"{key}:capture",
+            )
+
+        payment, captured = await self._payment_step(
+            kind=PaymentKind.CAPTURE,
+            key=f"{key}:capture",
+            related_type="flash_deal",
+            related_id=related_id,
+            amount_cents=amount_cents,
+            currency=currency,
+            mode=shop.paypal_mode,
+            call=charge,
+            shop_id=shop.id,
+            supplier_id=supplier.id,
+        )
+        if captured is not None:
+            await ledger.post(
+                self.session,
+                event="captured",
+                memo=memo,
+                legs=ledger.captured_for_supplier(shop.code, supplier.code, amount_cents),
+                currency=currency,
+                booked_at=now,
+                related_id=related_id,
+            )
+            await self.session.commit()
+
+        fee = pricing.platform_fee(amount_cents, supplier.platform_fee_bps)
+        net = amount_cents - fee
+        payout_gateway = self._gateway(supplier.paypal_mode)
+
+        async def pay() -> Any:
+            return await payout_gateway.create_payout(
+                sender_batch_id=f"swarm-{key.replace(':', '-')}"[:120],
+                items=[
+                    PayoutItemRequest(
+                        receiver_email=supplier.paypal_email or _sim_email(supplier.code),
+                        amount=Money(net, currency),
+                        sender_item_id=related_id.hex[:24],
+                        note=memo[:200],
+                    )
+                ],
+                idempotency_key=f"{key}:payout",
+                email_subject="Swarm: flash deal sold",
+            )
+
+        payout, paid = await self._payment_step(
+            kind=PaymentKind.PAYOUT,
+            key=f"{key}:payout",
+            related_type="flash_deal",
+            related_id=related_id,
+            amount_cents=net,
+            currency=currency,
+            mode=supplier.paypal_mode,
+            call=pay,
+            supplier_id=supplier.id,
+        )
+        if paid is not None:
+            await ledger.post(
+                self.session,
+                event="supplier_paid",
+                memo=f"Flash deal payout to {supplier.name}",
+                legs=ledger.supplier_paid_out(supplier.code, amount_cents, fee),
+                currency=currency,
+                booked_at=now,
+                related_id=related_id,
+            )
+            await self.session.commit()
+        await self._emit(
+            "flash_deal_bought",
+            shop=shop.code,
+            supplier=supplier.code,
+            amount_cents=amount_cents,
+            paypal_id=payment.paypal_id,
+            payout_paypal_id=payout.paypal_id,
+            mode=shop.paypal_mode,
+        )
+        return payment
 
     # ===================================================================================
     # Read helpers

@@ -709,6 +709,21 @@ class SimulatedPayPalClient:
         self._check_fault("invoices.get")
         return payloads.parse_invoice(self._invoice_json(self._invoice(invoice_id, "invoices.get")))
 
+    async def cancel_invoice(
+        self, invoice_id: str, *, idempotency_key: str, note: str | None = None
+    ) -> None:
+        op = "invoices.cancel"
+
+        def action() -> None:
+            invoice = self._invoice(invoice_id, op)
+            if invoice.status not in ("SENT", "UNPAID", "DRAFT"):
+                raise _unprocessable(
+                    op, "INVALID_INVOICE_STATUS", f"Cannot cancel {invoice.status}"
+                )
+            invoice.status = "CANCELLED"
+
+        await self._idempotent(op, idempotency_key, action)
+
     async def record_invoice_payment(
         self,
         invoice_id: str,

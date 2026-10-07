@@ -392,6 +392,22 @@ class PayPalClient:
         )
         return payloads.parse_invoice(data)
 
+    async def cancel_invoice(
+        self, invoice_id: str, *, idempotency_key: str, note: str | None = None
+    ) -> None:
+        """POST /v2/invoicing/invoices/{id}/cancel (a sent invoice is withdrawn)."""
+        body: dict[str, Any] = {"send_to_recipient": True, "send_to_invoicer": False}
+        if note:
+            body["note"] = note
+        await self._request(
+            "POST",
+            f"/v2/invoicing/invoices/{invoice_id}/cancel",
+            operation="invoices.cancel",
+            json_body=body,
+            idempotency_key=idempotency_key,
+            prefer_representation=False,
+        )
+
     async def record_invoice_payment(
         self,
         invoice_id: str,

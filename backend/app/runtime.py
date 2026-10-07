@@ -8,8 +8,9 @@ holds survive a restart.
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,6 +56,13 @@ class Runtime:
     registry: GatewayRegistry
     bus: MessageBus
     llm: LLM
+    demo_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    background: asyncio.Task[None] | None = None
+
+    def reset_simulator(self) -> None:
+        """Forget every simulated PayPal object (used by the demo's reset)."""
+        self.registry.sim_state = SimulatedPayPalState()
+        self.registry.forget_gateways()
 
     async def reload_clock(self, session: AsyncSession) -> Clock:
         """Pick up clock moves made by another process (demo panel, CLI)."""

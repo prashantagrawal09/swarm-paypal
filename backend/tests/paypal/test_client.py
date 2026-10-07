@@ -533,3 +533,14 @@ def test_webhook_headers_parse_case_insensitively():
     assert headers.transmission_id == "tx"
     with pytest.raises(ValueError):
         WebhookHeaders.from_mapping({"paypal-auth-algo": "x"})
+
+
+async def test_cancel_invoice(client, paypal_mock):
+    route = paypal_mock.post("/v2/invoicing/invoices/INV2-ABCD/cancel").respond(204)
+    await client.cancel_invoice("INV2-ABCD", idempotency_key="cx-1", note="Wrong price")
+    assert body(route.calls.last) == {
+        "send_to_recipient": True,
+        "send_to_invoicer": False,
+        "note": "Wrong price",
+    }
+    assert route.calls.last.request.headers["PayPal-Request-Id"] == "cx-1"

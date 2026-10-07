@@ -30,6 +30,7 @@ from sqlalchemy import (
     ForeignKey,
     Identity,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -261,6 +262,8 @@ class ShopOrder(UUIDPrimaryKey, Timestamps, Base):
     paypal_mode: Mapped[PayPalModeEnum] = enum_column(PayPalModeEnum)
     failure_reason: Mapped[str | None] = mapped_column(Text)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
+    delivery_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    delivery_note: Mapped[str | None] = mapped_column(Text)
 
     group_order: Mapped[GroupOrder] = relationship(back_populates="shop_orders")
     shop: Mapped[Shop] = relationship()
@@ -350,6 +353,12 @@ class Payment(UUIDPrimaryKey, Timestamps, Base):
     paypal_id: Mapped[str | None] = mapped_column(String(64), index=True)
     related_type: Mapped[str] = mapped_column(String(40))
     related_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    shop_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("shops.id", ondelete="SET NULL"), index=True
+    )
+    supplier_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("suppliers.id", ondelete="SET NULL"), index=True
+    )
     amount_cents: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3))
     idempotency_key: Mapped[str] = mapped_column(String(108), unique=True)
@@ -374,6 +383,13 @@ class Invoice(UUIDPrimaryKey, Timestamps, Base):
     )
     check_report: Mapped[dict[str, Any]] = mapped_column(default=dict)
     paid_payment_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("payments.id"))
+    paypal_mode: Mapped[PayPalModeEnum] = enum_column(
+        PayPalModeEnum, default=PayPalModeEnum.SIMULATED
+    )
+    paypal_status: Mapped[str | None] = mapped_column(String(32))
+    issued_via: Mapped[str | None] = mapped_column(String(32))
+
+    supplier: Mapped[Supplier] = relationship()
 
 
 class Claim(UUIDPrimaryKey, Timestamps, Base):
@@ -392,13 +408,15 @@ class Claim(UUIDPrimaryKey, Timestamps, Base):
     ai_assessment: Mapped[dict[str, Any]] = mapped_column(default=dict)
     decision: Mapped[ClaimDecision] = enum_column(ClaimDecision, default=ClaimDecision.PENDING)
     refund_payment_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("payments.id"))
+    resolution_note: Mapped[str | None] = mapped_column(Text)
 
 
 class SwapOffer(UUIDPrimaryKey, Timestamps, Base):
     __tablename__ = "swap_offers"
 
     kind: Mapped[SwapKind] = enum_column(SwapKind)
-    from_shop_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("shops.id"))
+    # SURPLUS offers start with a seller and no buyer; EMERGENCY requests the other way round.
+    from_shop_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("shops.id"))
     to_shop_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("shops.id"))
     item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("items.id"))
     qty: Mapped[int] = mapped_column(Integer)
@@ -415,6 +433,7 @@ class SwapOffer(UUIDPrimaryKey, Timestamps, Base):
     __table_args__ = (
         CheckConstraint("qty > 0", name="qty_positive"),
         CheckConstraint("price_cents >= 0", name="price_not_negative"),
+        CheckConstraint("from_shop_id IS NOT NULL OR to_shop_id IS NOT NULL", name="has_a_party"),
     )
 
 
@@ -427,6 +446,12 @@ class FlashDeal(UUIDPrimaryKey, Timestamps, Base):
     price_cents: Mapped[int] = mapped_column(Integer)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[FlashDealStatus] = enum_column(FlashDealStatus, default=FlashDealStatus.OPEN)
+    list_price_cents: Mapped[int] = mapped_column(Integer, default=0)
+    taken_qty: Mapped[int] = mapped_column(Integer, default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="SGD")
+    details: Mapped[dict[str, Any]] = mapped_column(default=dict)
+
+    __table_args__ = (CheckConstraint("taken_qty <= qty_available", name="not_oversold"),)
 
 
 class LedgerEntry(UUIDPrimaryKey, Base):
@@ -503,6 +528,35 @@ class AuditLog(UUIDPrimaryKey, Base):
     action: Mapped[str] = mapped_column(String(80))
     details: Mapped[dict[str, Any]] = mapped_column(default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class MediaBlob(UUIDPrimaryKey, Base):
+    """Uploaded photos (claims, delivery checks). Stored in Postgres: hosting disks are
+    ephemeral and the files are small."""
+
+    __tablename__ = "media_blobs"
+
+    content_type: Mapped[str] = mapped_column(String(80))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    shop_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("shops.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TelegramChat(Base):
+    """A Telegram chat linked to a shop (in demo mode one chat can act as any shop)."""
+
+    __tablename__ = "telegram_chats"
+
+    chat_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    shop_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("shops.id", ondelete="SET NULL"))
+    username: Mapped[str | None] = mapped_column(String(80))
+    first_name: Mapped[str | None] = mapped_column(String(80))
+    state: Mapped[dict[str, Any]] = mapped_column(default=dict)
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class AppState(Base):

@@ -108,6 +108,11 @@ class GatewayRegistry:
             )
         return PayPalClient(credentials, base_url=self.settings.paypal_base_url, http=self._http)
 
+    def forget_gateways(self) -> None:
+        """Drop cached simulated gateways so they pick up a fresh simulator state."""
+        for key in [k for k in self._gateways if k[1] == "SIMULATED"]:
+            del self._gateways[key]
+
     async def aclose(self) -> None:
         for gateway in self._gateways.values():
             await gateway.aclose()

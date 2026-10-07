@@ -112,3 +112,18 @@ def bus(clock):
     from app.agents.bus import MessageBus
 
     return MessageBus(clock)
+
+
+@pytest.fixture
+def runtime(clock, registry, bus):
+    from app.llm.client import OfflineLLM
+    from app.runtime import Runtime
+
+    return Runtime(Settings(), clock, registry, bus, OfflineLLM())
+
+
+@pytest.fixture
+def ctx(db, runtime):
+    from app.features.context import Ctx
+
+    return Ctx(db, runtime)

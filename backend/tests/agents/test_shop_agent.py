@@ -30,7 +30,8 @@ async def test_monday_proposal_asks_the_owner(db, world, clock, bus):
     assert len(approval.payload["items"]) == len(forecasts) == 8
     message = await db.scalar(select(AgentMessage).where(AgentMessage.type == "WEEKLY_NEEDS"))
     assert message.to_agent == "owner:cafe-mei"
-    assert message.payload["buttons"] == ["Approve", "Change", "Skip"]
+    assert [a["label"] for a in message.payload["actions"]] == ["Approve", "Change", "Skip"]
+    assert message.payload["actions"][0]["id"] == f"wn:ok:{approval.id.hex}"
 
 
 async def test_confirm_with_a_change_and_join_the_pool(db, world, clock, bus):

@@ -314,6 +314,9 @@ class PayPalGateway(Protocol):
         note: str | None = None,
     ) -> None: ...
     async def get_invoice(self, invoice_id: str) -> Invoice: ...
+    async def cancel_invoice(
+        self, invoice_id: str, *, idempotency_key: str, note: str | None = None
+    ) -> None: ...
     async def record_invoice_payment(
         self,
         invoice_id: str,

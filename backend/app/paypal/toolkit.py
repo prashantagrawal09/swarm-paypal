@@ -148,6 +148,19 @@ class AgentToolkit:
             },
         )
 
+    async def cancel_invoice(
+        self, invoice_id: str, *, note: str = "Replaced by a corrected invoice"
+    ) -> None:
+        await self.call(
+            "cancel_sent_invoice",
+            {
+                "invoice_id": invoice_id,
+                "note": note,
+                "send_to_recipient": True,
+                "additional_recipients": [],
+            },
+        )
+
     async def get_invoice(self, invoice_id: str) -> Invoice:
         return payloads.parse_invoice(await self.call("get_invoice", {"invoice_id": invoice_id}))
 

@@ -26,6 +26,7 @@ from app.clock import Clock
 from app.db.enums import ApprovalKind, ApprovalStatus
 from app.db.models import ApprovalRequest, DemandForecast, GroupOrder, Item, Shop
 from app.features import demand, group_buy
+from app.features.actions import WEEKLY_NEEDS, action
 from app.features.demand import ProductForecast
 from app.features.products import describe_all, wording
 from app.llm.client import LLM
@@ -187,7 +188,16 @@ class ShopAgent(Agent):
             to=self.owner_channel,
             type="WEEKLY_NEEDS",
             text=text,
-            payload={"approval_id": str(approval.id), "buttons": ["Approve", "Change", "Skip"]},
+            payload={
+                "kind": "WEEKLY_NEEDS",
+                "approval_id": str(approval.id),
+                "ref": approval.id.hex,
+                "actions": [
+                    action(WEEKLY_NEEDS, "ok", approval.id, "Approve", "primary"),
+                    action(WEEKLY_NEEDS, "chg", approval.id, "Change"),
+                    action(WEEKLY_NEEDS, "skip", approval.id, "Skip"),
+                ],
+            },
         )
         return approval, forecasts
 

@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     telegram_bot_token: SecretStr | None = None
 
     demo_mode: bool = True
+    # Seed the demo world on startup when the database is empty.
+    auto_seed: bool = True
+    demo_panel_key: SecretStr | None = None
+    telegram_webhook_secret: SecretStr | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:

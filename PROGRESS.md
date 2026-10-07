@@ -6,9 +6,9 @@
 | 1 | Prove PayPal | Done (simulated); waiting on your sandbox run |
 | 2 | Data model and money engine | Done |
 | 3 | Agents and negotiation | Done |
-| 4 | Telegram bot | Not started |
+| 4 | Telegram bot | Done (needs your bot token to go live) |
 | 5 | Web app | Not started |
-| 6 | Hero features F2–F5 | Not started |
+| 6 | Hero features F2–F5 | Done (backend; UI in phase 5) |
 | 7 | Supporting features and polish | Not started |
 | 8 | Deploy and submission | Not started |
 
@@ -215,3 +215,75 @@
 - Optional: add `ANTHROPIC_API_KEY` to `.env` and run `make negotiate` again to see the
   agents write their own messages. Everything works without it.
 - Still pending from phase 1: the PayPal sandbox setup and `make smoke` run.
+
+---
+
+## Phase 6 (backend) and phase 4: hero features, owner conversations, Telegram
+
+Phase 6's backend was built before the phase 5 web app, so the UI could show every feature.
+
+**Built**
+- **F2, pay only for what arrived** (`features/delivery.py`):
+  - Thursday dispatch messages with All arrived / Something's missing / Damaged buttons.
+  - Owners type what came ("milk 30") and it's parsed into quantities.
+  - Unconfirmed deliveries count as full; partial capture with `final_capture`; owners are
+    told what was charged and what was released.
+- **F3, invoice checker** (`features/invoice_checker.py`):
+  - The supplier invoices the platform: PayPal Agent Toolkit for REAL suppliers, the
+    simulator otherwise.
+  - Code checks every line against the agreed prices, delivered quantities and delivery
+    charge. A mismatch is rejected with the spec's wording ("Milk: charged S$2.30/L,
+    agreed S$2.05/L, 290 L, overcharge S$72.50.").
+  - The supplier cancels the bad invoice and reissues. The approved one is paid by Payout
+    (holding back open claims) and the payment is recorded on the PayPal invoice.
+  - `cancel_invoice` was added to every gateway.
+- **F4, surplus swap**: price falls with days to expiry, never below the owner's minimum.
+  Offered to up to three nearby shops that use the product and accept the brand. Buyer
+  rule: at most 85% of its own price and within its limit. The buyer is held, the seller is
+  paid on handover, and food saved is recorded.
+- **F5, emergency borrow**: shops within 500 m that stock enough are asked; first yes wins.
+  The price is the helper's cost +10%. Payment is instant, with pickup instructions and
+  walking time. Time to sorted is measured.
+- **Claims**: photo stored in Postgres (`/api/media/{id}`); the claims agent assesses it.
+  The supplier's agent accepts clear claims up to S$100, otherwise the operator decides in
+  the demo panel. Open claims are withheld from payouts.
+- **F8, flash deals**: discount clamped to the supplier floor; one-tap offers to matching
+  shops; instant purchase with the supplier paid at once (`engine.purchase_now`).
+- **F9, over-limit approvals**: owners get Approve once / No buttons for holds, swaps and
+  deals. The answer resumes exactly that step.
+- **F7, savings**: per shop per week (group buys vs alone, swaps, flash deals, food saved,
+  refunds) and platform totals; Sunday report to every owner.
+- **Week runner** (`features/week.py`): 8 idempotent steps (Mon forecasts ... Sun report)
+  with a demo scenario: short delivery, wrong-price invoice, flash deal, surplus,
+  emergency. Simulated owners answer from their preferences; real owners answer on
+  Telegram (no reply by Tuesday means the usual order).
+- **Demo controls** (`demo/controls.py` + `/api/demo/*`): state, advance, run the whole week
+  in the background (paced for viewers), injections, reset and reseed, operator claim
+  decisions. Optional `DEMO_PANEL_KEY`.
+- **PayPal connect** (`/api/connect/*`): S$1.00 check with "save PayPal", vault ID stored,
+  check voided. The same flow works against the simulator with an in-app approval screen.
+- **Owner conversations** (`owners/service.py`): one handler for buttons, typed answers,
+  free text (via the shop agent) and photos, shared by Telegram and the web phone.
+- **Telegram bot** (`telegram_bot/`), python-telegram-bot 22:
+  - commands `/start <code>`, `/as <code>` and `/shops` (demo), `/report`, `/help`;
+  - coloured inline buttons;
+  - photos go to claims; voice notes are transcribed by faster-whisper when installed;
+  - a notifier relays every owner message from the bus;
+  - polling locally, webhook with a secret in production; runs inside the API process.
+- **Read API** for the web app: overview, shops, suppliers (floors never exposed), group
+  orders with price-ladder data, payments, ledger, swaps, invoices, claims, flash deals.
+- **Production bits:**
+  - a scheduler runs the week on real time when `DEMO_MODE=false`;
+  - auto-seed on an empty database;
+  - request IDs, JSON 500s and security headers;
+  - payments now record their shop and supplier (migration).
+
+**Works**
+- 229 backend tests, including a full Monday-to-Sunday week.
+- Live through the API: reset plus "Run full week" took about 2 minutes, with 307 agent
+  messages streamed over SSE. The week saved shops S$2,327, S$144.58 of it from
+  negotiation, rescued 8.4 kg of food and made 90 PayPal calls, with the books balanced.
+
+**Manual steps for you**
+- Optional: create a Telegram bot (`docs/telegram-setup.md`, 2 minutes) and put
+  `TELEGRAM_BOT_TOKEN` in `.env`. Without it, use the web phone in the demo panel.

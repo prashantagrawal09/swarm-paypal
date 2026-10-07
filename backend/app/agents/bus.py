@@ -56,6 +56,8 @@ class MessageBus:
     def __init__(self, clock: Clock, queue_size: int = 500) -> None:
         self.clock = clock
         self.queue_size = queue_size
+        # Demo playback: pause after each message so the live board can be followed.
+        self.pace_seconds = 0.0
         self._subscribers: set[asyncio.Queue[BusEvent]] = set()
 
     # -- subscribers ----------------------------------------------------------------------
@@ -105,6 +107,9 @@ class MessageBus:
         await session.commit()
         await session.refresh(message)
         self.broadcast(BusEvent("agent_message", message_dict(message)))
+        if self.pace_seconds > 0:
+            owner_side = from_agent.startswith("owner:") or to_agent.startswith("owner:")
+            await asyncio.sleep(self.pace_seconds / 12 if owner_side else self.pace_seconds)
         return message
 
     async def emit(self, kind: str, payload: dict[str, Any]) -> None:

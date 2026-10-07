@@ -284,3 +284,29 @@ async def test_fault_injection(sim):
     await sim.capture_authorization(
         auth_id, amount=Money(1), final_capture=True, idempotency_key="c"
     )
+
+
+async def test_sent_invoices_can_be_cancelled_but_not_paid_ones(sim):
+    draft = InvoiceDraft(
+        "SW-C1", date(2026, 10, 8), "SGD", "p@x", [InvoiceLine("Milk", Decimal(1), Money(205))]
+    )
+    invoice = await sim.create_invoice(draft, idempotency_key="c1")
+    await sim.send_invoice(invoice.id, idempotency_key="c1s")
+    await sim.cancel_invoice(invoice.id, idempotency_key="c1x", note="Wrong price")
+    assert (await sim.get_invoice(invoice.id)).status == "CANCELLED"
+    paid = await sim.create_invoice(
+        InvoiceDraft(
+            "SW-C2", date(2026, 10, 8), "SGD", "p@x", [InvoiceLine("Milk", Decimal(1), Money(205))]
+        ),
+        idempotency_key="c2",
+    )
+    await sim.send_invoice(paid.id, idempotency_key="c2s")
+    await sim.record_invoice_payment(
+        paid.id,
+        amount=Money(205),
+        payment_date=date(2026, 10, 9),
+        method="PAYPAL",
+        idempotency_key="c2p",
+    )
+    with pytest.raises(PayPalUnprocessableError):
+        await sim.cancel_invoice(paid.id, idempotency_key="c2x")

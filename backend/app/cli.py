@@ -157,6 +157,24 @@ async def _negotiate(args: argparse.Namespace) -> None:
         await run_negotiation(session, runtime, week, categories)
 
 
+async def _week(args: argparse.Namespace) -> None:
+    from app.db.session import get_sessionmaker
+    from app.features.context import Ctx
+    from app.features.week import WeekRunner
+
+    async with get_sessionmaker()() as session:
+        runtime = await start_runtime(session)
+        ctx = Ctx(session, runtime)
+        runner = WeekRunner(ctx, week_start(runtime.clock.now()))
+        while True:
+            step, result = await runner.run_next()
+            if step is None:
+                break
+            print(f"{step.title:<28} {result}")
+            if not args.all:
+                break
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description=__doc__.split("\n\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -166,9 +184,13 @@ def main(argv: list[str] | None = None) -> None:
         "--category", default="all", choices=["all", *[c.value.lower() for c in Category]]
     )
     negotiate.add_argument("--reseed", action="store_true", help="wipe and reseed first")
+    week = commands.add_parser("week", help="run the next step of the Swarm week (or --all)")
+    week.add_argument("--all", action="store_true", help="run every remaining step")
     args = parser.parse_args(argv)
     if args.command == "negotiate":
         asyncio.run(_negotiate(args))
+    elif args.command == "week":
+        asyncio.run(_week(args))
 
 
 if __name__ == "__main__":
