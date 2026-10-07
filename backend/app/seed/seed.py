@@ -37,6 +37,7 @@ from app.db.models import (
     Supplier,
     SupplierItem,
 )
+from app.features.demand import OPEN_DAYS
 from app.money.pricing import parse_tiers, tier_unit_price
 from app.paypal.accounts import credentials_for_prefix, platform_credentials, shop_email_key
 
@@ -57,12 +58,6 @@ DEFAULT_SKUS = {
     "napkins-100": "NAPKIN-100-SOFTLY",
     "tomatoes-1kg": "TOMATO-1KG-CAMERON",
     "lettuce-1kg": "LETTUCE-1KG-CAMERON",
-}
-
-OPEN_DAYS = {
-    "Daily": {0, 1, 2, 3, 4, 5, 6},
-    "Tue-Sun": {1, 2, 3, 4, 5, 6},
-    "Mon-Sat": {0, 1, 2, 3, 4, 5},
 }
 
 
@@ -171,6 +166,7 @@ async def seed_world(
         vault = env_value(shop_email_key(code).replace("_EMAIL", "_VAULT_ID")) if real else None
         preferences = dict(data["preferences"])
         preferences["usual_weekly"] = data["usual_weekly"]
+        preferences["traffic"] = data["traffic"]
         preferences.setdefault("preferred_skus", {})
         for product in data["usual_weekly"]:
             preferences["preferred_skus"].setdefault(product, preferred_sku(data, product))

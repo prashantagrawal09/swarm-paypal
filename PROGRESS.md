@@ -9,7 +9,7 @@
 | 4 | Telegram bot | Done (needs your bot token to go live) |
 | 5 | Web app | Done |
 | 6 | Hero features F2–F5 | Done (backend; UI in phase 5) |
-| 7 | Supporting features and polish | Not started |
+| 7 | Supporting features and polish | Done |
 | 8 | Deploy and submission | Not started |
 
 ---
@@ -361,3 +361,40 @@ Phase 6's backend was built before the phase 5 web app, so the UI could show eve
 
 **Manual steps for you**
 - Set `SECRET_KEY` in `.env` before running with `DEMO_MODE=false`.
+
+---
+
+## Phase 7: Supporting features and polish
+
+**Built**
+- **F6, demand prediction with reasons**:
+  - The 4-week average is now multiplied by a weather factor and a holiday factor, both
+    from `seed/data/demand.json`.
+  - Weather compares the coming week's outlook with the usual mix already in the history.
+    Each trading day counts by how busy it normally is (weekday factors and the shop's
+    weekend lift). A rainy day costs each shop its own rain factor, so a hawker stall drops
+    more than the tea house, which sells more in the rain.
+  - The demo week has rain forecast Thursday to Saturday.
+  - Every forecast line explains itself ("About 13 L milk: your last 4 weeks averaged 14,
+    minus 8% for rain on Thursday, Friday and Saturday").
+  - The owner's Monday message carries one line on why ("Based on your last 4 weeks; rain
+    on ... expected, so about 8% less. Shall I order that?"). With an API key, the shop
+    agent's model writes that line from the same facts.
+  - The shop page shows the week's forecast with each reason.
+- **F8, flash deals that get taken**: a flash deal is judged as a mid-week top-up.
+  Simulated owners buy when it is at least 20% under the single-unit price and no dearer
+  than their group price. In the demo, two shops buy the lettuce. REAL owners still decide
+  with a button.
+- **Live board**: a "Neighbours and deals" card shows surplus swaps (food not wasted),
+  emergency borrows (time to sorted) and flash deals (taken / available).
+- **F7, F9 and F10** were already in place: savings reports in Telegram and on the shop page,
+  spending-limit approvals with owner buttons, voice notes when faster-whisper is installed.
+
+**Works**
+- 239 backend tests pass, including weather weighting (rain on a busy Saturday costs more
+  than on a quiet Monday) and the week test now checking that the flash deal sells.
+- Demo week end to end: S$2,338.85 saved, 94 PayPal calls, 8.4 kg of food not wasted, books
+  balanced.
+
+**Manual steps for you**
+- None new.

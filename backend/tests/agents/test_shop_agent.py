@@ -26,7 +26,8 @@ async def test_monday_proposal_asks_the_owner(db, world, clock, bus):
     agent = await agent_for(db, "cafe-mei", clock, bus)
     approval, forecasts = await agent.weekly_proposal(db, DEMO_WEEK)
     assert approval.kind == ApprovalKind.WEEKLY_NEEDS and approval.status == ApprovalStatus.PENDING
-    assert "L milk" in approval.question and approval.question.endswith("Same as usual?")
+    assert "L milk" in approval.question and approval.question.endswith("Shall I order that?")
+    assert "Based on your last" in approval.question
     assert len(approval.payload["items"]) == len(forecasts) == 8
     message = await db.scalar(select(AgentMessage).where(AgentMessage.type == "WEEKLY_NEEDS"))
     assert message.to_agent == "owner:cafe-mei"

@@ -138,9 +138,14 @@ class ShopAgent(Agent):
         forecasts = await demand.forecast_shop(session, self.shop, week)
         await demand.propose_week(session, week)
         listing = describe_all({f.product_code: f.predicted_qty for f in forecasts})
-        fallback = f"Next week you'll need about {listing}. Same as usual?"
+        why = demand.week_note(forecasts)
+        fallback = f"Next week you'll need about {listing}. {why} Shall I order that?".replace(
+            "  ", " "
+        )
         facts = (
-            "Write the Monday message asking the owner to confirm next week's order.\n"
+            "Write the Monday message asking the owner to confirm next week's order. "
+            "Include one short line on why the numbers are what they are.\n"
+            + f"Why: {why}\n"
             + "\n".join(
                 f"- {f.item_name}: {f.predicted_qty} x {f.unit} ({f.explanation})"
                 for f in forecasts

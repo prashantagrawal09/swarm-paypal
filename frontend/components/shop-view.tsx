@@ -267,21 +267,30 @@ export function ShopView({ code }: { code: string }) {
             </Card>
             <Card>
               <CardHeader
-                title="What the agent knows"
-                subtitle="The owner's usual week and brand rules"
+                title="This week's forecast"
+                subtitle={shop?.forecast.note || "What the agent expects the shop to need"}
               />
               <div className="space-y-3 px-5 pb-5 text-sm">
-                <div className="flex flex-wrap gap-1.5">
-                  {Object.entries(shop?.usual_weekly ?? {}).map(([product, qty]) => (
-                    <span
-                      key={product}
-                      className="bg-surface-2 text-ink-2 rounded-lg px-2 py-1 text-xs"
+                <ul className="divide-line divide-y">
+                  {(shop?.forecast.items ?? []).map((item) => (
+                    <li
+                      key={item.product}
+                      className="flex items-baseline gap-3 py-1.5"
+                      title={item.explanation}
                     >
-                      <span className="tabular text-ink font-medium">{qty}</span>{" "}
-                      {productName(product)}
-                    </span>
+                      <span className="text-ink min-w-0 flex-1 truncate">{item.name}</span>
+                      {item.confirmed !== null && item.confirmed !== item.predicted ? (
+                        <span className="tabular text-muted text-xs line-through">
+                          {item.predicted}
+                        </span>
+                      ) : null}
+                      <span className="tabular text-ink font-medium">
+                        {item.confirmed ?? item.predicted}
+                      </span>
+                      <span className="text-muted w-20 truncate text-xs">{item.unit}</span>
+                    </li>
                   ))}
-                </div>
+                </ul>
                 {shop && Object.keys(shop.accepted_brands).length ? (
                   <ul className="text-ink-2 space-y-1 text-xs">
                     {Object.entries(shop.accepted_brands).map(([product, brands]) => (

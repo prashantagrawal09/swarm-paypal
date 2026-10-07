@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from sqlalchemy import func, select
 
@@ -13,7 +15,15 @@ from app.db.enums import (
     SwapKind,
     SwapStatus,
 )
-from app.db.models import AgentMessage, GroupOrder, Invoice, Payment, ShopOrder, SwapOffer
+from app.db.models import (
+    AgentMessage,
+    FlashDeal,
+    GroupOrder,
+    Invoice,
+    Payment,
+    ShopOrder,
+    SwapOffer,
+)
 from app.features.week import STEP_KEYS, WeekRunner
 from app.money import ledger
 from tests.conftest import DEMO_WEEK
@@ -43,6 +53,8 @@ async def test_full_demo_week(db, world, ctx):
     assert results["forecasts"]["auto_confirmed"] == 12
     assert set(results["negotiation"]["groups"]) == {"DAIRY", "PACKAGING", "PANTRY", "PRODUCE"}
     assert results["holds"]["flash_deal"] is not None
+    deal = await db.get(FlashDeal, uuid.UUID(results["holds"]["flash_deal"]))
+    assert deal is not None and deal.taken_qty > 0  # simulated owners took the top-up deal
 
     short = results["delivery"]["DAIRY"]["short"]
     assert short and short[0]["shop"] == "cafe-mei" and short[0]["delivered"] < short[0]["ordered"]

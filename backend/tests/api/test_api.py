@@ -36,6 +36,15 @@ async def test_overview_and_shops(client):
     assert (await api.get("/api/shops/nope")).status_code == 404
 
 
+async def test_shop_detail_explains_the_forecast(client):
+    api, _ = client
+    shop = (await api.get("/api/shops/uncle-tan-noodles")).json()
+    forecast = shop["forecast"]
+    assert forecast["note"].startswith("Based on your last 4 weeks")
+    assert "rain on Thursday" in forecast["note"]
+    assert all(item["predicted"] > 0 and item["explanation"] for item in forecast["items"])
+
+
 async def test_products_group_brand_variants(client):
     api, _ = client
     products = {p["product"]: p for p in (await api.get("/api/products")).json()}

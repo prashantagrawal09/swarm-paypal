@@ -23,10 +23,51 @@ async def test_forecasts_use_the_four_week_average(db, world):
     forecasts = await demand.forecast_shop(db, shops["cafe-mei"], DEMO_WEEK)
     milk = next(f for f in forecasts if f.product_code == "milk-full-cream-1l")
     assert milk.weeks_used == 4
-    assert milk.predicted_qty == round(milk.average_qty)
+    assert milk.predicted_qty == round(milk.average_qty * milk.multiplier)
     assert "last 4 weeks averaged" in milk.explanation
     assert await demand.propose_week(db, DEMO_WEEK) > 0
     assert await demand.propose_week(db, DEMO_WEEK) == 0  # idempotent
+
+
+async def test_weather_outlook_moves_the_forecast_by_each_shops_rain_sensitivity(db, world):
+    shops = await shops_by_code(db)
+    outlook = demand.week_outlook(DEMO_WEEK)
+    assert {demand.DAY_NAMES[d] for d, c in outlook.items() if c == "rainy"} == {
+        "Thursday",
+        "Friday",
+        "Saturday",
+    }
+    hawker = demand.weather_effect(shops["uncle-tan-noodles"], DEMO_WEEK)  # rain factor 0.80
+    tea = demand.weather_effect(shops["teh-time"], DEMO_WEEK)  # rain factor 1.10
+    assert hawker.multiplier < 1 < tea.multiplier
+    assert hawker.summary == "rain on Thursday, Friday and Saturday"
+    # A week with no outlook is a usual week.
+    assert (
+        demand.weather_effect(shops["uncle-tan-noodles"], DEMO_WEEK.replace(day=5)).multiplier == 1
+    )
+    forecasts = await demand.forecast_shop(db, shops["uncle-tan-noodles"], DEMO_WEEK)
+    assert all("for rain on Thursday" in f.explanation for f in forecasts)
+    assert "less" in demand.week_note(forecasts)
+
+
+def test_weather_effect_weights_busy_days_more(monkeypatch):
+    """Rain on a busy Saturday costs more than rain on a quiet Monday."""
+    from datetime import date
+    from types import SimpleNamespace
+
+    shop = SimpleNamespace(
+        opening_hours={"days": "Daily"},
+        preferences={"traffic": {"rain_factor": 0.8, "weekend_lift": 1.5}},
+    )
+    base = demand.demand_config()
+    week = date(2026, 11, 16)
+
+    def effect(rainy_day: str) -> float:
+        config = {**base, "weather_outlook": {rainy_day: "rainy"}}
+        monkeypatch.setattr(demand, "demand_config", lambda: config)
+        return demand.weather_effect(shop, week).multiplier  # type: ignore[arg-type]
+
+    assert effect("2026-11-21") < effect("2026-11-16") < 1
 
 
 async def test_confirm_change_and_skip(db, world, clock):

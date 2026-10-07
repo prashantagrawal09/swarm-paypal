@@ -102,6 +102,19 @@ export type ShopDetail = Omit<ShopSummary, "orders" | "saved_week_cents" | "pend
   allow_substitutes: boolean;
   telegram_linked: boolean;
   approvals: { id: string; kind: string; status: string; question: string; at: string }[];
+  forecast: {
+    week: string;
+    note: string;
+    items: {
+      product: string;
+      name: string;
+      unit: string;
+      predicted: number;
+      confirmed: number | null;
+      status: string | null;
+      explanation: string;
+    }[];
+  };
 };
 
 export type Tier = { min_qty: number; unit_price_cents: number };

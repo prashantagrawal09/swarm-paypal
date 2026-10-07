@@ -5,6 +5,10 @@ Price is code: the single-unit list price minus the discount, never below the su
 floor. Shops that use the product and accept the brand are offered a sensible quantity
 (about half their usual weekly need, capped by what is left). Buying charges the shop's
 saved PayPal immediately and pays the supplier its share at once.
+
+A flash deal is a mid-week top-up, so it is judged against what a top-up would otherwise
+cost: simulated owners take it when it is at least 20% under the single-unit price and no
+dearer than what they pay through this week's group order. REAL owners decide themselves.
 """
 
 from __future__ import annotations
@@ -108,8 +112,8 @@ async def post(
                     act.action(act.FLASH_DEAL, "no", deal.id, "Skip"),
                 ],
             )
-        elif auto_buyers < MAX_AUTO_BUYERS and (
-            price <= await reference_price(ctx, shop, item.product_code) * AUTO_BUY_MAX_SHARE
+        elif auto_buyers < MAX_AUTO_BUYERS and price <= await auto_buy_limit(
+            ctx, shop, item.product_code, list_price
         ):
             try:
                 await buy(ctx, deal.id, shop.code, suggested)
@@ -117,6 +121,12 @@ async def post(
             except (rules.RuleViolation, NeedsOwnerApproval):
                 continue
     return deal
+
+
+async def auto_buy_limit(ctx: Ctx, shop: Shop, product: str, list_price: int) -> int:
+    """The most a simulated owner pays per unit in a flash deal."""
+    top_up = int(list_price * AUTO_BUY_MAX_SHARE)
+    return min(top_up, await reference_price(ctx, shop, product))
 
 
 def suggested_qty(shop: Shop, product: str, remaining: int) -> int:

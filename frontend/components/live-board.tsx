@@ -16,6 +16,7 @@ import useSWR from "swr";
 
 import { AgentFeed, PayPalFeed } from "@/components/feeds";
 import { GroupOrderCard } from "@/components/group-order-card";
+import { NeighbourActivity } from "@/components/neighbour-activity";
 import { ShopMap } from "@/components/shop-map";
 import { AnimatedNumber, HeroFigure, StatTile } from "@/components/stats";
 import { ButtonLink, Card, CardHeader, Empty, StatusPill } from "@/components/ui";
@@ -184,6 +185,8 @@ export function LiveBoard() {
               </Empty>
             )}
           </section>
+
+          <NeighbourActivity />
         </div>
 
         <div className="space-y-6 lg:col-span-5">

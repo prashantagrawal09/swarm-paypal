@@ -19,6 +19,7 @@ from app.db.enums import ApprovalStatus, PaymentKind
 from app.db.models import (
     ApprovalRequest,
     Claim,
+    DemandForecast,
     FlashDeal,
     GroupOrder,
     GroupOrderLine,
@@ -35,7 +36,7 @@ from app.db.models import (
     TelegramChat,
 )
 from app.demo import controls
-from app.features import group_buy, savings
+from app.features import demand, group_buy, savings
 from app.features.context import Ctx
 from app.features.invoice_checker import OPEN_CLAIMS
 from app.features.products import wording
@@ -176,8 +177,33 @@ async def shop_detail(code: str, ctx: CtxDep) -> dict[str, Any]:
         select(func.count()).select_from(TelegramChat).where(TelegramChat.shop_id == shop.id)
     )
     prefs = shop.preferences or {}
+    forecasts = await demand.forecast_shop(ctx.session, shop, week)
+    stored = {
+        row.item_id: row
+        for row in await ctx.session.scalars(
+            select(DemandForecast).where(
+                DemandForecast.shop_id == shop.id, DemandForecast.week_start == week
+            )
+        )
+    }
     return {
         **shop_card(shop),
+        "forecast": {
+            "week": str(week),
+            "note": demand.week_note(forecasts),
+            "items": [
+                {
+                    "product": f.product_code,
+                    "name": f.item_name,
+                    "unit": f.unit,
+                    "predicted": f.predicted_qty,
+                    "confirmed": stored[f.item_id].confirmed_qty if f.item_id in stored else None,
+                    "status": stored[f.item_id].status.value if f.item_id in stored else None,
+                    "explanation": f.explanation,
+                }
+                for f in forecasts
+            ],
+        },
         "committed_cents": await ctx.engine.committed_this_week(shop.id, week),
         "report": report.to_dict(),
         "saved_to_date_cents": await savings.shop_to_date(ctx, shop),
