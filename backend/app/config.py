@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     auto_seed: bool = True
     demo_panel_key: SecretStr | None = None
     telegram_webhook_secret: SecretStr | None = None
+    # Signs the links Swarm sends owners (connect PayPal). Required when DEMO_MODE=false.
+    secret_key: SecretStr | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:

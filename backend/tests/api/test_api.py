@@ -36,6 +36,14 @@ async def test_overview_and_shops(client):
     assert (await api.get("/api/shops/nope")).status_code == 404
 
 
+async def test_products_group_brand_variants(client):
+    api, _ = client
+    products = {p["product"]: p for p in (await api.get("/api/products")).json()}
+    milk = products["milk-full-cream-1l"]
+    assert milk["category"] == "DAIRY" and len(milk["skus"]) >= 2
+    assert {"sku", "brand", "supplier"} <= set(milk["skus"][0])
+
+
 async def test_supplier_api_never_reveals_floors(client):
     api, _ = client
     detail = (await api.get("/api/suppliers/freshdairy")).json()
@@ -96,3 +104,28 @@ async def test_demo_key_and_demo_mode_guards(client):
     assert (await api.post("/api/demo/advance", headers={"X-Demo-Key": "k"})).status_code == 200
     app.dependency_overrides[get_settings] = lambda: Settings(demo_mode=False)
     assert (await api.post("/api/demo/reset")).status_code == 403
+
+
+async def test_owner_phone_and_connect_are_owner_only_outside_demo_mode(client, runtime):
+    from datetime import UTC, datetime
+
+    from pydantic import SecretStr
+
+    from app.security import sign
+
+    api, app = client
+    production = Settings(demo_mode=False, secret_key=SecretStr("s3cret"))
+    app.dependency_overrides[get_settings] = lambda: production
+    runtime.settings = production
+    assert (await api.get("/api/owners/cafe-mei/inbox")).status_code == 403
+    assert (
+        await api.post("/api/owners/cafe-mei/actions", json={"action_id": "x"})
+    ).status_code == 403
+    assert (await api.post("/api/connect/cafe-mei/start")).status_code == 403
+    forged = sign(production, "bakery-lim", datetime.now(UTC), "connect")
+    response = await api.post("/api/connect/cafe-mei/start", json={"token": forged})
+    assert response.status_code == 403
+    token = sign(production, "cafe-mei", runtime.clock.now(), "connect")
+    response = await api.post("/api/connect/cafe-mei/start", json={"token": token})
+    assert response.status_code == 200, response.text
+    assert response.json()["order_id"]

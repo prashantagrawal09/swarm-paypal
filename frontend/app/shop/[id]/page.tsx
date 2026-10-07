@@ -1,12 +1,14 @@
-import { ComingSoon } from "@/components/coming-soon";
+import type { Metadata } from "next";
+
+import { ShopView } from "@/components/shop-view";
+import { entityName, titleFromCode } from "@/lib/server";
+
+export async function generateMetadata({ params }: PageProps<"/shop/[id]">): Promise<Metadata> {
+  const { id } = await params;
+  return { title: await entityName(`/api/shops/${id}`, titleFromCode(id)) };
+}
 
 export default async function ShopPage({ params }: PageProps<"/shop/[id]">) {
   const { id } = await params;
-  return (
-    <ComingSoon
-      title={`Shop ${id}`}
-      summary="Orders, payments, invoices, claims, swaps and the weekly savings report for one shop."
-      phase={5}
-    />
-  );
+  return <ShopView code={id} />;
 }

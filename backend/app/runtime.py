@@ -19,6 +19,7 @@ from app.agents.bus import MessageBus
 from app.clock import Clock, SwarmClock, SystemClock
 from app.config import Settings, get_settings
 from app.db.app_state import CLOCK_KEY, SIM_PAYPAL_KEY, get_state, set_state
+from app.db.base import stamp_rows_with
 from app.llm.client import LLM, build_llm
 from app.paypal.accounts import GatewayRegistry
 from app.paypal.simulated import SimulatedPayPalState
@@ -106,6 +107,7 @@ async def start_runtime(session: AsyncSession, llm: LLM | None = None) -> Runtim
     )
     runtime = Runtime(settings, clock, registry, MessageBus(clock), llm or build_llm(settings))
     set_runtime(runtime)
+    stamp_rows_with(lambda: runtime.clock.now())
     return runtime
 
 

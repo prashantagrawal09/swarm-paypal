@@ -3,9 +3,11 @@ speaks for, and hands over to the shared `OwnerService`; replies come back as ag
 messages that the notifier relays to the chat.
 
 Commands:
-- `/start <shop code>`: link this chat to a shop.
+- `/start <invite>`: link this chat to a shop. Outside demo mode the invite is a signed
+  payload from `python -m app.cli invite <shop>`; in demo mode the plain shop code works.
 - `/as <shop code>`: demo mode only; act as another shop from the same Telegram account.
 - `/shops`: demo mode only; list the shop codes.
+- `/connect`: a signed link to connect (or reconnect) the shop's PayPal.
 - `/report`: this week's savings. `/help`: what you can say.
 """
 
@@ -24,6 +26,7 @@ from app.db.session import get_sessionmaker
 from app.features.context import Ctx
 from app.owners.service import OwnerService
 from app.runtime import Runtime
+from app.security import LinkError, connect_link, parse_invite
 from app.telegram_bot.keyboards import split_callback
 
 logger = logging.getLogger(__name__)
@@ -70,15 +73,35 @@ async def start_command(ctx: Ctx, user: ChatUser, args: list[str], switching: bo
         return "Switching shops is only available in demo mode."
     if not args:
         return NOT_LINKED if not switching else "Use /as <shop code>, e.g. /as bakery-lim"
-    shop = await ctx.session.scalar(select(Shop).where(Shop.code == args[0].lower().strip()))
+    code = args[0].strip()
+    if "_" in code or not demo:
+        try:
+            code = parse_invite(ctx.runtime.settings, code, ctx.now())
+        except LinkError as exc:
+            return f"That invite didn't work: {exc}"
+    shop = await ctx.session.scalar(select(Shop).where(Shop.code == code.lower()))
     if shop is None:
         hint = " Try /shops for the list." if demo else ""
-        return f"I don't know a shop called {args[0]!r}.{hint}"
+        return f"I don't know a shop called {code!r}.{hint}"
     await link_chat(ctx.session, user, shop)
     mode = "REAL PayPal sandbox" if shop.paypal_mode.value == "REAL" else "simulated PayPal"
     return (
         f"✅ You're now {shop.owner_name} at {shop.name} ({mode}). I'll message you here "
         'about orders, deliveries and deals. Say "help" any time.'
+    )
+
+
+async def connect_command(ctx: Ctx, shop: Shop) -> str:
+    try:
+        link = connect_link(ctx.runtime.settings, shop.code, ctx.now())
+    except LinkError:
+        if not ctx.runtime.settings.demo_mode:
+            return "Connecting PayPal is switched off on this server (no SECRET_KEY)."
+        link = f"{ctx.runtime.settings.public_frontend_url.rstrip('/')}/connect/{shop.code}"
+    state = "connected" if shop.vault_id else "not connected yet"
+    return (
+        f"PayPal for {shop.name} is {state}. Open this link to approve a S$1.00 check "
+        f"(released straight away) so I can hold money for group orders:\n{link}"
     )
 
 
@@ -157,6 +180,17 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session, ctx, shop = found
     async with session:
         await OwnerService(ctx).handle_text(shop.code, message.text)
+
+
+async def on_connect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    found = await _with_shop(update, context)
+    if found is None:
+        return
+    session, ctx, shop = found
+    async with session:
+        text = await connect_command(ctx, shop)
+    if update.effective_message:
+        await update.effective_message.reply_text(text)
 
 
 async def on_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

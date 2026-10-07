@@ -3,6 +3,7 @@
     python -m app.cli negotiate                     # this Swarm week, every category
     python -m app.cli negotiate --category dairy    # just one group order
     python -m app.cli negotiate --reseed            # fresh demo world first
+    python -m app.cli invite cafe-mei               # an owner's Telegram invite + connect link
 
 `negotiate` plays Monday (each shop agent proposes next week's needs; owners approve) and
 Tuesday (pooling, then the coordinator negotiates with the three supplier agents), then
@@ -175,6 +176,23 @@ async def _week(args: argparse.Namespace) -> None:
                 break
 
 
+def invite(shop_code: str, bot_username: str | None = None) -> list[str]:
+    """The signed Telegram invite and Connect-PayPal link for one shop's owner."""
+    from datetime import UTC, datetime
+
+    from app.config import get_settings
+    from app.security import connect_link, telegram_invite
+
+    settings = get_settings()
+    now = datetime.now(UTC)
+    payload = telegram_invite(settings, shop_code, now)
+    lines = [f"Telegram: send /start {payload} to the bot"]
+    if bot_username:
+        lines.append(f"          or open https://t.me/{bot_username.lstrip('@')}?start={payload}")
+    lines.append(f"PayPal:   {connect_link(settings, shop_code, now)}")
+    return lines
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description=__doc__.split("\n\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -186,11 +204,16 @@ def main(argv: list[str] | None = None) -> None:
     negotiate.add_argument("--reseed", action="store_true", help="wipe and reseed first")
     week = commands.add_parser("week", help="run the next step of the Swarm week (or --all)")
     week.add_argument("--all", action="store_true", help="run every remaining step")
+    owner = commands.add_parser("invite", help="signed links for a shop's owner")
+    owner.add_argument("shop", help="shop code, e.g. cafe-mei")
+    owner.add_argument("--bot", help="the bot's @username, to print a t.me deep link")
     args = parser.parse_args(argv)
     if args.command == "negotiate":
         asyncio.run(_negotiate(args))
     elif args.command == "week":
         asyncio.run(_week(args))
+    elif args.command == "invite":
+        print("\n".join(invite(args.shop, args.bot)))
 
 
 if __name__ == "__main__":

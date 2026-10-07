@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import select
 
 from app.agents.bus import BusEvent
+from app.config import Settings
 from app.db.models import Shop, TelegramChat
 from app.features import actions as act
 from app.telegram_bot.handlers import ChatUser, acting_shop, shops_command, start_command
@@ -39,6 +40,27 @@ async def test_start_and_as_link_the_chat(db, world, ctx):
     assert "cafe-mei" in await shops_command(ctx)
     assert "don't know" in await start_command(ctx, user, ["mars-bar"])
     assert (await db.get(TelegramChat, 4242)).first_name == "Mei"
+
+
+async def test_outside_demo_mode_only_signed_invites_link_a_chat(db, world, ctx, runtime):
+    from pydantic import SecretStr
+
+    from app.security import telegram_invite
+    from app.telegram_bot.handlers import connect_command
+
+    runtime.settings = Settings(demo_mode=False, secret_key=SecretStr("s3cret"))
+    user = ChatUser(777, "someone", "Eve")
+    assert "didn't work" in await start_command(ctx, user, ["cafe-mei"])
+    assert await acting_shop(db, 777) is None
+    assert "only available in demo mode" in await start_command(
+        ctx, user, ["cafe-mei"], switching=True
+    )
+    invite = telegram_invite(runtime.settings, "cafe-mei", ctx.now())
+    assert "Café Mei" in await start_command(ctx, user, [invite])
+    shop = await acting_shop(db, 777)
+    assert shop is not None and shop.code == "cafe-mei"
+    reply = await connect_command(ctx, shop)
+    assert "/connect/cafe-mei?t=" in reply
 
 
 class FakeSender:

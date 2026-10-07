@@ -1,19 +1,23 @@
-"""The owner's side of the conversation, for the web phone (Telegram uses the same service)."""
+"""The owner's side of the conversation, for the web phone (Telegram uses the same service).
+
+The web phone lets anyone speak for any shop, so it is a demo tool: these endpoints sit
+behind the demo guard (off when DEMO_MODE=false, and behind DEMO_PANEL_KEY when set).
+Real owners talk to their agent on Telegram."""
 
 from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 
 from app.agents.bus import message_dict
-from app.api.deps import CtxDep
+from app.api.deps import CtxDep, require_demo_key
 from app.db.models import AgentMessage
 from app.owners.service import OwnerService
 
-router = APIRouter(prefix="/api/owners", tags=["owners"])
+router = APIRouter(prefix="/api/owners", tags=["owners"], dependencies=[Depends(require_demo_key)])
 
 MAX_PHOTO_BYTES = 8 * 1024 * 1024
 PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}

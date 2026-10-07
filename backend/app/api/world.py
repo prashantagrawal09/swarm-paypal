@@ -335,6 +335,35 @@ async def shop_report(code: str, ctx: CtxDep, week: date | None = None) -> dict[
     }
 
 
+@router.get("/products")
+async def products(ctx: CtxDep) -> list[dict[str, Any]]:
+    """Every product (brand variants grouped) with its SKUs and who sells them."""
+    rows = await ctx.session.execute(
+        select(Item, Supplier.code)
+        .join(SupplierItem, SupplierItem.item_id == Item.id)
+        .join(Supplier, Supplier.id == SupplierItem.supplier_id)
+        .order_by(Item.category, Item.product_code, Item.brand)
+    )
+    grouped: dict[str, dict[str, Any]] = {}
+    for item, supplier_code in rows.all():
+        w = wording(item.product_code)
+        entry = grouped.setdefault(
+            item.product_code,
+            {
+                "product": item.product_code,
+                "name": w.name,
+                "unit": w.unit,
+                "units": w.units,
+                "category": item.category.value,
+                "skus": [],
+            },
+        )
+        entry["skus"].append(
+            {"sku": item.sku, "brand": item.brand, "name": item.name, "supplier": supplier_code}
+        )
+    return list(grouped.values())
+
+
 # ---------------------------------------------------------------------------------------
 # Suppliers
 # ---------------------------------------------------------------------------------------

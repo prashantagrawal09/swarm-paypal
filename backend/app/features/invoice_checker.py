@@ -399,6 +399,17 @@ async def issue(ctx: Ctx, group_id: uuid.UUID, *, markup: dict[str, int] | None 
     )
     ctx.session.add(invoice)
     await ctx.session.commit()
+    await ctx.bus.emit(
+        "invoice_sent",
+        {
+            "supplier": supplier.code,
+            "invoice_number": number,
+            "amount_cents": total,
+            "paypal_id": remote.id,
+            "mode": supplier.paypal_mode.value,
+            "via": billing.via,
+        },
+    )
     await ctx.bus.publish(
         ctx.session,
         conversation_id=f"invoice:{group.id}",
@@ -430,6 +441,18 @@ async def review(ctx: Ctx, invoice_id: uuid.UUID) -> Invoice:
     await ctx.session.commit()
     supplier_agent = (
         f"supplier:{group.awarded_supplier.code}" if group.awarded_supplier else "supplier"
+    )
+    await ctx.bus.emit(
+        "invoice_checked",
+        {
+            "supplier": group.awarded_supplier.code if group.awarded_supplier else None,
+            "invoice_number": invoice.invoice_number,
+            "amount_cents": invoice.total_cents,
+            "approved": report.approved,
+            "overcharge_cents": report.overcharge_cents,
+            "paypal_id": invoice.paypal_invoice_id,
+            "mode": invoice.paypal_mode.value,
+        },
     )
     if report.approved:
         text = f"Invoice {invoice.invoice_number} checked: {report.summary()} Paying now."
@@ -466,6 +489,16 @@ async def reissue(ctx: Ctx, invoice_id: uuid.UUID) -> Invoice:
         )
     old.paypal_status = "CANCELLED"
     await ctx.session.commit()
+    await ctx.bus.emit(
+        "invoice_cancelled",
+        {
+            "supplier": supplier.code,
+            "invoice_number": old.invoice_number,
+            "amount_cents": old.total_cents,
+            "paypal_id": old.paypal_invoice_id,
+            "mode": old.paypal_mode.value,
+        },
+    )
     await ctx.bus.publish(
         ctx.session,
         conversation_id=f"invoice:{old.group_order_id}",

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from collections.abc import Callable
+from datetime import datetime, timedelta
 from typing import Any, ClassVar
 
-from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy import DateTime, MetaData, event, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 # Stable constraint names so Alembic autogenerate produces clean, reviewable migrations.
 NAMING_CONVENTION = {
@@ -36,3 +37,38 @@ class Timestamps:
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+# ---------------------------------------------------------------------------------------
+# Business-time stamps
+# ---------------------------------------------------------------------------------------
+# In demo mode the app runs on the Swarm Clock, so new rows are stamped with its time
+# rather than the database's wall clock; otherwise a payment made on "Thursday 08:00"
+# would show today's real time. Rows created in the same instant get microsecond steps so
+# they still sort in creation order.
+
+_now: Callable[[], datetime] | None = None
+_last: datetime | None = None
+
+
+def stamp_rows_with(now: Callable[[], datetime] | None) -> None:
+    """Use `now` for new rows' created_at (None restores the database default)."""
+    global _now, _last
+    _now, _last = now, None
+
+
+def _next_stamp(now: datetime) -> datetime:
+    global _last
+    if _last is not None and timedelta(0) <= _last - now < timedelta(seconds=1):
+        now = _last + timedelta(microseconds=1)
+    _last = now
+    return now
+
+
+@event.listens_for(Session, "before_flush")
+def _stamp_new_rows(session: Session, _context: Any, _instances: Any) -> None:
+    if _now is None:
+        return
+    for obj in session.new:
+        if isinstance(obj, Timestamps) and obj.created_at is None:
+            obj.created_at = obj.updated_at = _next_stamp(_now())

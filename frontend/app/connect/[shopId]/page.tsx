@@ -1,12 +1,30 @@
-import { ComingSoon } from "@/components/coming-soon";
+import type { Metadata } from "next";
 
-export default async function ConnectPage({ params }: PageProps<"/connect/[shopId]">) {
+import { ConnectFlow } from "@/components/connect-flow";
+
+export const metadata: Metadata = { title: "Connect PayPal", robots: { index: false } };
+
+function first(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function ConnectPage({
+  params,
+  searchParams,
+}: PageProps<"/connect/[shopId]">) {
   const { shopId } = await params;
+  const query = await searchParams;
   return (
-    <ComingSoon
-      title={`Connect PayPal for ${shopId}`}
-      summary="A one-time PayPal approval that lets this shop's agent place holds for future group orders without the owner logging in."
-      phase={5}
+    <ConnectFlow
+      // A new approval (fresh query) starts the flow over.
+      key={JSON.stringify(query)}
+      code={shopId}
+      params={{
+        t: first(query.t),
+        sim_order: first(query.sim_order),
+        token: first(query.token),
+        cancelled: first(query.cancelled),
+      }}
     />
   );
 }

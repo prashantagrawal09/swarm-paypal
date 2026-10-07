@@ -7,7 +7,7 @@
 | 2 | Data model and money engine | Done |
 | 3 | Agents and negotiation | Done |
 | 4 | Telegram bot | Done (needs your bot token to go live) |
-| 5 | Web app | Not started |
+| 5 | Web app | Done |
 | 6 | Hero features F2–F5 | Done (backend; UI in phase 5) |
 | 7 | Supporting features and polish | Not started |
 | 8 | Deploy and submission | Not started |
@@ -287,3 +287,77 @@ Phase 6's backend was built before the phase 5 web app, so the UI could show eve
 **Manual steps for you**
 - Optional: create a Telegram bot (`docs/telegram-setup.md`, 2 minutes) and put
   `TELEGRAM_BOT_TOKEN` in `.env`. Without it, use the web phone in the demo panel.
+
+---
+
+## Phase 5: Web app
+
+**Built**
+- **Design system** (`app/globals.css`, `components/ui.tsx`): light and dark tokens (system,
+  light or dark, chosen in the header and applied before paint), a honey brand colour, and a
+  validated categorical palette with one fixed colour per supplier, never by rank. Status
+  colours always come with an icon and a word. Cards, pills, buttons and meters are shared.
+- **Live data layer**:
+  - One SSE connection for the whole app (`lib/live.tsx`) keeps agent messages and PayPal
+    events, marks which shop just had activity, and revalidates every SWR query shortly
+    after anything happens, so all the numbers agree.
+  - Typed API client (`lib/api.ts`).
+- **Live board** (`/live`):
+  - the week's headline saving with a count-up, and stat tiles for PayPal calls, money
+    held, charged, paid out, fee and the ledger check;
+  - the eight-step week;
+  - an SVG map of Tiong Bahru: shop pins coloured by where each shop's week stands, pulses
+    when an agent talks, arcs for neighbour swaps;
+  - group order cards with the price ladder (one shop alone vs. the pooled tier vs. the
+    negotiated price) and the negotiation chart (landed price per supplier per round);
+  - the agent conversation (filterable) and the PayPal feed (live events plus history,
+    REAL/SIM badges).
+- **Demo panel** (`/demo`):
+  - next step, run the rest of the week, reset;
+  - the five surprises with editable details, surplus and emergency also "now";
+  - the owner's phone (same chat, buttons, text and photos as Telegram);
+  - the operator's claims queue with the claims agent's assessment;
+  - what the server runs with, and the panel log;
+  - a prompt for `DEMO_PANEL_KEY` when the server asks for one.
+- **Shops** (`/shops`, `/shop/[id]`):
+  - savings and spend against the weekly limit;
+  - alone vs. Swarm per category;
+  - orders, PayPal activity, neighbour swaps and claims in AG Grid (themed from the same
+    tokens);
+  - owner decisions and what the agent knows (usual week, brand rules);
+  - the owner's chat.
+- **Suppliers** (`/suppliers`, `/supplier/[id]`): catalog and volume tiers (floors never
+  shown), invoices with the coordinator's check (rejections spelled out), quotes and payouts.
+- **Group order** (`/orders/[id]`): every product's ladder, the negotiation, each shop's
+  hold / charge / refund and authorization ID, invoices and payouts, and the conversation.
+- **Money** (`/money`): every PayPal payment (filter REAL / simulated), ledger balances with
+  the invariant check, recent invoices, flash deals.
+- **Connect PayPal** (`/connect/[shopId]`): explains the S$1.00 check, sends REAL shops to
+  PayPal and finishes when they come back, and shows simulated shops a clearly labelled
+  simulator approval.
+- **Landing page**: the pitch, the week, the PayPal building blocks, the agents, with live
+  numbers.
+- Not-found and error pages, app icon, skip link, keyboard-reachable map pins, reduced motion
+  respected, no sideways scrolling at phone width.
+
+**Backend changes made for the UI**
+- Owner links are signed (`app/security.py`, new `SECRET_KEY`):
+  - Outside demo mode, `/start` needs an invite from `python -m app.cli invite <shop>`, so
+    nobody can link a chat to a shop by guessing its code.
+  - The connect API needs the owner's signed link (the bot's new `/connect` command hands
+    it out), so nobody can attach their wallet to someone else's shop.
+  - The web phone endpoints are demo-only (behind the demo guard).
+- New rows are stamped with the Swarm Clock, so payments, approvals and invoices show demo-week
+  times. Rows created in the same instant keep their creation order.
+- Invoice events (sent, checked, cancelled) go on the live stream; `/api/products` lists
+  products and SKUs; `/api/agent-messages` can return the latest messages.
+
+**Works**
+- 236 backend tests pass. eslint, tsc and `next build` are clean.
+- Checked in the browser at desktop and phone widths, light and dark. Reset, then run the
+  week: the board fills in live, pins go from held to charged, and the swaps draw their arcs.
+  The week ends with S$2,327 saved, 90 PayPal calls and the books balanced. Connect PayPal
+  completes end to end against the simulator.
+
+**Manual steps for you**
+- Set `SECRET_KEY` in `.env` before running with `DEMO_MODE=false`.

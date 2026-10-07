@@ -143,7 +143,7 @@ Safety rules, enforced in code:
 - **PayPal Agent Toolkit** (Python): invoicing actions for supplier agents.
 - **LLM:** Anthropic API (model configurable via ANTHROPIC_MODEL).
 - **Backend:** Python 3.11, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, httpx, PostgreSQL.
-- **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS, AG Grid Community.
+- **Frontend:** Next.js (App Router), React 19, TypeScript, Tailwind CSS v4, AG Grid Community, SWR, Motion, Lucide icons.
 - **Messaging:** Telegram Bot API (python-telegram-bot).
 - **Hosting:** Render.
 
@@ -181,6 +181,17 @@ make smoke                    # the same steps against the real PayPal sandbox
 
 `make smoke` prints an approval link partway through; open it, log in as the sandbox buyer
 and approve. It ends with a PASS/FAIL table.
+
+### Owners in production
+
+With `DEMO_MODE=false`, owners are invited rather than picking a shop code:
+
+```bash
+cd backend && .venv/bin/python -m app.cli invite cafe-mei --bot YourSwarmBot
+```
+
+It prints a signed `/start` invite for Telegram and a signed Connect PayPal link (both need
+`SECRET_KEY`). In the chat, `/connect` gives the owner a fresh link at any time.
 
 ### Checks
 

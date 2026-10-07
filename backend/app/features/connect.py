@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import uuid
 from typing import Any
+from urllib.parse import quote
 
 from app.db.app_state import get_state, set_state
 from app.db.enums import PayPalModeEnum
@@ -23,24 +24,28 @@ from app.paypal.simulated import SimulatedPayPalClient
 CHECK_CENTS = 100
 
 
-async def start(ctx: Ctx, shop_code: str) -> dict[str, Any]:
+async def start(ctx: Ctx, shop_code: str, link_token: str | None = None) -> dict[str, Any]:
+    """Creates the S$1.00 check order. `link_token` (the owner's signed link) rides along on
+    the return URL so the page PayPal sends the owner back to can finish the job."""
     shop = await ctx.shop(shop_code)
     gateway = ctx.runtime.registry.platform(shop.paypal_mode.value)
     frontend = ctx.runtime.settings.public_frontend_url.rstrip("/")
+    page = f"{frontend}/connect/{shop.code}"
+    signed = f"t={quote(link_token)}&" if link_token else ""
     order = await gateway.create_order(
         CreateOrderRequest(
             amount=Money(CHECK_CENTS, shop.currency),
             reference_id=f"connect-{shop.code}"[:60],
             description="Swarm: connect your PayPal (S$1.00 check, released straight away)",
             save_payment_method=True,
-            return_url=f"{frontend}/connect/{shop.code}",
-            cancel_url=f"{frontend}/connect/{shop.code}?cancelled=1",
+            return_url=f"{page}?{signed}".rstrip("?&"),
+            cancel_url=f"{page}?{signed}cancelled=1",
         ),
         idempotency_key=f"connect:{shop.id.hex}:{uuid.uuid4().hex[:10]}",
     )
     approve_url = order.approve_url
     if shop.paypal_mode == PayPalModeEnum.SIMULATED:
-        approve_url = f"{frontend}/connect/{shop.code}?sim_order={order.id}"
+        approve_url = f"{page}?{signed}sim_order={order.id}"
     await set_state(
         ctx.session, f"connect:{shop.code}", {"order_id": order.id, "mode": shop.paypal_mode.value}
     )

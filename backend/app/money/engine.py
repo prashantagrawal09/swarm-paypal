@@ -1069,6 +1069,7 @@ class MoneyEngine:
             amount_cents=swap.price_cents,
             capture_paypal_id=charge.paypal_id,
             payout_paypal_id=payout.paypal_id,
+            mode=buyer.paypal_mode,
         )
         return swap
 

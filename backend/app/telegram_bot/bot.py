@@ -33,7 +33,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["telegram"])
 
 COMMANDS = [
-    BotCommand("start", "Link this chat to your shop: /start <shop code>"),
+    BotCommand("start", "Link this chat to your shop with your invite"),
+    BotCommand("connect", "Connect your shop's PayPal"),
     BotCommand("report", "This week's savings"),
     BotCommand("help", "What you can ask me"),
     BotCommand("as", "Demo: act as another shop"),
@@ -54,6 +55,7 @@ def build_application(token: str, runtime: Runtime) -> Application[Any, Any, Any
     application.add_handler(CommandHandler("start", handlers.on_start))
     application.add_handler(CommandHandler("as", handlers.on_as))
     application.add_handler(CommandHandler("shops", handlers.on_shops))
+    application.add_handler(CommandHandler("connect", handlers.on_connect))
     application.add_handler(CommandHandler("report", handlers.on_report))
     application.add_handler(CommandHandler("help", handlers.on_help))
     application.add_handler(CallbackQueryHandler(handlers.on_button))
