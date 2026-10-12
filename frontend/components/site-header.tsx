@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
 
+import { CommandPalette } from "@/components/command-palette";
 import { cx, Logo } from "@/components/ui";
 import type { DemoState } from "@/lib/api";
 import { useLive } from "@/lib/live";
@@ -80,6 +81,7 @@ export function SiteHeader() {
             />
             <span className="hidden sm:inline">{liveWord}</span>
           </span>
+          <CommandPalette />
           <ThemeToggle />
           <button
             className="text-ink-2 hover:bg-surface-2 grid h-8 w-8 place-items-center rounded-lg md:hidden"

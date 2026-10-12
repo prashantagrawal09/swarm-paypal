@@ -155,9 +155,11 @@ export function DemoPanel() {
                   onClick={() =>
                     act(
                       "advance",
-                      "/api/demo/advance",
+                      "/api/demo/advance?paced=true",
                       undefined,
-                      finished ? "Moved to next week." : `Done: ${next?.title ?? "step"}.`,
+                      finished
+                        ? "Starting next week. Watch the live board."
+                        : `Running ${next?.title ?? "the next step"}. Watch the live board.`,
                     )
                   }
                 >

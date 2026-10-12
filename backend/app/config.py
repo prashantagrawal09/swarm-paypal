@@ -7,6 +7,7 @@ supplier's PayPal app) store only an env-var prefix, resolved here via `env_valu
 from __future__ import annotations
 
 import os
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -49,12 +50,21 @@ class Settings(BaseSettings):
     telegram_bot_token: SecretStr | None = None
 
     demo_mode: bool = True
+    # The Monday the demo world starts on. Fixed, so the demo, the docs and the tests agree.
+    demo_week: date = date(2026, 10, 12)
     # Seed the demo world on startup when the database is empty.
     auto_seed: bool = True
     demo_panel_key: SecretStr | None = None
     telegram_webhook_secret: SecretStr | None = None
     # Signs the links Swarm sends owners (connect PayPal). Required when DEMO_MODE=false.
     secret_key: SecretStr | None = None
+
+    @field_validator("demo_week")
+    @classmethod
+    def _monday(cls, value: date) -> date:
+        if value.weekday() != 0:
+            raise ValueError("DEMO_WEEK must be a Monday")
+        return value
 
     @field_validator("database_url", "test_database_url")
     @classmethod

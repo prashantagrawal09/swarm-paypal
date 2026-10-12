@@ -81,8 +81,17 @@ on the demo's Thursday morning shows Thursday 08:00 everywhere.
 The message bus (`app/agents/bus.py`) stores every agent message and broadcasts it, along
 with money engine events (holds, captures, payouts, refunds, invoice checks), to
 `/api/stream` as Server-Sent Events. The web app keeps one `EventSource` open
-(`frontend/lib/live.tsx`) for the feeds, map pulses and swap arcs. Shortly after any event it
-revalidates every cached query, so tiles, grids and charts always agree with the database.
+(`frontend/lib/live.tsx`) and derives everything live from it:
+
+- the two feeds (agent conversation, PayPal activity);
+- **flights** on the swarm map: every message and payment becomes a streak between the two
+  agents involved (`lib/flights.ts` maps agents and money movements to map nodes);
+- the **story** the narrator tells (`lib/story.ts` turns events into one plain sentence);
+- pulses, swap arcs and toasts.
+
+Shortly after any event it revalidates every cached query, so tiles, grids and charts always
+agree with the database. The demo week is fixed (`DEMO_WEEK`, a Monday), so the same numbers
+appear on any day.
 
 ## Who may act for a shop
 

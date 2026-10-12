@@ -28,6 +28,7 @@ import { cx, ModeBadge, Mono } from "@/components/ui";
 import type { AgentMessage, PaymentRow, ShopSummary, SupplierSummary } from "@/lib/api";
 import { agentKind, agentName, initials, money, slotColor, time } from "@/lib/format";
 import { type PayPalEvent, useLive } from "@/lib/live";
+import { paymentEvent } from "@/lib/payment-events";
 
 /** id -> display name for every shop and supplier. */
 export function useNames(): Record<string, string> {
@@ -353,44 +354,6 @@ function eventDetail(event: PayPalEvent): string | null {
   if (event.reason && typeof event.reason === "string") return event.reason;
   if (event.category && event.category !== "SWAP") return String(event.category).toLowerCase();
   return null;
-}
-
-/** A recorded payment as a feed event, for history from before this page was opened. */
-function paymentEvent(row: PaymentRow): PayPalEvent | null {
-  const failed = row.status === "FAILED";
-  const base = {
-    id: `pay-${row.id}`,
-    at: row.at,
-    shop: row.shop?.code,
-    supplier: row.supplier?.code,
-    amount_cents: row.amount_cents,
-    paypal_id: row.paypal_id ?? undefined,
-    mode: row.mode,
-    reason: row.error ?? undefined,
-  };
-  const kind = (() => {
-    switch (row.kind) {
-      case "AUTHORIZATION":
-        return failed ? "hold_failed" : "hold_placed";
-      case "REAUTHORIZATION":
-        return "hold_reauthorized";
-      case "VOID":
-        return "hold_voided";
-      case "REFUND":
-        return "refunded";
-      case "CAPTURE":
-        if (failed) return "capture_failed";
-        return row.related_type === "flash_deal" ? "flash_deal_bought" : "captured";
-      case "SWAP_PAYMENT":
-        return "swap_charged";
-      case "PAYOUT":
-        return row.related_type === "swap" ? "swap_payout" : "supplier_paid";
-      default:
-        return null;
-    }
-  })();
-  if (!kind || (row.status === "PENDING" && !failed)) return null;
-  return { ...base, kind };
 }
 
 export function PayPalFeed({ className, limit = 40 }: { className?: string; limit?: number }) {

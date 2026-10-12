@@ -5,12 +5,17 @@
  * marked positions: one shop buying alone, the pooled group at its tier, and the negotiated
  * price. Single series, so no legend; the three positions are labelled directly.
  * Emphasis form: the ladder is quiet ink, the group's position is the accent.
+ *
+ * When it appears, the group's marker walks down the ladder from one shop's quantity to the
+ * pooled quantity, so you watch the price fall as the orders pool.
  */
 
 import { useId, useState } from "react";
 
 import type { LadderEntry } from "@/lib/api";
 import { money } from "@/lib/format";
+import { niceTicks, thin } from "@/lib/ticks";
+import { useTween } from "@/lib/use-tween";
 import { useWidth } from "@/lib/use-width";
 
 const H = 210;
@@ -20,9 +25,10 @@ export function PriceLadder({ entry, shops }: { entry: LadderEntry; shops: numbe
   const clip = useId();
   const [hover, setHover] = useState<string | null>(null);
   const [frame, W] = useWidth<HTMLElement>(0);
+  const perShop = Math.max(1, Math.round(entry.qty / Math.max(1, shops)));
+  const pooled = useTween(perShop, Math.max(perShop, entry.qty), 1900);
   if (!entry.tiers.length || !entry.qty) return null;
 
-  const perShop = Math.max(1, Math.round(entry.qty / Math.max(1, shops)));
   const lastTier = entry.tiers[entry.tiers.length - 1];
   const xMax = Math.max(entry.qty * 1.18, lastTier.min_qty * 1.35);
   const prices = entry.tiers.map((t) => t.unit_price_cents);
@@ -53,6 +59,10 @@ export function PriceLadder({ entry, shops }: { entry: LadderEntry; shops: numbe
   const ticksY = niceTicks(yMin, yMax, 4);
   const alonePrice = tierAt(perShop);
   const groupPrice = entry.tier_price_cents ?? tierAt(entry.qty);
+  // While the orders are still "pooling" the marker shows the tier reached so far.
+  const pooling = pooled < entry.qty;
+  const shownShops = pooling ? Math.max(1, Math.min(shops, Math.round(pooled / perShop))) : shops;
+  const shownPrice = pooling ? tierAt(pooled) : groupPrice;
   const points = [
     {
       key: "alone",
@@ -63,12 +73,12 @@ export function PriceLadder({ entry, shops }: { entry: LadderEntry; shops: numbe
     },
     {
       key: "group",
-      q: entry.qty,
-      price: groupPrice,
-      label: `${shops} shops: ${money(groupPrice)}`,
+      q: pooled,
+      price: shownPrice,
+      label: `${shownShops} shop${shownShops === 1 ? "" : "s"}: ${money(shownPrice)}`,
       accent: true,
     },
-    ...(agreed !== null && agreed < groupPrice
+    ...(!pooling && agreed !== null && agreed < groupPrice
       ? [
           {
             key: "deal",
@@ -98,6 +108,15 @@ export function PriceLadder({ entry, shops }: { entry: LadderEntry; shops: numbe
                 x={PAD.left}
                 y={PAD.top}
                 width={W - PAD.left - PAD.right}
+                height={H - PAD.top - PAD.bottom}
+              />
+            </clipPath>
+            {/* the stretch of ladder the pooled order has walked down */}
+            <clipPath id={`${clip}-walked`}>
+              <rect
+                x={x(perShop)}
+                y={PAD.top}
+                width={Math.max(0, x(pooled) - x(perShop))}
                 height={H - PAD.top - PAD.bottom}
               />
             </clipPath>
@@ -164,16 +183,24 @@ export function PriceLadder({ entry, shops }: { entry: LadderEntry; shops: numbe
             strokeLinejoin="round"
             clipPath={`url(#${clip})`}
           />
+          <path
+            d={path}
+            fill="none"
+            stroke="var(--s1)"
+            strokeWidth={2.5}
+            strokeLinejoin="round"
+            clipPath={`url(#${clip}-walked)`}
+          />
           <line
-            x1={x(entry.qty)}
-            x2={x(entry.qty)}
+            x1={x(pooled)}
+            x2={x(pooled)}
             y1={PAD.top}
             y2={H - PAD.bottom}
             stroke="var(--s1)"
             strokeOpacity={0.35}
             strokeWidth={1}
           />
-          {agreed !== null && agreed < groupPrice ? (
+          {!pooling && agreed !== null && agreed < groupPrice ? (
             <line
               x1={x(entry.qty)}
               x2={x(entry.qty)}
@@ -227,25 +254,4 @@ export function PriceLadder({ entry, shops }: { entry: LadderEntry; shops: numbe
       </figcaption>
     </figure>
   );
-}
-
-export function niceTicks(min: number, max: number, count: number): number[] {
-  const span = max - min;
-  if (span <= 0) return [min];
-  const raw = span / count;
-  const magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
-  const step =
-    [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => span / s <= count + 1) ?? raw;
-  const ticks: number[] = [];
-  for (let v = Math.ceil(min / step) * step; v <= max; v += step) ticks.push(Math.round(v));
-  return ticks;
-}
-
-/** Drops tick labels that would sit closer than `gap` px to the previous one. */
-export function thin<T extends { x: number }>(ticks: T[], gap: number): T[] {
-  const kept: T[] = [];
-  for (const tick of ticks) {
-    if (!kept.length || tick.x - kept[kept.length - 1].x >= gap) kept.push(tick);
-  }
-  return kept;
 }

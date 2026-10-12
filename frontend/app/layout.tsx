@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { SiteHeader } from "@/components/site-header";
+import { Toaster } from "@/components/toaster";
 import { THEME_SCRIPT } from "@/lib/theme";
 
 import { Providers } from "./providers";
@@ -51,6 +52,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <span>Payments by PayPal (sandbox). Agents suggest; code decides every amount.</span>
             </div>
           </footer>
+          <Toaster />
         </Providers>
       </body>
     </html>

@@ -464,3 +464,23 @@ export type Product = {
   category: string;
   skus: { sku: string; brand: string; name: string; supplier: string }[];
 };
+
+export type MoneyFlow = {
+  week: string;
+  charged_cents: number;
+  suppliers_cents: number;
+  neighbours_cents: number;
+  refunds_cents: number;
+  fee_cents: number;
+  owed_cents: number;
+  held_cents: number;
+  shops: {
+    code: string;
+    name: string;
+    mode: Mode;
+    charged_cents: number;
+    refunded_cents: number;
+    received_cents: number;
+  }[];
+  suppliers: { code: string; name: string; mode: Mode; paid_cents: number }[];
+};

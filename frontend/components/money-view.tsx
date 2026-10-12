@@ -2,16 +2,17 @@
 
 /** Where every cent went: PayPal activity, the double-entry ledger, invoices and flash deals. */
 
-import { BookCheck, BookX, Scale, Zap } from "lucide-react";
+import { BookCheck, BookX, Scale, Waypoints, Zap } from "lucide-react";
 import { useState } from "react";
 import useSWR from "swr";
 
+import { MoneyFlowChart } from "@/components/charts/money-flow";
 import { useNames } from "@/components/feeds";
 import { PaymentsGrid } from "@/components/grids";
 import { StatTile } from "@/components/stats";
 import { InvoiceCard } from "@/components/supplier-view";
 import { Card, CardHeader, cx, Empty, Status } from "@/components/ui";
-import type { FlashDeal, InvoiceRow, Ledger, Mode, PaymentRow } from "@/lib/api";
+import type { FlashDeal, InvoiceRow, Ledger, Mode, MoneyFlow, PaymentRow } from "@/lib/api";
 import { dayTime, money } from "@/lib/format";
 
 const ACCOUNT_LABEL: Record<string, string> = {
@@ -42,6 +43,7 @@ export function MoneyView() {
     `/api/payments?limit=300${mode ? `&mode=${mode}` : ""}`,
   );
   const { data: ledger } = useSWR<Ledger>("/api/ledger");
+  const { data: flow } = useSWR<MoneyFlow>("/api/money-flow");
   const { data: invoices } = useSWR<InvoiceRow[]>("/api/invoices?limit=12");
   const { data: deals } = useSWR<FlashDeal[]>("/api/flash-deals");
   const names = useNames();
@@ -89,6 +91,17 @@ export function MoneyView() {
           detail="retried safely with the same request ID"
         />
       </div>
+
+      <Card className="mt-6">
+        <CardHeader
+          title="Where the money went this week"
+          subtitle="Shops are charged only for what arrived. It passes through Swarm's PayPal balance to suppliers, neighbours and refunds; Swarm keeps its fee."
+          icon={Waypoints}
+        />
+        <div className="px-5 pb-4">
+          {flow ? <MoneyFlowChart flow={flow} /> : <div className="h-[440px]" />}
+        </div>
+      </Card>
 
       <Card className="mt-6">
         <CardHeader

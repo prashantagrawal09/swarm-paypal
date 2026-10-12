@@ -4,6 +4,7 @@
 
 import {
   ArrowRight,
+  Play,
   BadgeDollarSign,
   Bot,
   Calculator,
@@ -11,7 +12,6 @@ import {
   Hand,
   Handshake,
   Landmark,
-  Leaf,
   MessagesSquare,
   Repeat2,
   ShieldCheck,
@@ -21,12 +21,17 @@ import {
   Vault,
   Webhook,
 } from "lucide-react";
+import { motion } from "motion/react";
 import useSWR from "swr";
 
+import { useNames } from "@/components/feeds";
+import { Reveal } from "@/components/reveal";
 import { AnimatedNumber } from "@/components/stats";
-import { ButtonLink, Card, Logo } from "@/components/ui";
-import type { Overview } from "@/lib/api";
-import { kg, moneyWhole } from "@/lib/format";
+import { SwarmMap } from "@/components/swarm-map";
+import { ButtonLink, Card, cx, Logo } from "@/components/ui";
+import type { Overview, ShopSummary, SupplierSummary } from "@/lib/api";
+import { agentName, kg, moneyWhole } from "@/lib/format";
+import { useLive } from "@/lib/live";
 
 const WEEK = [
   {
@@ -130,18 +135,38 @@ const AGENTS = [
 
 export function Landing() {
   const { data } = useSWR<Overview>("/api/overview");
+  const { data: shops } = useSWR<ShopSummary[]>("/api/shops");
+  const { data: suppliers } = useSWR<SupplierSummary[]>("/api/suppliers");
+  const { connected, messages } = useLive();
+  const names = useNames();
   const stats = data?.stats;
+  // Agent-to-agent talk only (owner chats are private to the owner), without the repeats a
+  // broadcast produces.
+  const recent = messages
+    .filter((m) => !m.from.startsWith("owner:") && !m.to.startsWith("owner:"))
+    .filter(
+      (m, index, all) => all.findIndex((o) => o.from === m.from && o.text === m.text) === index,
+    )
+    .slice(-10);
 
   return (
     <div className="flex flex-col">
       {/* Hero */}
       <section className="honeycomb border-line relative overflow-hidden border-b">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-center">
-          <div>
+        <div
+          className="bg-honey/25 pointer-events-none absolute -top-48 right-[-8%] h-[520px] w-[520px] rounded-full blur-3xl"
+          aria-hidden
+        />
+        <div className="relative mx-auto grid max-w-7xl grid-cols-1 gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
             <p className="border-line bg-surface text-ink-2 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium">
               <Logo className="h-4 w-4" /> Tiong Bahru, Singapore
             </p>
-            <h1 className="text-ink mt-5 text-4xl leading-[1.05] font-semibold tracking-tight sm:text-6xl">
+            <h1 className="text-ink mt-5 text-4xl leading-[1.04] font-semibold tracking-tight text-balance sm:text-6xl">
               Small shops buy alone and pay retail.
               <span className="text-ink-2 block">Swarm lets them buy like a chain.</span>
             </h1>
@@ -151,55 +176,118 @@ export function Landing() {
               arrives.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
+              <ButtonLink href="/live?play=1" variant="honey" className="px-5 py-2.5">
+                <Play className="h-4 w-4" aria-hidden /> Watch a week run
+              </ButtonLink>
               <ButtonLink href="/live" variant="primary" className="px-5 py-2.5">
-                Watch the live board <ArrowRight className="h-4 w-4" aria-hidden />
+                Open the live board <ArrowRight className="h-4 w-4" aria-hidden />
               </ButtonLink>
-              <ButtonLink href="/demo" className="px-5 py-2.5">
-                Run a week yourself
-              </ButtonLink>
+            </div>
+            <p className="text-muted mt-4 text-xs">
+              Two minutes, start to finish. Nothing to install, no login.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
+          >
+            <Card className="overflow-hidden">
+              <div className="flex items-start justify-between gap-4 px-5 pt-5">
+                <div>
+                  <div className="text-ink-2 text-xs font-medium">This week in Tiong Bahru</div>
+                  <div className="tabular text-ink mt-1 text-5xl font-semibold tracking-tight">
+                    <AnimatedNumber value={stats?.saved_cents ?? 0} format={moneyWhole} />
+                  </div>
+                  <div className="text-ink-2 text-sm">
+                    saved by {stats?.shops ?? 12} independent shops
+                  </div>
+                </div>
+                <span className="border-line text-ink-2 inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs">
+                  <span
+                    className={cx(
+                      "h-2 w-2 rounded-full",
+                      connected ? "live-dot bg-good" : "bg-muted",
+                    )}
+                    aria-hidden
+                  />
+                  {data?.running ? "Running now" : connected ? "Live" : "Connecting"}
+                </span>
+              </div>
+              <div className="px-2 pt-1">
+                {shops ? (
+                  <SwarmMap
+                    shops={shops}
+                    suppliers={suppliers}
+                    heldCents={stats?.holds_outstanding_cents ?? 0}
+                    interactive={false}
+                  />
+                ) : (
+                  <div className="aspect-[720/500]" />
+                )}
+              </div>
+              <dl className="border-line bg-line grid grid-cols-2 gap-px border-t text-sm sm:grid-cols-4">
+                {[
+                  {
+                    label: "Won by negotiating",
+                    value: (
+                      <AnimatedNumber
+                        value={stats?.negotiation_saved_cents ?? 0}
+                        format={moneyWhole}
+                      />
+                    ),
+                  },
+                  { label: "Food not wasted", value: kg(stats?.food_saved_grams ?? 0) },
+                  {
+                    label: "PayPal calls",
+                    value: (
+                      <AnimatedNumber
+                        value={
+                          (stats?.paypal_calls.REAL ?? 0) + (stats?.paypal_calls.SIMULATED ?? 0)
+                        }
+                        format={(v) => v.toLocaleString("en-SG")}
+                      />
+                    ),
+                  },
+                  {
+                    label: "Books",
+                    value: stats ? (stats.books_balanced ? "Balanced" : "Check") : "-",
+                  },
+                ].map((item) => (
+                  <div key={item.label} className="bg-surface px-4 py-3">
+                    <dt className="text-muted text-[11px]">{item.label}</dt>
+                    <dd className="tabular text-ink mt-0.5 font-semibold">{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* What the agents are saying, as it happens */}
+        {recent.length ? (
+          <div
+            className="border-line bg-surface/70 relative border-t backdrop-blur"
+            aria-label="Latest agent messages"
+          >
+            <div className="marquee-mask overflow-hidden py-2.5">
+              <ul className="marquee text-ink-2 gap-10 text-xs">
+                {[...recent, ...recent].map((message, index) => (
+                  <li
+                    key={`${message.id}-${index}`}
+                    className="flex shrink-0 items-center gap-2"
+                    aria-hidden={index >= recent.length}
+                  >
+                    <span className="bg-honey h-1.5 w-1.5 rounded-full" aria-hidden />
+                    <span className="text-ink font-medium">{agentName(message.from, names)}</span>
+                    <span className="max-w-[46ch] truncate">{message.text}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
-          <Card className="p-6">
-            <div className="text-ink-2 text-xs font-medium">This week in Tiong Bahru</div>
-            <div className="tabular text-ink mt-2 text-5xl font-semibold tracking-tight">
-              <AnimatedNumber value={stats?.saved_cents ?? 0} format={moneyWhole} />
-            </div>
-            <div className="text-ink-2 text-sm">
-              saved by {stats?.shops ?? 12} independent shops
-            </div>
-            <dl className="border-line mt-6 grid grid-cols-2 gap-4 border-t pt-5 text-sm">
-              <div>
-                <dt className="text-muted text-xs">Won by negotiating</dt>
-                <dd className="tabular text-ink mt-0.5 font-semibold">
-                  <AnimatedNumber value={stats?.negotiation_saved_cents ?? 0} format={moneyWhole} />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted flex items-center gap-1 text-xs">
-                  <Leaf className="h-3 w-3" aria-hidden /> Food not wasted
-                </dt>
-                <dd className="tabular text-ink mt-0.5 font-semibold">
-                  {kg(stats?.food_saved_grams ?? 0)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted text-xs">PayPal API calls</dt>
-                <dd className="tabular text-ink mt-0.5 font-semibold">
-                  <AnimatedNumber
-                    value={(stats?.paypal_calls.REAL ?? 0) + (stats?.paypal_calls.SIMULATED ?? 0)}
-                    format={(v) => v.toLocaleString("en-SG")}
-                  />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted text-xs">Books</dt>
-                <dd className="text-ink mt-0.5 font-semibold">
-                  {stats ? (stats.books_balanced ? "Balanced" : "Check") : "-"}
-                </dd>
-              </div>
-            </dl>
-          </Card>
-        </div>
+        ) : null}
       </section>
 
       {/* The week */}
@@ -209,9 +297,9 @@ export function Landing() {
           The owners spend about a minute on their phones. The agents do the rest.
         </p>
         <ol className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {WEEK.map(({ day, title, body, icon: Icon }) => (
-            <li key={title}>
-              <Card className="h-full p-5">
+          {WEEK.map(({ day, title, body, icon: Icon }, index) => (
+            <Reveal as="li" key={title} delay={(index % 3) * 0.08}>
+              <Card className="hover:border-line-strong h-full p-5 transition-colors">
                 <div className="flex items-center gap-2">
                   <span
                     className="bg-honey-soft text-honey-ink grid h-8 w-8 place-items-center rounded-lg"
@@ -226,7 +314,7 @@ export function Landing() {
                 <h3 className="text-ink mt-3 font-medium">{title}</h3>
                 <p className="text-ink-2 mt-1 text-sm">{body}</p>
               </Card>
-            </li>
+            </Reveal>
           ))}
         </ol>
       </section>
@@ -242,14 +330,14 @@ export function Landing() {
             idempotent, recorded, and reconciled against a double-entry ledger.
           </p>
           <ul className="mt-8 grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
-            {PAYPAL.map(({ icon: Icon, title, body }) => (
-              <li key={title} className="flex gap-3">
+            {PAYPAL.map(({ icon: Icon, title, body }, index) => (
+              <Reveal as="li" key={title} className="flex gap-3" delay={(index % 4) * 0.06}>
                 <Icon className="text-real mt-0.5 h-5 w-5 shrink-0" aria-hidden />
                 <div>
                   <h3 className="text-ink text-sm font-semibold">{title}</h3>
                   <p className="text-ink-2 mt-0.5 text-sm">{body}</p>
                 </div>
-              </li>
+              </Reveal>
             ))}
           </ul>
         </div>
@@ -274,14 +362,14 @@ export function Landing() {
             </div>
           </div>
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {AGENTS.map(({ icon: Icon, title, body }) => (
-              <li key={title}>
-                <Card className="h-full p-5">
+            {AGENTS.map(({ icon: Icon, title, body }, index) => (
+              <Reveal as="li" key={title} delay={(index % 2) * 0.08}>
+                <Card className="hover:border-line-strong h-full p-5 transition-colors">
                   <Icon className="text-ink h-5 w-5" aria-hidden />
                   <h3 className="text-ink mt-3 font-medium">{title}</h3>
                   <p className="text-ink-2 mt-1 text-sm">{body}</p>
                 </Card>
-              </li>
+              </Reveal>
             ))}
           </ul>
         </div>
@@ -289,16 +377,14 @@ export function Landing() {
           <Bot className="text-honey-ink h-6 w-6" aria-hidden />
           <h2 className="text-ink text-xl font-semibold">See a whole week in two minutes</h2>
           <p className="text-ink-2 max-w-lg text-sm">
-            Open the live board in one window and the demo panel in another, then press &ldquo;Run
-            the rest of the week&rdquo;.
+            One button runs the whole week on the live board. The demo panel lets you change what
+            goes wrong and play any shop owner on their phone.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <ButtonLink href="/live" variant="primary">
-              Live board
+            <ButtonLink href="/live?play=1" variant="honey">
+              <Play className="h-4 w-4" aria-hidden /> Watch a week run
             </ButtonLink>
-            <ButtonLink href="/demo" variant="honey">
-              Demo panel
-            </ButtonLink>
+            <ButtonLink href="/demo">Demo panel</ButtonLink>
           </div>
         </div>
       </section>

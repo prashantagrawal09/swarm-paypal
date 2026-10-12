@@ -39,8 +39,9 @@ backend: ## Run the API with auto-reload on :8000
 frontend: ## Run the web app on :3000
 	cd frontend && npm run dev
 
-test: ## Run backend tests
+test: ## Run backend and frontend tests
 	cd backend && .venv/bin/pytest
+	cd frontend && npm run -s test
 
 lint: ## Lint and type-check backend and frontend
 	cd backend && .venv/bin/ruff check . && .venv/bin/ruff format --check . && .venv/bin/mypy app scripts

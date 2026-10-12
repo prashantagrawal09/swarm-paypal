@@ -102,7 +102,7 @@ export function OrderView({ id }: { id: string }) {
       minWidth: 120,
       cellRenderer: (p: ICellRendererParams) =>
         p.value ? (
-          <div className="flex h-full items-center">
+          <div className="flex h-full items-center leading-normal">
             <Status value={p.value} />
           </div>
         ) : null,
@@ -114,7 +114,7 @@ export function OrderView({ id }: { id: string }) {
       valueGetter: (p) => p.data?.shop.mode,
       cellRenderer: (p: ICellRendererParams) =>
         p.value ? (
-          <div className="flex h-full items-center">
+          <div className="flex h-full items-center leading-normal">
             <ModeBadge mode={p.value} compact />
           </div>
         ) : null,

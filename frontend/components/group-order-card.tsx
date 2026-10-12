@@ -144,7 +144,7 @@ export function GroupOrderCard({
             ) : null}
           </div>
           {view === "ladder" && entry ? (
-            <PriceLadder entry={entry} shops={group.shops} />
+            <PriceLadder key={entry.product} entry={entry} shops={group.shops} />
           ) : view === "rounds" ? (
             <NegotiationChart group={group} />
           ) : null}

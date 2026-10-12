@@ -14,6 +14,7 @@ from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.clock import SwarmClock, at_local, local_time, week_day, week_start
 from app.db.app_state import set_state
@@ -122,33 +123,59 @@ async def advance(ctx: Ctx) -> dict[str, Any]:
     return {"step": step.key if step else None, "result": result}
 
 
-async def run_rest_of_week(runtime: Runtime) -> None:
-    """Background task: every remaining step, paced for viewers."""
-    runtime.bus.pace_seconds = RUN_WEEK_PACE_SECONDS
+async def run_paced(
+    runtime: Runtime,
+    *,
+    steps: int | None = None,
+    sessions: async_sessionmaker[AsyncSession] | None = None,
+    pace: float = RUN_WEEK_PACE_SECONDS,
+) -> None:
+    """Background task: the next `steps` steps (every remaining one when None), with a short
+    pause after each agent message so the live board can be followed."""
+    sessions = sessions or get_sessionmaker()
+    runtime.bus.pace_seconds = pace
     try:
         async with runtime.demo_lock:
-            while True:
-                async with get_sessionmaker()() as session:
+            done = 0
+            while steps is None or done < steps:
+                async with sessions() as session:
                     ctx = Ctx(session, runtime)
-                    runner = runner_for(ctx)
-                    if await runner.next_step() is None:
-                        await log(ctx, "week_complete", {"week": str(runner.week)})
-                        break
-                    step, _ = await runner.run_next()
-                    await log(ctx, "advance", {"step": step.key if step else None, "auto": True})
-                await asyncio.sleep(RUN_WEEK_PACE_SECONDS * 3)
+                    await runtime.reload_clock(session)
+                    if steps is None:
+                        runner = runner_for(ctx)
+                        if await runner.next_step() is None:
+                            await log(ctx, "week_complete", {"week": str(runner.week)})
+                            break
+                        step, _ = await runner.run_next()
+                        await log(
+                            ctx, "advance", {"step": step.key if step else None, "auto": True}
+                        )
+                    else:
+                        await advance(ctx)  # also rolls over to the next week when done
+                done += 1
+                await asyncio.sleep(pace * 3)
     except Exception:
-        logger.exception("Run-week failed")
+        logger.exception("Paced run failed")
         raise
     finally:
         runtime.bus.pace_seconds = 0.0
 
 
-def start_run_week(runtime: Runtime) -> bool:
+def _start(runtime: Runtime, steps: int | None) -> bool:
     if runtime.background is not None and not runtime.background.done():
         return False
-    runtime.background = asyncio.create_task(run_rest_of_week(runtime))
+    runtime.background = asyncio.create_task(run_paced(runtime, steps=steps))
     return True
+
+
+def start_run_week(runtime: Runtime) -> bool:
+    """Every remaining step, in the background. False when something is already running."""
+    return _start(runtime, None)
+
+
+def start_run_step(runtime: Runtime) -> bool:
+    """Just the next step, in the background, paced like the full run."""
+    return _start(runtime, 1)
 
 
 async def inject(ctx: Ctx, kind: str, params: dict[str, Any], now: bool = False) -> dict[str, Any]:

@@ -37,13 +37,23 @@ export function ShopDirectory() {
         ) : null}
       </div>
       {shops && shops.length === 0 ? <Empty>No shops yet. Run make seed.</Empty> : null}
+      {!shops ? (
+        <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-hidden>
+          {Array.from({ length: 6 }, (_, index) => (
+            <li
+              key={index}
+              className="border-line bg-surface h-[168px] animate-pulse rounded-2xl border"
+            />
+          ))}
+        </ul>
+      ) : null}
       <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {(shops ?? []).map((shop) => {
           const recent = activity[shop.code];
           return (
             <li key={shop.code}>
               <Link href={`/shop/${shop.code}`} className="group block h-full">
-                <Card className="group-hover:border-line-strong flex h-full flex-col p-4 transition">
+                <Card className="group-hover:border-line-strong flex h-full flex-col p-4 transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-lg">
                   <div className="flex items-start gap-3">
                     <span className="bg-surface-2 text-ink relative grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold">
                       {initials(shop.name).toUpperCase()}
@@ -147,7 +157,7 @@ export function SupplierDirectory() {
         {(suppliers ?? []).map((supplier) => (
           <li key={supplier.code}>
             <Link href={`/supplier/${supplier.code}`} className="group block h-full">
-              <Card className="group-hover:border-line-strong flex h-full flex-col p-5 transition">
+              <Card className="group-hover:border-line-strong flex h-full flex-col p-5 transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-lg">
                 <div className="flex items-center gap-2">
                   <span
                     className="h-3 w-3 rounded-full"

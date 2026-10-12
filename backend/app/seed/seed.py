@@ -102,7 +102,11 @@ async def seed_world(
     simulate_all: bool = False,
 ) -> SeedResult:
     settings = settings or get_settings()
-    week = demo_week_start or next_monday(date.today())
+    # The demo runs on the Swarm Clock, so its week is fixed (same numbers every time, on any
+    # day); outside demo mode the first week is simply next week.
+    week = demo_week_start or (
+        settings.demo_week if settings.demo_mode else next_monday(date.today())
+    )
     if week.weekday() != 0:
         raise ValueError("The demo week must start on a Monday")
     rng = random.Random(rng_seed)

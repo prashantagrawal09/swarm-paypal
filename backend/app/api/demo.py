@@ -33,9 +33,15 @@ async def state(ctx: CtxDep) -> dict[str, Any]:
 
 
 @router.post("/advance")
-async def advance(ctx: CtxDep, _: Guard) -> dict[str, Any]:
+async def advance(ctx: CtxDep, _: Guard, paced: bool = False) -> dict[str, Any]:
+    """Run the next step. With `paced=true` it runs in the background at a watchable pace
+    (like "run week") and this returns straight away."""
     if ctx.runtime.demo_lock.locked():
         raise HTTPException(status_code=409, detail="The week is already running")
+    if paced:
+        if not controls.start_run_step(ctx.runtime):
+            raise HTTPException(status_code=409, detail="The week is already running")
+        return {"status": "started"}
     async with ctx.runtime.demo_lock:
         return await controls.advance(ctx)
 

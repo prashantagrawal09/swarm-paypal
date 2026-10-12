@@ -9,24 +9,26 @@ import {
   Landmark,
   Leaf,
   MessagesSquare,
-  Play,
   Wallet,
 } from "lucide-react";
 import useSWR from "swr";
 
 import { AgentFeed, PayPalFeed } from "@/components/feeds";
 import { GroupOrderCard } from "@/components/group-order-card";
+import { Narrator } from "@/components/narrator";
+import { NegotiationSpotlight } from "@/components/negotiation-spotlight";
 import { NeighbourActivity } from "@/components/neighbour-activity";
-import { ShopMap } from "@/components/shop-map";
+import { SwarmMap } from "@/components/swarm-map";
 import { AnimatedNumber, HeroFigure, StatTile } from "@/components/stats";
-import { ButtonLink, Card, CardHeader, Empty, StatusPill } from "@/components/ui";
+import { Card, CardHeader, Empty, StatusPill } from "@/components/ui";
 import { WeekStepper } from "@/components/week-stepper";
-import type { GroupOrder, Overview, ShopSummary } from "@/lib/api";
+import type { GroupOrder, Overview, ShopSummary, SupplierSummary } from "@/lib/api";
 import { kg, money, moneyWhole, shortDate } from "@/lib/format";
 
 export function LiveBoard() {
   const { data: overview, error } = useSWR<Overview>("/api/overview");
   const { data: shops } = useSWR<ShopSummary[]>("/api/shops");
+  const { data: suppliers } = useSWR<SupplierSummary[]>("/api/suppliers");
   const { data: groups } = useSWR<GroupOrder[]>("/api/group-orders");
 
   if (error && !overview) {
@@ -130,21 +132,20 @@ export function LiveBoard() {
         </div>
       </section>
 
-      {/* Week */}
-      <Card className="mt-6 px-4 py-5 sm:px-6">
+      {/* Now, and the week */}
+      <Card className="mt-6 overflow-hidden">
         {overview ? (
-          <WeekStepper steps={overview.steps} running={overview.running} />
+          <>
+            <div className="honeycomb border-line border-b px-4 py-4 sm:px-6">
+              <Narrator overview={overview} />
+            </div>
+            <div className="px-4 py-5 sm:px-6">
+              <WeekStepper steps={overview.steps} running={overview.running} />
+            </div>
+          </>
         ) : (
-          <div className="h-16" />
+          <div className="h-40" />
         )}
-        {overview && overview.steps.every((s) => s.status !== "done") && !overview.running ? (
-          <div className="border-line text-ink-2 mt-4 flex flex-wrap items-center justify-center gap-3 border-t pt-4 text-sm">
-            The week hasn&apos;t started.
-            <ButtonLink href="/demo" variant="honey">
-              <Play className="h-4 w-4" aria-hidden /> Run it from the demo panel
-            </ButtonLink>
-          </div>
-        ) : null}
       </Card>
 
       {/* Map + feeds */}
@@ -152,14 +153,18 @@ export function LiveBoard() {
         <div className="space-y-6 lg:col-span-7">
           <Card>
             <CardHeader
-              title="The neighbourhood"
-              subtitle="Each pin is a shop and its agent. Tap one for its week."
+              title="The swarm"
+              subtitle="Twelve shop agents, three supplier agents and the coordinator. Messages and money fly between them."
             />
             <div className="px-3 pb-4 sm:px-5">
               {shops ? (
-                <ShopMap shops={shops} />
+                <SwarmMap
+                  shops={shops}
+                  suppliers={suppliers}
+                  heldCents={stats?.holds_outstanding_cents ?? 0}
+                />
               ) : (
-                <div className="bg-surface-2 aspect-[720/440] animate-pulse rounded-xl" />
+                <div className="bg-surface-2 aspect-[720/500] animate-pulse rounded-xl" />
               )}
             </div>
           </Card>
@@ -190,6 +195,7 @@ export function LiveBoard() {
         </div>
 
         <div className="space-y-6 lg:col-span-5">
+          <NegotiationSpotlight groups={groups ?? []} />
           <Card className="flex h-[620px] flex-col">
             <CardHeader
               title="Agents talking"

@@ -11,10 +11,13 @@ emergency.
 
 The demo world is 12 fictional shops and 3 suppliers in Tiong Bahru, Singapore, trading in SGD.
 
-**Hosted demo:** _link added after deployment_ · open `/demo` and press **Run the rest of
-the week**, with `/live` open in another window.
+**Hosted demo:** _link added after deployment_ · press **Watch a week run** on the home
+page. The whole week plays on the live board in about 75 seconds.
 
-![The live board at the end of a Swarm week](docs/screenshots/live-board.png)
+![One Swarm week on the live board: agents negotiate, PayPal holds, charges and pays out](docs/screenshots/week.gif)
+
+_One week, start to finish. Thin streaks on the map are agent messages; thick glowing
+streaks are money moving through PayPal (honey = held, green = charged, dark = paid out)._
 
 ---
 
@@ -53,7 +56,7 @@ PayPal:
 - an overcharged invoice is caught before anyone pays it;
 - surplus is sold to a neighbour instead of thrown away.
 
-In the demo week, twelve shops save about **S$2,340** (31% on dairy) and keep 8.4 kg of
+In the demo week, twelve shops save about **S$2,340** (32% on dairy) and keep 8.4 kg of
 food out of the bin. It takes 94 PayPal calls, and the books balance to the cent.
 
 ## Features
@@ -67,15 +70,17 @@ food out of the bin. It takes 94 PayPal calls, and the books balance to the cent
 | F5 | Emergency borrow | "Out of eggs, need 30 now" is matched to a nearby shop in under two minutes. |
 | F6–F9 | Supporting | Demand forecasts, weekly savings report, supplier flash deals, spending limits. |
 
-| Live board | Demo panel and the owner's phone |
+| Live board, mid-week | Where the money went |
 |---|---|
+| ![Live board during settlement](docs/screenshots/live-board-running.png) | ![Money flow](docs/screenshots/money-flow.png) |
+| **Live board, week complete** | **Demo panel and the owner's phone** |
 | ![Live board](docs/screenshots/live-board-full.png) | ![Demo panel](docs/screenshots/demo-panel.png) |
 | **Shop page** | **Invoice check (supplier page)** |
 | ![Shop page](docs/screenshots/shop.png) | ![Invoices](docs/screenshots/supplier-invoices.png) |
-| **Money and ledger** | **Dark mode, phone** |
-| ![Money](docs/screenshots/money.png) | ![Dark](docs/screenshots/live-board-dark.png) ![Phone](docs/screenshots/mobile-live.png) |
+| **Home** | **Dark mode, phone** |
+| ![Home](docs/screenshots/landing.png) | ![Dark](docs/screenshots/live-board-dark.png) ![Phone](docs/screenshots/mobile-live.png) |
 
-_A short screen recording of the full week goes here with the submission video._
+_The submission video goes here._
 
 ## Architecture
 
@@ -173,7 +178,8 @@ Safety rules, enforced in code:
 - **Backend:** Python 3.11, FastAPI, Pydantic v2, SQLAlchemy 2 (async), Alembic, httpx,
   APScheduler, PostgreSQL 16.
 - **Frontend:** Next.js (App Router), React 19, TypeScript, Tailwind CSS v4, SWR, Motion,
-  Lucide icons. Live updates over Server-Sent Events.
+  Lucide icons. Live updates over Server-Sent Events. Charts, the map and the money-flow
+  diagram are hand-written SVG. Unit tests with Vitest.
 - **Messaging:** Telegram Bot API (python-telegram-bot).
 
 ## Setup
@@ -195,9 +201,10 @@ make backend                  # API on http://localhost:8000
 make frontend                 # web app on http://localhost:3000
 ```
 
-Open http://localhost:3000/live and http://localhost:3000/demo side by side, then press
-**Run the rest of the week**. With no keys at all, everything runs on the PayPal simulator
-and the agents use their deterministic policies.
+Open http://localhost:3000 and press **Watch a week run**. With no keys at all, everything
+runs on the PayPal simulator and the agents use their deterministic policies. The demo panel
+(http://localhost:3000/demo) lets you change what goes wrong and play any owner on their
+phone. Press `⌘K` / `Ctrl+K` anywhere to jump to a shop, supplier or group order.
 
 ### Telegram bot (optional)
 
@@ -240,13 +247,14 @@ Render's free tier. Step by step: [docs/deploy.md](docs/deploy.md).
 ### Checks
 
 ```bash
-make check                    # ruff, mypy, eslint, tsc, prettier and pytest
+make check                    # ruff, mypy, eslint, tsc, prettier, pytest and vitest
 ```
 
 ## Demo walkthrough
 
-The full 3-minute script, mapped to the demo panel buttons, is in
-[docs/demo-script.md](docs/demo-script.md). In short:
+The full 3-minute script, mapped to the buttons, is in
+[docs/demo-script.md](docs/demo-script.md). The live board narrates each step in plain
+words as it happens. In short:
 
 1. **Monday:** each shop's agent proposes next week's order from its last four weeks,
    adjusted for the weather forecast, and says why. The owner approves.

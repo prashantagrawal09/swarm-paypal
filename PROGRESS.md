@@ -11,6 +11,7 @@
 | 6 | Hero features F2–F5 | Done (backend; UI in phase 5) |
 | 7 | Supporting features and polish | Done |
 | 8 | Deploy and submission | Ready to deploy (needs your Render and GitHub accounts) |
+| + | Interface pass (beyond the spec) | Done |
 
 ---
 
@@ -455,3 +456,62 @@ Phase 6's backend was built before the phase 5 web app, so the UI could show eve
 4. Put the hosted URL at the top of the README, record the video with
    `docs/demo-script.md`, and add it to the README and Devpost.
 5. Optional: `ANTHROPIC_API_KEY` (agents write their own messages) and a Telegram bot.
+
+---
+
+## Interface pass (beyond the spec)
+
+Everything here was built while waiting for the PayPal credentials and the deploy. No
+spec item was changed; this makes the week easier to watch and understand.
+
+**Built**
+- **The swarm map** (`components/swarm-map.tsx`, replaces the plain shop map):
+  - the three suppliers are depots along the top and the coordinator is a hub in the
+    middle;
+  - every agent message is a thin streak between the two agents involved;
+  - every payment is a thick glowing streak: honey for holds, green for charges, dark for
+    payouts, amber for releases and refunds;
+  - pins change colour as money is held and then charged, and the hub shows how much is
+    held right now;
+  - reduced motion switches the streaks off.
+- **The narrator** (`components/narrator.tsx`, `lib/story.ts`): one plain sentence for what is
+  happening right now ("Invoice rejected: Johor Farm Fresh overcharged S$69.00."), with
+  **Run the week** and **One step** on the live board itself. One window is now enough.
+- **Negotiating now** (`components/negotiation-spotlight.tsx`): appears while a group order is
+  being negotiated. One lane per supplier, opening and latest quote on a shared scale, the
+  dots sliding left as prices fall, the winner marked at the award.
+- **Price ladder that drops**: when a group order appears, its marker walks down the tiers
+  from one shop's quantity to the pooled quantity ("1 shop: S$2.45" ... "12 shops: S$1.96").
+  This is the spec's "price ladder dropping as orders pool".
+- **Where the money went** (`/money`, `components/charts/money-flow.tsx`, `/api/money-flow`):
+  a flow diagram from each shop's charges, through Swarm's PayPal balance, to suppliers,
+  neighbours, refunds and the fee. The parts always add up to what was charged (tested).
+- **Home page**: the live swarm map in the hero, a ticker of real agent messages, scroll
+  reveals, and **Watch a week run**, which resets and plays the week in one click
+  (`/live?play=1`).
+- **Command palette** (`⌘K` / `Ctrl+K`): jump to any page, shop, supplier or group order, or
+  switch theme.
+- **Toasts** on every page but the live board for the big moments (short delivery, rejected
+  invoice, refund, neighbour swap, week complete).
+- Paced single steps: **One step** and the demo panel's **Next** now play at the same
+  watchable pace as the full run (`POST /api/demo/advance?paced=true`, in the background).
+- Loading skeletons, hover states, and no layout jump when the narrator's caption changes.
+
+**Fixed along the way**
+- **The demo week drifted with the real date.** The seed picked "next Monday from today",
+  so after a few days the numbers no longer matched the README, the demo script or the
+  weather outlook. The demo week is now fixed (`DEMO_WEEK`, default 12 October 2026).
+- Group orders expose their negotiation's conversation ID from the start, so the board can
+  follow a negotiation in progress.
+- Status pills in the tables were stretched to the row height.
+
+**Works**
+- 245 backend tests and 39 new frontend unit tests (Vitest: story captions, money-flow
+  layout and conservation, map geometry, flights, search). Both run in `make check` and CI.
+- `next build` is clean. Checked in headless Chrome at desktop and phone widths, light and
+  dark, with no console errors.
+- A full paced week takes about 75 seconds. `docs/screenshots/week.gif` is a recording of
+  one (3.9 MB), now at the top of the README.
+
+**Manual steps for you**
+- Unchanged from phase 8: PayPal sandbox and `make smoke`, push, Render, video.

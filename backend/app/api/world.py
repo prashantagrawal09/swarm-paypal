@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from app.agents.coordinator import conversation_id_for
 from app.api.deps import CtxDep
 from app.clock import week_start
 from app.db.enums import ApprovalStatus, PaymentKind
@@ -36,7 +37,7 @@ from app.db.models import (
     TelegramChat,
 )
 from app.demo import controls
-from app.features import demand, group_buy, savings
+from app.features import demand, group_buy, money_flow, savings
 from app.features.context import Ctx
 from app.features.invoice_checker import OPEN_CLAIMS
 from app.features.products import wording
@@ -610,7 +611,8 @@ async def group_row(ctx: Ctx, group: GroupOrder, detail: bool = False) -> dict[s
         "paid_cents": sum(s.paid_cents for s in savings_rows),
         "saved_cents": sum(s.saved_cents for s in savings_rows),
         "excluded": group.summary.get("excluded", []),
-        "conversation_id": group.summary.get("conversation_id"),
+        # Known from the start, so the live board can follow a negotiation in progress.
+        "conversation_id": conversation_id_for(group.week_start, group.category.value),
         "delivery_fee_cents": group.delivery_fee_cents,
         "quotes": [
             {
@@ -721,6 +723,12 @@ async def ledger_summary(ctx: CtxDep) -> dict[str, Any]:
         "unbalanced_transactions": len(await ledger.unbalanced_transactions(ctx.session)),
         "entries": int(entries or 0),
     }
+
+
+@router.get("/money-flow")
+async def money_flow_week(ctx: CtxDep, week: date | None = None) -> dict[str, Any]:
+    """Where the week's money went (for the flow diagram on the money page)."""
+    return await money_flow.week_flow(ctx, _week(ctx, week))
 
 
 @router.get("/flash-deals")

@@ -18,7 +18,7 @@ const when = (p: ValueFormatterParams) => (p.value ? dayTime(String(p.value)) : 
 
 /** Pills sit centred in the row instead of stretching to its height. */
 function Centered({ children }: { children: React.ReactNode }) {
-  return <div className="flex h-full items-center">{children}</div>;
+  return <div className="flex h-full items-center leading-normal">{children}</div>;
 }
 
 function StatusCell({ value }: ICellRendererParams) {

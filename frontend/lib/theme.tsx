@@ -5,7 +5,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
-type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark" | "system";
 const KEY = "swarm-theme";
 
 /** Runs before paint (inlined in <head>) so there is no flash of the wrong theme. */
@@ -22,6 +22,19 @@ function apply(theme: Theme) {
     theme === "dark" ||
     (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", dark);
+}
+
+const CHANGED = "swarm-theme-changed";
+
+/** Sets the theme from anywhere (the header toggle, the command palette). */
+export function setThemePreference(theme: Theme): void {
+  try {
+    localStorage.setItem(KEY, theme);
+  } catch {
+    /* private mode: applies for this page only */
+  }
+  apply(theme);
+  window.dispatchEvent(new CustomEvent<Theme>(CHANGED, { detail: theme }));
 }
 
 function readTheme(): Theme {
@@ -41,8 +54,13 @@ export function ThemeToggle() {
     setTheme(readTheme());
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => apply(readTheme());
+    const onSet = (event: Event) => setTheme((event as CustomEvent<Theme>).detail);
     media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
+    window.addEventListener(CHANGED, onSet);
+    return () => {
+      media.removeEventListener("change", onChange);
+      window.removeEventListener(CHANGED, onSet);
+    };
   }, []);
 
   const next: Record<Theme, Theme> = { system: "light", light: "dark", dark: "system" };
@@ -51,16 +69,7 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      onClick={() => {
-        const value = next[theme];
-        setTheme(value);
-        try {
-          localStorage.setItem(KEY, value);
-        } catch {
-          /* ignore */
-        }
-        apply(value);
-      }}
+      onClick={() => setThemePreference(next[theme])}
       className="text-ink-2 hover:bg-surface-2 hover:text-ink grid h-8 w-8 place-items-center rounded-lg transition"
       aria-label={`Theme: ${theme}. Click to change.`}
       title={`Theme: ${theme}`}

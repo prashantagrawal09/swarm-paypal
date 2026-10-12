@@ -10,9 +10,8 @@ import { useState } from "react";
 
 import type { GroupOrder } from "@/lib/api";
 import { money, slotColor } from "@/lib/format";
+import { niceTicks } from "@/lib/ticks";
 import { useWidth } from "@/lib/use-width";
-
-import { niceTicks } from "./price-ladder";
 
 const H = 190;
 const PAD = { top: 16, right: 92, bottom: 26, left: 62 };

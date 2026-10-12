@@ -7,6 +7,7 @@ import pytest
 
 from app.api.deps import runtime_dep
 from app.config import Settings, get_settings
+from app.db.base import stamp_rows_with
 from app.db.session import get_session
 from app.main import create_app
 
@@ -18,10 +19,14 @@ async def client(db, runtime, world):
     app = create_app()
     app.dependency_overrides[get_session] = lambda: db
     app.dependency_overrides[runtime_dep] = lambda: runtime
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://t"
-    ) as api:
-        yield api, app
+    stamp_rows_with(lambda: runtime.clock.now())  # as the running app does
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://t"
+        ) as api:
+            yield api, app
+    finally:
+        stamp_rows_with(None)
 
 
 async def test_overview_and_shops(client):
@@ -83,6 +88,20 @@ async def test_demo_week_through_the_api(client):
     inbox = (await api.get("/api/owners/cafe-mei/inbox")).json()
     assert any(m["type"] == "CHARGED" for m in inbox)
 
+    # Every cent the shops were charged is accounted for: suppliers, neighbours, refunds,
+    # the fee, or still owed.
+    flow = (await api.get("/api/money-flow")).json()
+    assert flow["charged_cents"] == sum(s["charged_cents"] for s in flow["shops"]) > 0
+    assert flow["suppliers_cents"] == sum(s["paid_cents"] for s in flow["suppliers"]) > 0
+    assert flow["fee_cents"] > 0 and flow["owed_cents"] >= 0
+    assert flow["charged_cents"] == (
+        flow["suppliers_cents"]
+        + flow["neighbours_cents"]
+        + flow["refunds_cents"]
+        + flow["fee_cents"]
+        + flow["owed_cents"]
+    )
+
 
 async def test_owner_endpoints(client):
     api, _ = client
@@ -138,3 +157,28 @@ async def test_owner_phone_and_connect_are_owner_only_outside_demo_mode(client, 
     response = await api.post("/api/connect/cafe-mei/start", json={"token": token})
     assert response.status_code == 200, response.text
     assert response.json()["order_id"]
+
+
+async def test_paced_steps_run_in_the_background(db, runtime, world, test_database_url):
+    """One paced step, then the rest of the week, each on its own database sessions."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    from app.demo import controls
+    from app.features.context import Ctx
+
+    engine = create_async_engine(test_database_url, poolclass=NullPool)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        await controls.run_paced(runtime, steps=1, sessions=sessions, pace=0)
+        state = await controls.state(Ctx(db, runtime))
+        assert [s["status"] for s in state["steps"]][:2] == ["done", "next"]
+        assert runtime.bus.pace_seconds == 0  # pacing is switched off again afterwards
+
+        await controls.run_paced(runtime, steps=None, sessions=sessions, pace=0)
+        db.expire_all()
+        state = await controls.state(Ctx(db, runtime))
+        assert all(s["status"] == "done" for s in state["steps"])
+        assert state["log"][0]["action"] == "week_complete"
+    finally:
+        await engine.dispose()

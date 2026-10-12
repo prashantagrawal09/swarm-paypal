@@ -45,3 +45,12 @@ def test_production_problems_are_reported():
     problems = " ".join(settings.production_problems())
     assert "SECRET_KEY" in problems and "localhost" in problems and "WEBHOOK_SECRET" in problems
     assert Settings(demo_mode=True).production_problems() == []
+
+
+def test_demo_week_is_a_fixed_monday():
+    import pytest
+    from pydantic import ValidationError
+
+    assert Settings().demo_week.isoformat() == "2026-10-12"
+    with pytest.raises(ValidationError, match="Monday"):
+        Settings(demo_week="2026-10-13")
