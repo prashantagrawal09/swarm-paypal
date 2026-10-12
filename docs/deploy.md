@@ -22,8 +22,11 @@ while the service wakes, so open the site a minute before you present.
    - `ANTHROPIC_API_KEY`: optional. Without it the agents use their deterministic policies.
    - `TELEGRAM_BOT_TOKEN`: optional. Use a separate bot from your local one, because a bot
      can have only one webhook.
-   - `DEMO_PANEL_KEY`: optional. Set it to stop strangers pressing Reset during judging;
-     the demo panel then asks for it once per browser.
+   - `DEMO_PANEL_KEY`: optional. Set it to stop strangers pressing Reset during judging.
+     The site then asks for the key once per browser, wherever a run button is pressed.
+     To spare the judges that, give them a link that carries the key after a `#`, for
+     example `https://swarm-web-xxxx.onrender.com/live?play=1#key=YOUR-KEY`. The part
+     after `#` never leaves the browser, and the site removes it from the address bar.
    - `PUBLIC_BACKEND_URL`, `PUBLIC_FRONTEND_URL`, `CORS_ORIGINS`, `NEXT_PUBLIC_API_URL`:
      put anything for now (for example `https://example.com`); you set them in step 2.
 4. **Apply**. The first deploy takes a few minutes.

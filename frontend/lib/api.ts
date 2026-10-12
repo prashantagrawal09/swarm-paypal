@@ -314,16 +314,37 @@ async function errorText(response: Response): Promise<string> {
 }
 
 const DEMO_KEY = "swarm-demo-key";
+let keyInMemory: string | null = null;
+
+/** The key from a shared link's fragment ("#key=...") if there is one. */
+export function keyFromHash(hash: string): string | null {
+  const value = new URLSearchParams(hash.replace(/^#/, "")).get("key");
+  return value ? value.trim() || null : null;
+}
+
+/**
+ * A link can carry the demo key in its fragment (".../live?play=1#key=..."), which
+ * browsers never send to a server. It is saved on first use and removed from the address.
+ */
+function adoptKeyFromLink(): void {
+  if (typeof window === "undefined" || !window.location.hash.includes("key=")) return;
+  const key = keyFromHash(window.location.hash);
+  if (!key) return;
+  setDemoKey(key);
+  window.history.replaceState(null, "", window.location.pathname + window.location.search);
+}
 
 export function demoKey(): string | null {
+  adoptKeyFromLink();
   try {
-    return localStorage.getItem(DEMO_KEY);
+    return localStorage.getItem(DEMO_KEY) ?? keyInMemory;
   } catch {
-    return null;
+    return keyInMemory;
   }
 }
 
 export function setDemoKey(value: string): void {
+  keyInMemory = value;
   try {
     localStorage.setItem(DEMO_KEY, value);
   } catch {

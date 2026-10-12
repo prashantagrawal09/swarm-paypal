@@ -11,7 +11,6 @@ import {
   Check,
   FastForward,
   FileWarning,
-  KeyRound,
   Leaf,
   type LucideIcon,
   PackageMinus,
@@ -27,6 +26,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 
+import { DemoKeyPrompt } from "@/components/demo-key-prompt";
 import { OwnerPhone } from "@/components/owner-phone";
 import { Button, Card, CardHeader, cx, Empty, ModeBadge, StatusPill } from "@/components/ui";
 import { WeekStepper } from "@/components/week-stepper";
@@ -37,7 +37,6 @@ import {
   mediaUrl,
   post,
   type Product,
-  setDemoKey,
   type ShopSummary,
   type SupplierSummary,
 } from "@/lib/api";
@@ -101,7 +100,7 @@ export function DemoPanel() {
         ) : null}
       </div>
 
-      {needKey ? <DemoKeyPrompt onSaved={() => setNeedKey(false)} /> : null}
+      {needKey ? <DemoKeyPrompt className="mt-4" onSaved={() => setNeedKey(false)} /> : null}
 
       {notice ? (
         <div
@@ -241,36 +240,6 @@ export function DemoPanel() {
         </div>
       </div>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------------------
-
-function DemoKeyPrompt({ onSaved }: { onSaved: () => void }) {
-  const [value, setValue] = useState("");
-  return (
-    <form
-      className="border-line bg-warning-soft text-warning-ink mt-4 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-sm"
-      onSubmit={(event) => {
-        event.preventDefault();
-        setDemoKey(value.trim());
-        onSaved();
-      }}
-    >
-      <KeyRound className="h-4 w-4" aria-hidden />
-      <span>This server locks the demo controls. Enter the demo panel key:</span>
-      <input
-        type="password"
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        className="border-line bg-surface text-ink h-8 min-w-40 flex-1 rounded-lg border px-2"
-        aria-label="Demo panel key"
-        autoComplete="off"
-      />
-      <Button type="submit" variant="primary" className="h-8 py-0">
-        Save
-      </Button>
-    </form>
   );
 }
 

@@ -1,11 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
 import { SWRConfig } from "swr";
 
-import { fetcher } from "@/lib/api";
+import { demoKey, fetcher } from "@/lib/api";
 import { LiveProvider } from "@/lib/live";
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  // A shared link can carry the demo key ("#key=..."); take it in as soon as the page loads.
+  useEffect(() => void demoKey(), []);
+
   return (
     <SWRConfig
       value={{

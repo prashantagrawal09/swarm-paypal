@@ -569,3 +569,28 @@ now a guided command.
   dropped an owner's saved PayPal (when it was connected in the app rather than set in
   `.env`) and every Telegram link. On the hosted demo a second run would have failed those
   shops' holds. Reset now carries both across; `make seed` is still the clean wipe.
+
+## Deploy rehearsal
+
+Ran Render's own build and start commands locally, from a clean `git archive` checkout into
+an empty database, with production settings and a demo key, to find deploy problems before
+the real deploy.
+
+**Works**
+- API: `pip install`, `alembic upgrade head` on an empty database, auto-seed, `/health`.
+- Web: `npm ci`, `next build`, `next start`; every page answers.
+- Guards: demo and owner endpoints answer 401 without the key, CORS allows only the web
+  app's origin.
+- A full paced week on the production build, started from **Watch a week run**.
+
+**Fixed along the way**
+- **The web build could fail on Render.** TypeScript and Tailwind are dev dependencies, and
+  `npm ci` skips those when `NODE_ENV=production`. The build command is now
+  `npm ci --include=dev`.
+- **Two copies of the app.** `pip install .` put a second copy of the backend in
+  site-packages without the seed data. It only worked because the server happens to import
+  from the working directory. The build now installs it editable, so there is one copy.
+- **A locked demo was a dead end.** With `DEMO_PANEL_KEY` set, **Watch a week run** ended at
+  "open the demo panel". The live board now asks for the key in place and then runs what was
+  asked. A link can also carry the key after a `#` (`/live?play=1#key=...`), which never
+  reaches a server and is removed from the address bar.

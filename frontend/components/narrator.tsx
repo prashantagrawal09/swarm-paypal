@@ -22,11 +22,11 @@ import {
   Sunrise,
   Wallet,
 } from "lucide-react";
-import Link from "next/link";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
 
+import { DemoKeyPrompt } from "@/components/demo-key-prompt";
 import { useNames } from "@/components/feeds";
 import { Button, cx } from "@/components/ui";
 import { ApiError, type Overview, post } from "@/lib/api";
@@ -57,7 +57,9 @@ export function Narrator({ overview }: { overview: Overview }) {
   const names = useNames();
   const { mutate } = useSWRConfig();
   const [busy, setBusy] = useState<string | null>(null);
-  const [problem, setProblem] = useState<{ text: string; locked: boolean } | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  // The action that was refused for want of the demo key; it runs once the key is entered.
+  const [refused, setRefused] = useState<{ label: string; paths: string[] } | null>(null);
 
   // "/live?play=1" (the landing page's button) starts the week once. The flag is dropped
   // only when the run is kicked off, so a refresh doesn't start it again and a re-run of
@@ -65,7 +67,7 @@ export function Narrator({ overview }: { overview: Overview }) {
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has("play")) return;
     const timer = setTimeout(() => {
-      window.history.replaceState(null, "", window.location.pathname);
+      window.history.replaceState(null, "", window.location.pathname + window.location.hash);
       if (overview.running || !overview.demo_mode) return;
       const finishedNow = overview.steps.every((s) => s.status === "done");
       void (finishedNow
@@ -89,20 +91,13 @@ export function Narrator({ overview }: { overview: Overview }) {
   async function act(label: string, ...paths: string[]) {
     setBusy(label);
     setProblem(null);
+    setRefused(null);
     try {
       for (const path of paths) await post(path);
       await mutate((key) => typeof key === "string" && key.startsWith("/api/"));
     } catch (err) {
-      const status = err instanceof ApiError ? err.status : 0;
-      setProblem({
-        text:
-          status === 401
-            ? "This server locks the demo controls with a key."
-            : err instanceof Error
-              ? err.message
-              : "That didn't work.",
-        locked: status === 401 || status === 403,
-      });
+      if (err instanceof ApiError && err.status === 401) setRefused({ label, paths });
+      else setProblem(err instanceof Error ? err.message : "That didn't work.");
     } finally {
       setBusy(null);
     }
@@ -147,15 +142,12 @@ export function Narrator({ overview }: { overview: Overview }) {
               <p className="text-ink-2 mt-0.5 line-clamp-2 text-sm">{caption.detail}</p>
             ) : null}
           </motion.div>
-          {problem ? (
-            <p className="text-critical-ink mt-1.5 text-xs">
-              {problem.text}{" "}
-              {problem.locked ? (
-                <Link href="/demo" className="underline underline-offset-2">
-                  Open the demo panel
-                </Link>
-              ) : null}
-            </p>
+          {problem ? <p className="text-critical-ink mt-1.5 text-xs">{problem}</p> : null}
+          {refused ? (
+            <DemoKeyPrompt
+              className="mt-2 max-w-xl"
+              onSaved={() => void act(refused.label, ...refused.paths)}
+            />
           ) : null}
         </div>
       </div>

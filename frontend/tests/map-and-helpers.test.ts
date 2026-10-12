@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GroupOrder, PaymentRow } from "@/lib/api";
+import { type GroupOrder, keyFromHash, type PaymentRow } from "@/lib/api";
 import { moneyFlight, nodeOf } from "@/lib/flights";
 import { BAND, H, PAD, PIN, W, curve, project, relax } from "@/lib/map-geometry";
 import { lanes } from "@/lib/negotiation";
@@ -198,5 +198,19 @@ describe("search and ticks", () => {
       { x: 40 },
       { x: 90 },
     ]);
+  });
+});
+
+describe("demo key in a shared link", () => {
+  it("reads the key from the fragment", () => {
+    expect(keyFromHash("#key=judges-2026")).toBe("judges-2026");
+    expect(keyFromHash("#tab=money&key=%20abc%20")).toBe("abc");
+  });
+
+  it("ignores fragments without a usable key", () => {
+    expect(keyFromHash("")).toBeNull();
+    expect(keyFromHash("#section")).toBeNull();
+    expect(keyFromHash("#key=")).toBeNull();
+    expect(keyFromHash("#key=%20")).toBeNull();
   });
 });
