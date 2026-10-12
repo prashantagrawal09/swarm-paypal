@@ -594,3 +594,12 @@ the real deploy.
   "open the demo panel". The live board now asks for the key in place and then runs what was
   asked. A link can also carry the key after a `#` (`/live?play=1#key=...`), which never
   reaches a server and is removed from the address bar.
+- **A sleeping server looked like a broken product.** On Render's free plan the API takes
+  about a minute to wake. Until it answered, the home page showed "S$0 saved", the live board
+  told visitors to run `make backend`, and other pages said "Loading..." indefinitely. Every
+  data page now shows a "Waking the demo server" screen with progress and carries on by
+  itself; the home page keeps its story and says its numbers are on the way. On a laptop the
+  same screen gives the developer hint instead.
+- Page titles no longer wait on a sleeping API (2.5 s limit on the server-side name lookup).
+- `docs/deploy.md` now covers what Render's free plan does to a demo: services sleep, the
+  free database expires after 30 days, and the 750 shared hours rule out a keep-awake pinger.

@@ -5,6 +5,7 @@ import { SWRConfig } from "swr";
 
 import { demoKey, fetcher } from "@/lib/api";
 import { LiveProvider } from "@/lib/live";
+import { ServerStatusProvider } from "@/lib/server-status";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // A shared link can carry the demo key ("#key=..."); take it in as soon as the page loads.
@@ -20,7 +21,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         dedupingInterval: 800,
       }}
     >
-      <LiveProvider>{children}</LiveProvider>
+      <ServerStatusProvider>
+        <LiveProvider>{children}</LiveProvider>
+      </ServerStatusProvider>
     </SWRConfig>
   );
 }

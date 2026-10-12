@@ -8,9 +8,21 @@ Swarm deploys as three Render resources from [`render.yaml`](../render.yaml):
 | `swarm-api` | FastAPI, the agents, the money engine, the Telegram bot (webhook) and the scheduler, in one process. Migrations run on every start. The demo world is seeded on first start. |
 | `swarm-web` | The Next.js web app |
 
-Everything runs on Render's free plans in the Singapore region. Free web services sleep
-after about 15 minutes without traffic. The first request after that takes around a minute
-while the service wakes, so open the site a minute before you present.
+Everything runs on Render's free plans in the Singapore region. Three things about the free
+plans are worth knowing before judging starts (from https://render.com/docs/free):
+
+- **Services sleep.** A free web service stops after 15 minutes without visitors and takes
+  about a minute to wake. Visitors see Render's loading page, then Swarm's own "Waking the
+  demo server" screen while the API wakes; both carry on by themselves. Open the site a
+  minute before you present.
+- **The free database expires 30 days after you create it** (then 14 days' grace). If judging
+  could run past that, create the Blueprint close to the deadline, or recreate the database
+  later: delete `swarm-db`, sync the Blueprint again, and the API migrates and reseeds itself
+  on its next start. Nothing but demo data lives there, as long as the shops' saved PayPal is
+  also in the `PAYPAL_SHOP_<CODE>_VAULT_ID` settings (step 4).
+- **750 free hours a month, shared by both services.** Left alone they only use hours while
+  someone is visiting. A keep-awake pinger on both would use about 1,440 hours and get them
+  suspended until next month, so don't add one, or only run it on the judging days.
 
 ## 1. Create the Blueprint
 

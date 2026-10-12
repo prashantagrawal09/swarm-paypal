@@ -34,10 +34,7 @@ export function LiveBoard() {
   if (error && !overview) {
     return (
       <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6">
-        <Empty>
-          The Swarm backend isn&apos;t answering. Start it with{" "}
-          <code className="font-mono">make backend</code> and this page connects on its own.
-        </Empty>
+        <Empty>The server isn&apos;t answering. This page carries on by itself when it is.</Empty>
       </div>
     );
   }

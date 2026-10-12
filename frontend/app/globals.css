@@ -242,6 +242,22 @@ body {
   animation: live-dot 1.6s ease-in-out infinite;
 }
 
+/* Honeycomb cells that light up in turn while the demo server wakes. */
+@keyframes swarm-hive {
+  0%,
+  100% {
+    opacity: 0.18;
+  }
+  35% {
+    opacity: 1;
+  }
+}
+
+.hive-cell {
+  opacity: 0.18;
+  animation: swarm-hive 1.12s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ping,
   .ping-soft,
@@ -250,6 +266,11 @@ body {
   .marquee,
   .live-dot {
     animation: none;
+  }
+
+  .hive-cell {
+    animation: none;
+    opacity: 0.6;
   }
 }
 

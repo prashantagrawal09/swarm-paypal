@@ -4,7 +4,11 @@ import { API_URL } from "@/lib/api";
 
 export async function entityName(path: string, fallback: string): Promise<string> {
   try {
-    const response = await fetch(`${API_URL}${path}`, { next: { revalidate: 300 } });
+    // A sleeping or slow API must not hold the page up for the sake of its title.
+    const response = await fetch(`${API_URL}${path}`, {
+      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(2500),
+    });
     if (!response.ok) return fallback;
     const body = (await response.json()) as { name?: string };
     return body.name ?? fallback;

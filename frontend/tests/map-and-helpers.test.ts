@@ -6,6 +6,7 @@ import { BAND, H, PAD, PIN, W, curve, project, relax } from "@/lib/map-geometry"
 import { lanes } from "@/lib/negotiation";
 import { paymentEvent } from "@/lib/payment-events";
 import { matches } from "@/lib/search";
+import { isLocalUrl, wakeProgress } from "@/lib/server-status";
 import { niceTicks, thin } from "@/lib/ticks";
 
 describe("map geometry", () => {
@@ -212,5 +213,25 @@ describe("demo key in a shared link", () => {
     expect(keyFromHash("#section")).toBeNull();
     expect(keyFromHash("#key=")).toBeNull();
     expect(keyFromHash("#key=%20")).toBeNull();
+  });
+});
+
+describe("waking a sleeping server", () => {
+  it("tells a laptop API from a hosted one", () => {
+    expect(isLocalUrl("http://localhost:8000")).toBe(true);
+    expect(isLocalUrl("http://127.0.0.1:8000")).toBe(true);
+    expect(isLocalUrl("https://swarm-api.onrender.com")).toBe(false);
+    expect(isLocalUrl("https://localhost.example.com")).toBe(false);
+    expect(isLocalUrl("not a url")).toBe(false);
+  });
+
+  it("progress only moves forward and never claims to be finished", () => {
+    const samples = [0, 1000, 5000, 20_000, 50_000, 120_000, 600_000].map((ms) => wakeProgress(ms));
+    expect(samples[0]).toBe(0);
+    for (let i = 1; i < samples.length; i++) {
+      expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1]);
+    }
+    expect(wakeProgress(5000)).toBeGreaterThan(0.15); // visibly moving within seconds
+    expect(wakeProgress(600_000)).toBeLessThan(1);
   });
 });

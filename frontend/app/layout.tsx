@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { SiteHeader } from "@/components/site-header";
 import { Toaster } from "@/components/toaster";
+import { ServerGate } from "@/components/wake-screen";
 import { THEME_SCRIPT } from "@/lib/theme";
 
 import { Providers } from "./providers";
@@ -44,7 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </a>
           <SiteHeader />
           <main id="main" className="flex flex-1 flex-col">
-            {children}
+            <ServerGate>{children}</ServerGate>
           </main>
           <footer className="border-line border-t">
             <div className="text-muted mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs sm:px-6">

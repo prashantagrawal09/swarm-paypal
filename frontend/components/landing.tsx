@@ -29,9 +29,11 @@ import { Reveal } from "@/components/reveal";
 import { AnimatedNumber } from "@/components/stats";
 import { SwarmMap } from "@/components/swarm-map";
 import { ButtonLink, Card, cx, Logo } from "@/components/ui";
+import { WakeScreen } from "@/components/wake-screen";
 import type { Overview, ShopSummary, SupplierSummary } from "@/lib/api";
 import { agentName, kg, moneyWhole } from "@/lib/format";
 import { useLive } from "@/lib/live";
+import { useServerStatus } from "@/lib/server-status";
 
 const WEEK = [
   {
@@ -138,8 +140,11 @@ export function Landing() {
   const { data: shops } = useSWR<ShopSummary[]>("/api/shops");
   const { data: suppliers } = useSWR<SupplierSummary[]>("/api/suppliers");
   const { connected, messages } = useLive();
+  const { status } = useServerStatus();
   const names = useNames();
   const stats = data?.stats;
+  // On a hosted demo the server may be asleep: say so instead of showing zeros.
+  const waking = status === "waking" && !data;
   // Agent-to-agent talk only (owner chats are private to the owner), without the repeats a
   // broadcast produces.
   const recent = messages
@@ -198,10 +203,16 @@ export function Landing() {
                 <div>
                   <div className="text-ink-2 text-xs font-medium">This week in Tiong Bahru</div>
                   <div className="tabular text-ink mt-1 text-5xl font-semibold tracking-tight">
-                    <AnimatedNumber value={stats?.saved_cents ?? 0} format={moneyWhole} />
+                    {waking ? (
+                      <span className="text-muted">S$ ...</span>
+                    ) : (
+                      <AnimatedNumber value={stats?.saved_cents ?? 0} format={moneyWhole} />
+                    )}
                   </div>
                   <div className="text-ink-2 text-sm">
-                    saved by {stats?.shops ?? 12} independent shops
+                    {waking
+                      ? "This week's numbers appear when the server is up"
+                      : `saved by ${stats?.shops ?? 12} independent shops`}
                   </div>
                 </div>
                 <span className="border-line text-ink-2 inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs">
@@ -212,7 +223,13 @@ export function Landing() {
                     )}
                     aria-hidden
                   />
-                  {data?.running ? "Running now" : connected ? "Live" : "Connecting"}
+                  {data?.running
+                    ? "Running now"
+                    : connected
+                      ? "Live"
+                      : waking
+                        ? "Waiting"
+                        : "Connecting"}
                 </span>
               </div>
               <div className="px-2 pt-1">
@@ -224,7 +241,9 @@ export function Landing() {
                     interactive={false}
                   />
                 ) : (
-                  <div className="aspect-[720/500]" />
+                  <div className="grid aspect-[720/500] place-items-center">
+                    {waking ? <WakeScreen compact /> : null}
+                  </div>
                 )}
               </div>
               <dl className="border-line bg-line grid grid-cols-2 gap-px border-t text-sm sm:grid-cols-4">
@@ -257,7 +276,9 @@ export function Landing() {
                 ].map((item) => (
                   <div key={item.label} className="bg-surface px-4 py-3">
                     <dt className="text-muted text-[11px]">{item.label}</dt>
-                    <dd className="tabular text-ink mt-0.5 font-semibold">{item.value}</dd>
+                    <dd className="tabular text-ink mt-0.5 font-semibold">
+                      {waking ? <span className="text-muted">...</span> : item.value}
+                    </dd>
                   </div>
                 ))}
               </dl>
