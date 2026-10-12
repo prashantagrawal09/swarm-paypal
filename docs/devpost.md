@@ -86,8 +86,8 @@ demo never depends on a model call.
 
 **Stack.** Python, FastAPI, PostgreSQL and SQLAlchemy on the back; Next.js, TypeScript,
 Tailwind and AG Grid on the front, with live updates over Server-Sent Events. Telegram for
-the owners. Hosted on Render. 248 backend tests (including four simulated weeks that must
-keep the ledger balanced) and 39 frontend tests.
+the owners. Hosted on Render. 263 backend tests (including four simulated weeks that must
+keep the ledger balanced) and 41 frontend tests.
 
 **Honest about what is real.** Four shops, the three suppliers and the platform use the
 real PayPal sandbox. The other eight shops run on a simulator that follows the same rules
@@ -137,7 +137,8 @@ Tailwind CSS, AG Grid, Telegram Bot API, Render.
 
 ## Try it
 
-1. Open the hosted URL and press **Watch a week run**.
+1. Open the hosted URL and press **Watch a week run**. (If you set `DEMO_PANEL_KEY`, give
+   the link `.../live?play=1#key=YOUR-KEY` here instead, so judges aren't asked for it.)
 2. Open **Demo panel** to change what goes wrong (a short delivery, an overcharged invoice)
    and to play any shop owner on their phone.
 3. Open **Money** afterwards to see where every cent went.
