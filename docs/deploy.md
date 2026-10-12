@@ -69,6 +69,10 @@ The REAL shops (`REAL_SHOP_CODES`) need a saved PayPal wallet:
 - Otherwise open `https://swarm-web-xxxx.onrender.com/connect/<shop code>`, log in as that
   shop's sandbox buyer and approve the S$1.00 check (released straight away).
 
+A saved PayPal (and a linked Telegram chat) survives the demo panel's **Reset**, so nobody
+has to connect again between runs. Setting the `PAYPAL_SHOP_<CODE>_VAULT_ID` values as well
+means they also survive a wiped database.
+
 The hosted demo runs with `DEMO_MODE=true`, so the connect page works without a signed link.
 If you ever run it with `DEMO_MODE=false`, give owners links from
 `python -m app.cli invite <shop>` (Render shell) or the bot's `/connect` command.

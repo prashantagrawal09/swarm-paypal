@@ -205,6 +205,7 @@ rejected; only events from real sandbox activity pass.
 | Smoke step 3 or 4 ("Vault: ...") fails, mentioning vault or permissions | **Vault** isn't on for the Swarm Platform app: Features → Accept payments → Advanced options → Vault → Save. Wait a minute and run it again. |
 | Smoke step 11 ("Payout S$3") fails with an authorization error | **Payouts** isn't ticked on the Swarm Platform app. |
 | Smoke step 11 ("Payout S$3") fails for lack of funds | The platform account's pretend balance ran out. Sandbox Accounts → ⋯ → View/Edit Account → **Funding**, and top it up. |
+| Holds start failing after many demo runs | Each run really charges the sandbox buyers. Top up the buyer's pretend balance the same way (View/Edit Account → **Funding**). |
 | The approval page won't let you log in | Use the **Personal** account's email and its sandbox password, in a private window. Your real PayPal login doesn't work there. |
 | You approved, but the script keeps waiting | Make sure you clicked the final approve/continue button. It gives up after 10 minutes; just run `make smoke` again. |
 | Any step FAILs with a `debug_id` | Send the last 30 lines of the output. The debug ID is what PayPal support (and the logs) key on. |

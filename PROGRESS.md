@@ -563,3 +563,9 @@ now a guided command.
 - 13 new tests: `.env` edits keep comments and order, rejected keys are never saved, the
   wizard's retry, re-run and skip paths, and the smoke-test wallet only goes to the shop
   whose owner approved it.
+
+**Fixed along the way**
+- **Reset wiped real connections.** The demo panel's Reset reseeds every table, which also
+  dropped an owner's saved PayPal (when it was connected in the app rather than set in
+  `.env`) and every Telegram link. On the hosted demo a second run would have failed those
+  shops' holds. Reset now carries both across; `make seed` is still the clean wipe.

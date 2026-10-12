@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
 
@@ -18,7 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.clock import SwarmClock, at_local, local_time, week_day, week_start
 from app.db.app_state import set_state
-from app.db.models import AuditLog, Shop, Supplier
+from app.db.enums import PayPalModeEnum
+from app.db.models import AuditLog, Shop, Supplier, TelegramChat
 from app.db.session import get_sessionmaker
 from app.features import emergency_borrow, surplus_swap
 from app.features.context import Ctx
@@ -205,12 +207,79 @@ async def inject(ctx: Ctx, kind: str, params: dict[str, Any], now: bool = False)
     return result
 
 
+@dataclass
+class Connections:
+    """What real people set up outside the demo's script: an owner's saved PayPal and the
+    Telegram chats linked to shops. Keyed by shop code, because a reset gives shops new IDs.
+    """
+
+    wallets: dict[str, tuple[str, str | None]] = field(default_factory=dict)
+    shop_chats: dict[str, int] = field(default_factory=dict)
+    chats: list[dict[str, Any]] = field(default_factory=list)
+
+
+async def remember_connections(session: AsyncSession) -> Connections:
+    kept = Connections()
+    shops = (await session.scalars(select(Shop))).all()
+    codes = {shop.id: shop.code for shop in shops}
+    for shop in shops:
+        if shop.paypal_mode == PayPalModeEnum.REAL and shop.vault_id:
+            kept.wallets[shop.code] = (shop.vault_id, shop.paypal_email)
+        if shop.telegram_chat_id is not None:
+            kept.shop_chats[shop.code] = shop.telegram_chat_id
+    for chat in (await session.scalars(select(TelegramChat))).all():
+        kept.chats.append(
+            {
+                "chat_id": chat.chat_id,
+                "shop": codes.get(chat.shop_id) if chat.shop_id else None,
+                "username": chat.username,
+                "first_name": chat.first_name,
+            }
+        )
+    return kept
+
+
+async def restore_connections(session: AsyncSession, kept: Connections) -> None:
+    """Put the connections back on the freshly seeded shops.
+
+    A saved PayPal goes back only to a shop that is still REAL. It replaces the one from
+    `.env`: what the owner approved in the app is at least as recent.
+    """
+    shops = {shop.code: shop for shop in (await session.scalars(select(Shop))).all()}
+    for code, (vault_id, email) in kept.wallets.items():
+        shop = shops.get(code)
+        if shop is not None and shop.paypal_mode == PayPalModeEnum.REAL:
+            shop.vault_id = vault_id
+            shop.paypal_email = email or shop.paypal_email
+    for code, chat_id in kept.shop_chats.items():
+        if code in shops:
+            shops[code].telegram_chat_id = chat_id
+    for chat in kept.chats:
+        linked = shops.get(chat["shop"]) if chat["shop"] else None
+        session.add(
+            TelegramChat(
+                chat_id=chat["chat_id"],
+                shop_id=linked.id if linked else None,
+                username=chat["username"],
+                first_name=chat["first_name"],
+                state={},  # anything half-finished pointed at rows that are gone
+            )
+        )
+    await session.commit()
+
+
 async def reset(ctx: Ctx) -> dict[str, Any]:
-    """Wipe and reseed the demo world; the clock goes back to the demo week's Monday."""
+    """Wipe and reseed the demo world; the clock goes back to the demo week's Monday.
+
+    Owners' saved PayPal and Telegram links survive, so a reset never asks a real person to
+    connect again. (`make seed` is the clean wipe.)
+    """
     from app.seed.seed import reset_database, seed_world
 
+    kept = await remember_connections(ctx.session)
     await reset_database(ctx.session)
     result = await seed_world(ctx.session)
+    await restore_connections(ctx.session, kept)
     ctx.runtime.reset_simulator()
     clock = ctx.clock
     if isinstance(clock, SwarmClock):
