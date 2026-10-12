@@ -524,10 +524,11 @@ spec item was changed; this makes the week easier to watch and understand.
   flash deal Wednesday, the surplus swap Friday).
 
 **Works**
-- 247 backend tests and 39 new frontend unit tests (Vitest: story captions, money-flow
+- 248 backend tests and 39 new frontend unit tests (Vitest: story captions, money-flow
   layout and conservation, map geometry, flights, search). Both run in `make check` and CI.
 - `next build` is clean. Checked in headless Chrome at desktop and phone widths, light and
   dark, with no console errors.
+- `docs/devpost.md`: the Devpost submission text, ready to paste.
 - A full paced week takes about 75 seconds. `docs/screenshots/week.gif` is a recording of
   one (3.9 MB), now at the top of the README.
 

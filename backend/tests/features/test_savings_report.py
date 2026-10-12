@@ -50,8 +50,11 @@ async def test_batched_reads_agree_with_the_per_shop_rules(db, world, ctx):
 
 
 @pytest.mark.db
-async def test_read_models_are_shared_until_something_happens(db, world, ctx):
+async def test_read_models_are_shared_until_something_happens(db, world, ctx, monkeypatch):
+    from app.api import readcache
     from app.api.readcache import shared
+
+    monkeypatch.setattr(readcache, "_monotonic", lambda: 100.0)  # inside one time bucket
 
     calls = 0
 
@@ -65,3 +68,31 @@ async def test_read_models_are_shared_until_something_happens(db, world, ctx):
     await ctx.bus.emit("anything", {})
     assert await shared(ctx, "k", compute) == 2  # something happened: recomputed
     assert await shared(ctx, "other", compute) == 3  # keys are independent
+
+
+@pytest.mark.db
+async def test_read_models_are_shared_on_the_real_clock_too(db, registry, monkeypatch):
+    """In production the clock never stands still; the cache must not depend on it."""
+    from app.agents.bus import MessageBus
+    from app.api import readcache
+    from app.api.readcache import shared
+    from app.clock import SystemClock
+    from app.config import Settings
+    from app.features.context import Ctx
+    from app.llm.client import OfflineLLM
+    from app.runtime import Runtime
+
+    clock = SystemClock()
+    ctx = Ctx(db, Runtime(Settings(), clock, registry, MessageBus(clock), OfflineLLM()))
+    ticks = iter([100.0, 100.5, 104.0])
+    monkeypatch.setattr(readcache, "_monotonic", lambda: next(ticks))
+    calls = 0
+
+    async def compute() -> int:
+        nonlocal calls
+        calls += 1
+        return calls
+
+    assert await shared(ctx, "k", compute) == 1
+    assert await shared(ctx, "k", compute) == 1  # half a second later: still shared
+    assert await shared(ctx, "k", compute) == 2  # past the age limit: recomputed
