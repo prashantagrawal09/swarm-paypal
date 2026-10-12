@@ -282,12 +282,16 @@ const EVENT_STYLE: Record<
   hold_placed: { label: "Money held", icon: Hand, tone: "text-honey-ink bg-honey-soft" },
   hold_reauthorized: { label: "Hold renewed", icon: RotateCcw, tone: "text-ink-2 bg-surface-2" },
   hold_voided: { label: "Hold released", icon: Undo2, tone: "text-ink-2 bg-surface-2" },
-  hold_failed: { label: "Hold failed", icon: ShieldAlert, tone: "text-critical bg-critical-soft" },
+  hold_failed: {
+    label: "Hold failed",
+    icon: ShieldAlert,
+    tone: "text-critical-ink bg-critical-soft",
+  },
   captured: { label: "Charged", icon: ArrowDownLeft, tone: "text-good-ink bg-good-soft" },
   capture_failed: {
     label: "Charge failed",
     icon: ShieldAlert,
-    tone: "text-critical bg-critical-soft",
+    tone: "text-critical-ink bg-critical-soft",
   },
   refunded: { label: "Refunded", icon: Undo2, tone: "text-warning-ink bg-warning-soft" },
   supplier_paid: { label: "Supplier paid", icon: ArrowUpRight, tone: "text-real bg-real-soft" },

@@ -12,6 +12,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -59,6 +60,8 @@ class Runtime:
     llm: LLM
     demo_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     background: asyncio.Task[None] | None = None
+    # Read models shared by everyone watching (see `app/api/readcache.py`).
+    read_cache: dict[str, tuple[tuple[int, int, str], Any]] = field(default_factory=dict)
 
     def reset_simulator(self) -> None:
         """Forget every simulated PayPal object (used by the demo's reset)."""

@@ -58,6 +58,8 @@ class MessageBus:
         self.queue_size = queue_size
         # Demo playback: pause after each message so the live board can be followed.
         self.pace_seconds = 0.0
+        # Moves on every message and event, so read models can tell "nothing has happened".
+        self.version = 0
         self._subscribers: set[asyncio.Queue[BusEvent]] = set()
 
     # -- subscribers ----------------------------------------------------------------------
@@ -75,6 +77,7 @@ class MessageBus:
         return len(self._subscribers)
 
     def broadcast(self, event: BusEvent) -> None:
+        self.version += 1
         for queue in list(self._subscribers):
             if queue.full():
                 with contextlib.suppress(asyncio.QueueEmpty):

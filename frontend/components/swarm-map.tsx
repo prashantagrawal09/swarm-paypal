@@ -118,7 +118,7 @@ const PIN_STATE: Record<PinState, { label: string; fill: string; ring: string; i
     label: "Problem",
     fill: "var(--critical-soft)",
     ring: "var(--critical)",
-    ink: "var(--critical)",
+    ink: "var(--critical-ink)",
   },
 };
 

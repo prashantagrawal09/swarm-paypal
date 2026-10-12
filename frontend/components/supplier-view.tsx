@@ -240,7 +240,7 @@ export function InvoiceCard({ invoice }: { invoice: InvoiceRow }) {
         </p>
       ) : null}
       {rejected && report.issues?.length ? (
-        <ul className="text-critical mt-2 space-y-1 text-sm">
+        <ul className="text-critical-ink mt-2 space-y-1 text-sm">
           {report.issues.map((issue, index) => (
             <li key={index} className="flex items-start gap-1.5">
               <XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />

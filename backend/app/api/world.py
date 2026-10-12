@@ -15,6 +15,7 @@ from sqlalchemy.orm import selectinload
 
 from app.agents.coordinator import conversation_id_for
 from app.api.deps import CtxDep
+from app.api.readcache import shared
 from app.clock import week_start
 from app.db.enums import ApprovalStatus, PaymentKind
 from app.db.models import (
@@ -120,7 +121,8 @@ async def _lookups(ctx: Ctx) -> tuple[dict[uuid.UUID, Shop], dict[uuid.UUID, Sup
 @router.get("/overview")
 async def overview(ctx: CtxDep) -> dict[str, Any]:
     """Everything the live board header needs in one call."""
-    return {**await controls.state(ctx), "stats": await savings.platform_summary(ctx)}
+    stats = await shared(ctx, "stats", lambda: savings.platform_summary(ctx))
+    return {**await controls.state(ctx), "stats": stats}
 
 
 # ---------------------------------------------------------------------------------------
@@ -130,6 +132,10 @@ async def overview(ctx: CtxDep) -> dict[str, Any]:
 
 @router.get("/shops")
 async def shops(ctx: CtxDep) -> list[dict[str, Any]]:
+    return await shared(ctx, "shops", lambda: _shop_rows(ctx))
+
+
+async def _shop_rows(ctx: Ctx) -> list[dict[str, Any]]:
     week = _week(ctx, None)
     orders = await ctx.session.execute(
         select(ShopOrder.shop_id, GroupOrder.category, ShopOrder.status)
@@ -148,19 +154,19 @@ async def shops(ctx: CtxDep) -> list[dict[str, Any]]:
             )
         ).all()
     )
-    rows = []
-    for shop in await ctx.session.scalars(select(Shop).order_by(Shop.name)):
-        report = await savings.shop_week(ctx, shop, week)
-        rows.append(
-            {
-                **shop_card(shop),
-                "committed_cents": await ctx.engine.committed_this_week(shop.id, week),
-                "saved_week_cents": report.total_saved_cents,
-                "orders": by_shop.get(shop.id, []),
-                "pending_approvals": pending.get(shop.id, 0),
-            }
-        )
-    return rows
+    all_shops = list(await ctx.session.scalars(select(Shop).order_by(Shop.name)))
+    reports = await savings.week_reports(ctx, week, all_shops)
+    committed = await ctx.engine.committed_by_shop(week)
+    return [
+        {
+            **shop_card(shop),
+            "committed_cents": committed.get(shop.id, 0),
+            "saved_week_cents": reports[shop.id].total_saved_cents,
+            "orders": by_shop.get(shop.id, []),
+            "pending_approvals": pending.get(shop.id, 0),
+        }
+        for shop in all_shops
+    ]
 
 
 @router.get("/shops/{code}")
@@ -669,12 +675,19 @@ async def group_row(ctx: Ctx, group: GroupOrder, detail: bool = False) -> dict[s
 
 @router.get("/group-orders")
 async def group_orders(ctx: CtxDep, week: date | None = None) -> list[dict[str, Any]]:
-    ids = await ctx.session.scalars(
-        select(GroupOrder.id)
-        .where(GroupOrder.week_start == _week(ctx, week))
-        .order_by(GroupOrder.category)
-    )
-    return [await group_row(ctx, await group_buy.load_group(ctx.session, gid)) for gid in list(ids)]
+    chosen = _week(ctx, week)
+
+    async def rows() -> list[dict[str, Any]]:
+        ids = await ctx.session.scalars(
+            select(GroupOrder.id)
+            .where(GroupOrder.week_start == chosen)
+            .order_by(GroupOrder.category)
+        )
+        return [
+            await group_row(ctx, await group_buy.load_group(ctx.session, gid)) for gid in list(ids)
+        ]
+
+    return await shared(ctx, f"group-orders:{chosen}", rows)
 
 
 @router.get("/group-orders/{group_id}")

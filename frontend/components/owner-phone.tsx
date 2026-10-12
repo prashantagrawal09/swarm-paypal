@@ -197,7 +197,7 @@ export function OwnerPhone({
                                 : action.style === "success"
                                   ? "bg-good-soft text-good-ink border-transparent hover:brightness-95"
                                   : action.style === "danger"
-                                    ? "border-line bg-surface text-critical hover:bg-critical-soft"
+                                    ? "border-line bg-surface text-critical-ink hover:bg-critical-soft"
                                     : "border-line bg-surface text-ink hover:bg-surface-2",
                               answered && !chosen && "opacity-40",
                               "disabled:cursor-not-allowed",
@@ -223,7 +223,7 @@ export function OwnerPhone({
           </div>
 
           {problem ? (
-            <div className="bg-critical-soft text-critical px-4 py-1.5 text-xs">{problem}</div>
+            <div className="bg-critical-soft text-critical-ink px-4 py-1.5 text-xs">{problem}</div>
           ) : null}
 
           {/* Composer */}

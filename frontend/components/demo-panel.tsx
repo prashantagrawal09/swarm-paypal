@@ -84,15 +84,16 @@ export function DemoPanel() {
         <div>
           <h1 className="text-ink text-2xl font-semibold tracking-tight">Demo panel</h1>
           <p className="text-ink-2 mt-1 max-w-2xl text-sm">
-            Move the Swarm Clock through one week. Every button runs the real code path, with real
-            PayPal sandbox calls for REAL accounts. Keep the{" "}
+            Change what goes wrong this week, play any shop owner on their phone, and decide the
+            claims that need a person. Every button runs the real code path, with real PayPal
+            sandbox calls for REAL accounts. The{" "}
             <Link
               href="/live"
               className="text-ink decoration-line-strong font-medium underline underline-offset-2"
             >
               live board
             </Link>{" "}
-            open in another window.
+            shows it all happening and can run the week by itself.
           </p>
         </div>
         {state && !state.demo_mode ? (
@@ -109,7 +110,7 @@ export function DemoPanel() {
             "mt-4 flex items-start gap-2 rounded-xl px-3 py-2 text-sm",
             notice.tone === "good"
               ? "bg-good-soft text-good-ink"
-              : "bg-critical-soft text-critical",
+              : "bg-critical-soft text-critical-ink",
           )}
         >
           {notice.tone === "good" ? (
@@ -420,7 +421,7 @@ function Injections({
       kind: "wrong_price_invoice",
       title: "Overcharged invoice",
       icon: FileWarning,
-      when: "Friday settlement",
+      when: "Thursday settlement",
       fields: (
         <>
           <Field label="Category">
@@ -449,7 +450,7 @@ function Injections({
       kind: "flash_deal",
       title: "Supplier flash deal",
       icon: Zap,
-      when: "Saturday",
+      when: "Wednesday",
       fields: (
         <>
           <Field label="Supplier">
@@ -489,7 +490,7 @@ function Injections({
       kind: "surplus",
       title: "Surplus stock",
       icon: Leaf,
-      when: "Saturday",
+      when: "Friday",
       now: "Post it now",
       fields: (
         <>
@@ -572,11 +573,12 @@ function Injections({
         <div className="bg-surface text-ink-2 hidden flex-col justify-center gap-2 p-4 text-xs sm:flex">
           <p className="text-ink text-sm font-medium">How these play out</p>
           <p>
-            Short delivery and the overcharged invoice happen during Thursday and Friday; the
-            refund, the smaller charge and the rejected invoice all show on the live board.
+            Short delivery and the overcharged invoice both play out on Thursday; the smaller charge
+            and the rejected invoice show on the live board.
           </p>
           <p>
-            Saturday&apos;s flash deal is bought by shop agents only within each owner&apos;s limit.
+            Wednesday&apos;s flash deal is bought by shop agents only within each owner&apos;s
+            limit.
           </p>
         </div>
       </div>

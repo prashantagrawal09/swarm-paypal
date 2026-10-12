@@ -261,15 +261,15 @@ words as it happens. In short:
 2. **Tuesday:** twelve orders pool into one. The coordinator negotiates with three supplier
    agents over three rounds. The live board shows the price ladder (one shop alone vs.
    twelve together vs. negotiated) and each supplier's price falling round by round.
-3. **Wednesday:** PayPal authorizes each shop's share. The money is held, not taken.
+3. **Wednesday:** PayPal authorizes each shop's share. The money is held, not taken. A
+   supplier's flash deal goes out, and two shops' agents take it within their owners' rules.
 4. **Thursday:** Café Mei receives 34 of 38 L milk. PayPal captures only what arrived and
    releases the rest. Johor Farm's invoice overcharges S$69.00 for milk; Swarm rejects it,
    gets a corrected invoice and pays that by Payouts, minus the 2% fee.
 5. **Friday:** Café Mei's expiring milk goes to Brew Lab at 35% off. Brew Lab is charged,
    Café Mei is paid out, and 8.4 kg of food is saved.
-6. **Saturday:** Kopi Corner runs out of eggs; Little Pasta, a minute's walk away, lends a tray,
-   paid instantly. A supplier's flash deal is bought by two shops within their owners'
-   rules.
+6. **Saturday:** Kopi Corner runs out of eggs; Little Pasta, a minute's walk away, lends a
+   tray, paid instantly.
 7. **Sunday:** every owner gets a savings report. The live board shows the street's
    total, and the ledger balances.
 

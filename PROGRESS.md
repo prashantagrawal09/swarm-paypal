@@ -497,6 +497,22 @@ spec item was changed; this makes the week easier to watch and understand.
   watchable pace as the full run (`POST /api/demo/advance?paced=true`, in the background).
 - Loading skeletons, hover states, and no layout jump when the narrator's caption changes.
 
+**Ready for a small server**
+- Every shop's savings and committed spend are now read in three queries each instead of
+  several per shop (`savings.week_reports`, `engine.committed_by_shop`; the per-shop rules
+  call the same code, and a test checks they agree).
+- The summaries the live board polls are computed once and shared between everyone
+  watching until something happens (`app/api/readcache.py`, at most 3 seconds stale).
+- Locally the overview went from 162 ms to 29 ms (8 ms shared) and the shop list from 75 ms
+  to 16 ms. This matters on Render's free plan, where the same small process also runs the
+  week.
+
+**Accessibility**
+- Muted and critical text now meet WCAG AA (4.5:1) on every surface in both themes; the
+  brighter red is kept for marks only.
+- The map's pins, the money-flow nodes and the command palette all work from the keyboard;
+  reduced motion turns off flights, pulses and the ticker.
+
 **Fixed along the way**
 - **The demo week drifted with the real date.** The seed picked "next Monday from today",
   so after a few days the numbers no longer matched the README, the demo script or the
@@ -504,9 +520,11 @@ spec item was changed; this makes the week easier to watch and understand.
 - Group orders expose their negotiation's conversation ID from the start, so the board can
   follow a negotiation in progress.
 - Status pills in the tables were stretched to the row height.
+- The demo panel's surprise cards showed the wrong days (the invoice check is Thursday, the
+  flash deal Wednesday, the surplus swap Friday).
 
 **Works**
-- 245 backend tests and 39 new frontend unit tests (Vitest: story captions, money-flow
+- 247 backend tests and 39 new frontend unit tests (Vitest: story captions, money-flow
   layout and conservation, map geometry, flights, search). Both run in `make check` and CI.
 - `next build` is clean. Checked in headless Chrome at desktop and phone widths, light and
   dark, with no console errors.

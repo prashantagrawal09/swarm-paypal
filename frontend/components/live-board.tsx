@@ -119,7 +119,7 @@ export function LiveBoard() {
                     <BookCheck className="text-good-ink h-4 w-4" aria-hidden /> Balanced
                   </span>
                 ) : (
-                  <span className="text-critical inline-flex items-center gap-1.5">
+                  <span className="text-critical-ink inline-flex items-center gap-1.5">
                     <BookX className="h-4 w-4" aria-hidden /> Check ledger
                   </span>
                 )

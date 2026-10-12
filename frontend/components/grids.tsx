@@ -124,7 +124,7 @@ export function OrdersGrid({ rows, height }: { rows?: ShopOrderLine[]; height?: 
       minWidth: 80,
       valueFormatter: (p) => (p.value === null || p.value === undefined ? "-" : String(p.value)),
       cellClassRules: {
-        "text-critical font-medium": (p) =>
+        "text-critical-ink font-medium": (p) =>
           p.value !== null && p.data !== undefined && p.value < p.data.qty_requested,
       },
     },

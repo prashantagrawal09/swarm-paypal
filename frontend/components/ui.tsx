@@ -82,7 +82,7 @@ type Tone = "good" | "warning" | "critical" | "info" | "neutral" | "busy";
 const TONES: Record<Tone, { className: string; icon: LucideIcon }> = {
   good: { className: "bg-good-soft text-good-ink", icon: CheckCircle2 },
   warning: { className: "bg-warning-soft text-warning-ink", icon: PauseCircle },
-  critical: { className: "bg-critical-soft text-critical", icon: XCircle },
+  critical: { className: "bg-critical-soft text-critical-ink", icon: XCircle },
   info: { className: "bg-real-soft text-real", icon: Clock3 },
   neutral: { className: "bg-surface-2 text-ink-2", icon: Circle },
   busy: { className: "bg-honey-soft text-honey-ink", icon: Loader2 },
@@ -185,7 +185,7 @@ export function Button({
     honey: "bg-honey text-[#1c1400] hover:brightness-105",
     secondary: "border border-line-strong bg-surface text-ink hover:bg-surface-2",
     ghost: "text-ink-2 hover:bg-surface-2 hover:text-ink",
-    danger: "border border-line-strong bg-surface text-critical hover:bg-critical-soft",
+    danger: "border border-line-strong bg-surface text-critical-ink hover:bg-critical-soft",
   }[variant];
   return (
     <button

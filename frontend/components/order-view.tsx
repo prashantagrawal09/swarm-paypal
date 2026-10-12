@@ -61,7 +61,7 @@ export function OrderView({ id }: { id: string }) {
       field: "short_text",
       headerName: "Short",
       minWidth: 120,
-      cellClass: "text-critical",
+      cellClass: "text-critical-ink",
       tooltipField: "short_text",
     },
     {

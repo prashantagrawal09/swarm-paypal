@@ -33,7 +33,7 @@ const MAX = 3;
 const TONE: Partial<Record<Tone, { chip: string; icon: LucideIcon }>> = {
   good: { chip: "bg-good-soft text-good-ink", icon: CheckCircle2 },
   warning: { chip: "bg-warning-soft text-warning-ink", icon: AlertTriangle },
-  critical: { chip: "bg-critical-soft text-critical", icon: ShieldAlert },
+  critical: { chip: "bg-critical-soft text-critical-ink", icon: ShieldAlert },
   honey: { chip: "bg-honey-soft text-honey-ink", icon: Sparkles },
 };
 

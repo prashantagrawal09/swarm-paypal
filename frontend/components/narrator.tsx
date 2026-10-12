@@ -49,7 +49,7 @@ const TONE: Record<Tone, { chip: string; icon?: LucideIcon }> = {
   honey: { chip: "bg-honey text-[#1c1400]" },
   good: { chip: "bg-good-soft text-good-ink", icon: CheckCircle2 },
   warning: { chip: "bg-warning-soft text-warning-ink", icon: AlertTriangle },
-  critical: { chip: "bg-critical-soft text-critical", icon: ShieldAlert },
+  critical: { chip: "bg-critical-soft text-critical-ink", icon: ShieldAlert },
 };
 
 export function Narrator({ overview }: { overview: Overview }) {
@@ -148,7 +148,7 @@ export function Narrator({ overview }: { overview: Overview }) {
             ) : null}
           </motion.div>
           {problem ? (
-            <p className="text-critical mt-1.5 text-xs">
+            <p className="text-critical-ink mt-1.5 text-xs">
               {problem.text}{" "}
               {problem.locked ? (
                 <Link href="/demo" className="underline underline-offset-2">

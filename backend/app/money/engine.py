@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -213,12 +214,20 @@ class MoneyEngine:
     # Spending limits
     # ===================================================================================
 
-    async def committed_this_week(
-        self, shop_id: uuid.UUID, week: Any, *, exclude_shop_order: uuid.UUID | None = None
-    ) -> int:
-        """What the shop has already committed for `week` (holds and net captures)."""
-        rows = await self.session.execute(
+    async def committed_by_shop(
+        self,
+        week: Any,
+        *,
+        shop_id: uuid.UUID | None = None,
+        exclude_shop_order: uuid.UUID | None = None,
+    ) -> dict[uuid.UUID, int]:
+        """What each shop has already committed for `week`: holds, net captures, swaps it is
+        buying and flash deals. One rule, used both to enforce spending limits (one shop) and
+        to show them (every shop in three queries)."""
+        totals: dict[uuid.UUID, int] = defaultdict(int)
+        orders = (
             select(
+                ShopOrder.shop_id,
                 ShopOrder.status,
                 ShopOrder.hold_amount_cents,
                 ShopOrder.captured_amount_cents,
@@ -226,28 +235,40 @@ class MoneyEngine:
                 ShopOrder.id,
             )
             .join(GroupOrder, GroupOrder.id == ShopOrder.group_order_id)
-            .where(ShopOrder.shop_id == shop_id, GroupOrder.week_start == week)
+            .where(GroupOrder.week_start == week)
         )
-        total = 0
-        for status, hold, captured, refunded, shop_order_id in rows.all():
+        swaps = select(SwapOffer).where(
+            SwapOffer.to_shop_id.is_not(None),
+            SwapOffer.status.in_([SwapStatus.ACCEPTED, SwapStatus.PAID, SwapStatus.COMPLETED]),
+        )
+        if shop_id is not None:
+            orders = orders.where(ShopOrder.shop_id == shop_id)
+            swaps = swaps.where(SwapOffer.to_shop_id == shop_id)
+        for owner, status, hold, captured, refunded, shop_order_id in (
+            await self.session.execute(orders)
+        ).all():
             if shop_order_id == exclude_shop_order or status not in COMMITTED_SHOP_ORDER_STATUSES:
                 continue
-            total += hold if status == ShopOrderStatus.AUTHORIZED else captured - refunded
-        swaps = await self.session.scalars(
-            select(SwapOffer).where(
-                SwapOffer.to_shop_id == shop_id,
-                SwapOffer.status.in_([SwapStatus.ACCEPTED, SwapStatus.PAID, SwapStatus.COMPLETED]),
-            )
-        )
-        for swap in swaps:
-            if week_start(swap.expires_at) == week:
-                total += swap.price_cents
+            totals[owner] += hold if status == ShopOrderStatus.AUTHORIZED else captured - refunded
+        for swap in await self.session.scalars(swaps):
+            if swap.to_shop_id is not None and week_start(swap.expires_at) == week:
+                totals[swap.to_shop_id] += swap.price_cents
         deals = await self.session.scalars(select(FlashDeal).where(FlashDeal.taken_qty > 0))
         for deal in deals:
             for purchase in deal.details.get("purchases", []):
-                if purchase["shop_id"] == str(shop_id) and purchase["week"] == str(week):
-                    total += int(purchase["amount_cents"])
-        return total
+                buyer = uuid.UUID(purchase["shop_id"])
+                if purchase["week"] == str(week) and shop_id in (None, buyer):
+                    totals[buyer] += int(purchase["amount_cents"])
+        return totals
+
+    async def committed_this_week(
+        self, shop_id: uuid.UUID, week: Any, *, exclude_shop_order: uuid.UUID | None = None
+    ) -> int:
+        """What the shop has already committed for `week` (holds and net captures)."""
+        totals = await self.committed_by_shop(
+            week, shop_id=shop_id, exclude_shop_order=exclude_shop_order
+        )
+        return totals.get(shop_id, 0)
 
     async def _approved_extra(self, related_id: uuid.UUID) -> int:
         approval = await self.session.scalar(

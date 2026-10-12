@@ -11,6 +11,7 @@ Per shop and week:
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
@@ -101,13 +102,59 @@ class ShopWeek:
         }
 
 
-async def shop_week(ctx: Ctx, shop: Shop, week: date) -> ShopWeek:
-    report = ShopWeek(shop.code, shop.name, week)
-    orders = await ctx.session.scalars(
+def _add_order(report: ShopWeek, so: ShopOrder) -> None:
+    group = so.group_order
+    delivered = so.captured_amount_cents > 0
+    lines = [
+        ((line.qty_delivered if delivered else line.qty_requested) or 0, line) for line in so.lines
+    ]
+    paid = so.captured_amount_cents if delivered else so.hold_amount_cents
+    alone = pricing.order_amount(
+        [(qty, line.alone_unit_price_cents or 0) for qty, line in lines if qty],
+        group.delivery_fee_cents,
+    )
+    report.groups.append(
+        GroupSaving(
+            group.category.value,
+            group.awarded_supplier.name if group.awarded_supplier else "",
+            paid,
+            alone,
+        )
+    )
+    report.refunds_cents += so.refunded_amount_cents
+
+
+def _add_swap(report: ShopWeek, swap: SwapOffer, shop_id: uuid.UUID, week: date) -> None:
+    if week_start(swap.expires_at) != week and week_start(swap.updated_at) != week:
+        return
+    if swap.from_shop_id == shop_id:
+        if swap.kind == SwapKind.EMERGENCY:
+            report.help_income_cents += swap.price_cents
+        else:
+            report.swap_income_cents += swap.price_cents
+        report.food_saved_grams += swap.food_saved_grams
+    else:
+        report.swap_spent_cents += swap.price_cents
+        if swap.kind == SwapKind.SURPLUS:
+            report.swap_saved_cents += (
+                swap.qty * int(swap.details.get("cost_cents", 0)) - swap.price_cents
+            )
+
+
+async def week_reports(
+    ctx: Ctx, week: date, shops: list[Shop] | None = None
+) -> dict[uuid.UUID, ShopWeek]:
+    """Every shop's savings for `week`, in three queries however many shops there are."""
+    session = ctx.session
+    if shops is None:
+        shops = list(await session.scalars(select(Shop)))
+    reports = {shop.id: ShopWeek(shop.code, shop.name, week) for shop in shops}
+    by_code = {shop.code: reports[shop.id] for shop in shops}
+    orders = await session.scalars(
         select(ShopOrder)
         .join(GroupOrder, GroupOrder.id == ShopOrder.group_order_id)
         .where(
-            ShopOrder.shop_id == shop.id,
+            ShopOrder.shop_id.in_(reports),
             GroupOrder.week_start == week,
             ShopOrder.status.in_(PAID_STATUSES),
         )
@@ -115,55 +162,25 @@ async def shop_week(ctx: Ctx, shop: Shop, week: date) -> ShopWeek:
             selectinload(ShopOrder.lines),
             selectinload(ShopOrder.group_order).selectinload(GroupOrder.awarded_supplier),
         )
+        .order_by(GroupOrder.category)
     )
     for so in orders:
-        group = so.group_order
-        delivered = so.captured_amount_cents > 0
-        lines = [
-            ((line.qty_delivered if delivered else line.qty_requested) or 0, line)
-            for line in so.lines
-        ]
-        paid = so.captured_amount_cents if delivered else so.hold_amount_cents
-        alone = pricing.order_amount(
-            [(qty, line.alone_unit_price_cents or 0) for qty, line in lines if qty],
-            group.delivery_fee_cents,
-        )
-        report.groups.append(
-            GroupSaving(
-                group.category.value,
-                group.awarded_supplier.name if group.awarded_supplier else "",
-                paid,
-                alone,
-            )
-        )
-        report.refunds_cents += so.refunded_amount_cents
-    swaps = await ctx.session.scalars(
-        select(SwapOffer).where(
-            SwapOffer.status == SwapStatus.COMPLETED,
-            (SwapOffer.from_shop_id == shop.id) | (SwapOffer.to_shop_id == shop.id),
-        )
-    )
+        _add_order(reports[so.shop_id], so)
+    swaps = await session.scalars(select(SwapOffer).where(SwapOffer.status == SwapStatus.COMPLETED))
     for swap in swaps:
-        if week_start(swap.expires_at) != week and week_start(swap.updated_at) != week:
-            continue
-        if swap.from_shop_id == shop.id:
-            if swap.kind == SwapKind.EMERGENCY:
-                report.help_income_cents += swap.price_cents
-            else:
-                report.swap_income_cents += swap.price_cents
-            report.food_saved_grams += swap.food_saved_grams
-        else:
-            report.swap_spent_cents += swap.price_cents
-            if swap.kind == SwapKind.SURPLUS:
-                report.swap_saved_cents += (
-                    swap.qty * int(swap.details.get("cost_cents", 0)) - swap.price_cents
-                )
-    deals = await ctx.session.scalars(select(FlashDeal).where(FlashDeal.taken_qty > 0))
+        for party in (swap.from_shop_id, swap.to_shop_id):
+            if party in reports:
+                _add_swap(reports[party], swap, party, week)
+    deals = await session.scalars(select(FlashDeal).where(FlashDeal.taken_qty > 0))
     for deal in deals:
         for purchase in deal.details.get("purchases", []):
-            if purchase["shop"] == shop.code and purchase["week"] == str(week):
-                report.flash_saved_cents += int(purchase.get("saved_cents", 0))
-    return report
+            if purchase["week"] == str(week) and purchase["shop"] in by_code:
+                by_code[purchase["shop"]].flash_saved_cents += int(purchase.get("saved_cents", 0))
+    return reports
+
+
+async def shop_week(ctx: Ctx, shop: Shop, week: date) -> ShopWeek:
+    return (await week_reports(ctx, week, [shop]))[shop.id]
 
 
 def report_text(report: ShopWeek, to_date_cents: int) -> str:
@@ -227,9 +244,8 @@ async def platform_summary(ctx: Ctx) -> dict[str, Any]:
     weeks = list(await session.scalars(select(GroupOrder.week_start).distinct()))
     saved = 0
     food = 0
-    for shop in shops:
-        for week in weeks:
-            report = await shop_week(ctx, shop, week)
+    for week in weeks:
+        for report in (await week_reports(ctx, week, shops)).values():
             saved += report.total_saved_cents
             food += report.food_saved_grams
     negotiation_saved = 0
