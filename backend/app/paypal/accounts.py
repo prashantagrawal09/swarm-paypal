@@ -56,6 +56,11 @@ def shop_email_key(shop_code: str) -> str:
     return f"PAYPAL_SHOP_{shop_code.upper().replace('-', '_')}_EMAIL"
 
 
+def shop_vault_key(shop_code: str) -> str:
+    """`cafe-mei` -> `PAYPAL_SHOP_CAFE_MEI_VAULT_ID`."""
+    return f"PAYPAL_SHOP_{shop_code.upper().replace('-', '_')}_VAULT_ID"
+
+
 def shop_paypal_email(shop_code: str) -> str | None:
     return env_value(shop_email_key(shop_code))
 

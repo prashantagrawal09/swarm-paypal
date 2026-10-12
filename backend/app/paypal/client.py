@@ -85,6 +85,8 @@ class PayPalClient:
         self._token_expires_at = 0.0
         self._token_lock = asyncio.Lock()
         self.token_requests = 0
+        # What the app is allowed to do, as PayPal lists it on the token (one URI per feature).
+        self.token_scopes: frozenset[str] = frozenset()
         self.last_debug_id: str | None = None
 
     async def aclose(self) -> None:
@@ -124,6 +126,7 @@ class PayPalClient:
                     raw=body,
                 )
             self._token = str(body["access_token"])
+            self.token_scopes = frozenset(str(body.get("scope") or "").split())
             expires_in = float(body.get("expires_in", 0))
             self._token_expires_at = self._monotonic() + max(
                 expires_in - TOKEN_EXPIRY_MARGIN_SECONDS, 0

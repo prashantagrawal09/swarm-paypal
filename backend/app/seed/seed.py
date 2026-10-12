@@ -39,7 +39,12 @@ from app.db.models import (
 )
 from app.features.demand import OPEN_DAYS
 from app.money.pricing import parse_tiers, tier_unit_price
-from app.paypal.accounts import credentials_for_prefix, platform_credentials, shop_email_key
+from app.paypal.accounts import (
+    credentials_for_prefix,
+    platform_credentials,
+    shop_email_key,
+    shop_vault_key,
+)
 
 DATA_DIR = Path(__file__).parent / "data"
 HISTORY_WEEKS = 8
@@ -167,7 +172,7 @@ async def seed_world(
         code = data["code"]
         real = code in real_codes
         email = env_value(shop_email_key(code)) if real else None
-        vault = env_value(shop_email_key(code).replace("_EMAIL", "_VAULT_ID")) if real else None
+        vault = env_value(shop_vault_key(code)) if real else None
         preferences = dict(data["preferences"])
         preferences["usual_weekly"] = data["usual_weekly"]
         preferences["traffic"] = data["traffic"]

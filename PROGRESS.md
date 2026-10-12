@@ -534,3 +534,32 @@ spec item was changed; this makes the week easier to watch and understand.
 
 **Manual steps for you**
 - Unchanged from phase 8: PayPal sandbox and `make smoke`, push, Render, video.
+
+## PayPal setup helper
+
+Setting up the sandbox by hand-editing `.env` was the step most likely to go wrong, so it is
+now a guided command.
+
+**Built**
+- `make paypal-setup` (`backend/scripts/paypal_setup.py`): asks for each sandbox value in
+  turn (Secrets hidden), tests every pair of keys with PayPal's sandbox token endpoint before
+  saving, saves as it goes, and can be re-run (Enter keeps a value). It creates `.env` from
+  `.env.example` with a generated `SECRET_KEY`, readable only by its owner.
+- It sets `REAL_SHOP_CODES` to exactly the shops that have a buyer account, so a first setup
+  with one shop doesn't leave three "real" shops without a wallet.
+- `make paypal-check`: the same report without questions (which apps' keys work, which shops
+  have a buyer and a saved PayPal, what to do next). Keys are never printed.
+- `make smoke` now writes the PayPal it saved to that shop's `PAYPAL_SHOP_<CODE>_VAULT_ID`
+  when the buyer who approved is one of the shops' owners, so no ID has to be copied by hand.
+- `docs/paypal-setup.md` rewritten click by click for someone who has never used the
+  Developer Dashboard, with direct links and a troubleshooting table.
+
+**Not verified yet**
+- The report's "Vault / Payouts / Invoicing on" line is read from the permissions on the
+  app's token. It is a hint (worded as one) until it has been seen against a real sandbox
+  app; `make smoke` is what proves each feature.
+
+**Works**
+- 13 new tests: `.env` edits keep comments and order, rejected keys are never saved, the
+  wizard's retry, re-run and skip paths, and the smoke-test wallet only goes to the shop
+  whose owner approved it.

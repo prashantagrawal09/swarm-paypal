@@ -222,11 +222,14 @@ make negotiate                # Monday forecasts + Tuesday negotiation, printed 
 
 ```bash
 make smoke-sim                # every PayPal step against the simulated client
+make paypal-setup             # paste your sandbox keys, one question at a time; each is tested
 make smoke                    # the same steps against the real PayPal sandbox
 ```
 
-`make smoke` prints an approval link partway through; open it, log in as the sandbox buyer
-and approve. It ends with a PASS/FAIL table.
+`make paypal-setup` writes the keys to `.env` and `make paypal-check` reports what is set up
+and whether PayPal accepts it. `make smoke` prints an approval link partway through; open it,
+log in as the sandbox buyer and approve. It ends with a PASS/FAIL table. The click-by-click
+guide is [docs/paypal-setup.md](docs/paypal-setup.md).
 
 ### Owners in production
 

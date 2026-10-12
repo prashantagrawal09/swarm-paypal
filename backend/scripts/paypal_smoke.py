@@ -37,6 +37,7 @@ from app.paypal.accounts import (
     missing_credential_keys,
 )
 from app.paypal.client import PayPalClient
+from app.paypal.envfile import adopt_smoke_vault
 from app.paypal.errors import PayPalError, PayPalUnprocessableError, PayPalValidationError
 from app.paypal.interface import (
     Authorization,
@@ -677,7 +678,8 @@ async def main(argv: list[str] | None = None) -> int:
         )
         if missing:
             print("Missing in .env: " + ", ".join(missing))
-            print("See docs/paypal-setup.md for where to find these values.")
+            print("Run `make paypal-setup` to add them (docs/paypal-setup.md shows where")
+            print("each value is in the PayPal dashboard).")
             return 2
         platform_creds = credentials_for_prefix(PLATFORM_PREFIX, "platform")
         supplier_creds = credentials_for_prefix(supplier_prefix)
@@ -721,6 +723,9 @@ async def main(argv: list[str] | None = None) -> int:
         await supplier.aclose()
         if not args.simulated:
             save_state(state)
+            adopted = adopt_smoke_vault(state)
+            if adopted:
+                print(f"\nSaved the PayPal you approved to .env for {adopted}.")
 
     print("\n" + render_table(results))
     if run.ctx.ids:
