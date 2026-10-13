@@ -555,6 +555,15 @@ function Injections({
               </div>
               <div className="grid grid-cols-2 gap-2">{card.fields}</div>
               <div className="mt-auto flex flex-wrap gap-2">
+                {card.optional && scheduled ? (
+                  <Button
+                    className="h-8 py-0 text-xs"
+                    disabled={locked || busy === `${card.kind}:false`}
+                    onClick={() => schedule(card.kind, true, `${card.title} updated for Thursday.`)}
+                  >
+                    Save
+                  </Button>
+                ) : null}
                 {card.optional ? (
                   <Button
                     className="h-8 py-0 text-xs"

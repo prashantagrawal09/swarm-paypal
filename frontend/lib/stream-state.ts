@@ -101,7 +101,14 @@ const BURST_MAX_MS = 1100;
 const ARC_MS = 8000;
 
 /** Agent messages that move the week's story forward (the narrator shows these). */
-const STORY_MESSAGES = new Set(["RFQ", "FINAL_CALL", "AWARD_SUMMARY", "NO_AWARD", "FLASH_DEAL"]);
+const STORY_MESSAGES = new Set([
+  "RFQ",
+  "FINAL_CALL",
+  "AWARD_SUMMARY",
+  "NO_AWARD",
+  "FLASH_DEAL",
+  "CLAIM_OPEN",
+]);
 const STORY_EVENTS = new Set([
   "step_started",
   "captured",

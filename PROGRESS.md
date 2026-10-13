@@ -936,3 +936,18 @@ phone-sized pages, each in light and dark: 42 checks.
   negotiation (12 messages before, 62 after it came back), and with a reset while hidden.
 - `make a11y` passes both with a week run and on a freshly reset demo.
 
+## Watch page: jump to any day
+
+**Built**
+- The day strip on the watch page jumps to any day of a recorded week, played or not, so a
+  presenter can go straight to Thursday. (It used to enable only the days already played.)
+  While a week is being run live it still just follows along.
+- A claim that holds money back gets its own caption in the story ("A claim is open, so
+  S$15.50 is held back from Johor Farm Fresh.") and enough time on screen to read it.
+- A damage claim that is already added to Thursday can have its shop, product or quantity
+  changed and saved.
+
+**Works**
+- Recorded a week with the claim added, jumped to Thursday's settlement on the watch page and
+  watched the claim, the short payout and its caption play. 301 backend and 77 frontend tests.
+

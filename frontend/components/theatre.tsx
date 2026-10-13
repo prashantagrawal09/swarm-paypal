@@ -67,6 +67,11 @@ export function Theatre() {
   const running = Boolean(overview?.running);
   // The week is being written right now: play each item as it arrives.
   const follow = running && !complete;
+  // While a week is being run live the picture follows it; otherwise any recorded day goes.
+  const jumpable = useMemo(
+    () => new Set(follow ? [] : marks.map((mark) => mark.step)),
+    [follow, marks],
+  );
   const player = usePlayer(items, { follow, autoplay: true });
   const { frame, atEnd, catchUp, toggle, skip, setSpeed } = player;
   const restartPlayer = player.restart;
@@ -303,6 +308,7 @@ export function Theatre() {
             <DayStrip
               steps={steps}
               progress={world.steps}
+              recorded={jumpable}
               onPick={(step) => {
                 const mark = marks.find((m) => m.step === step);
                 if (mark && !follow) {

@@ -38,6 +38,8 @@ const MONEY_KINDS = new Set([
 export function gapAfter(item: StreamItem): number {
   if (item.event === "agent_message") {
     const ownerSide = item.data.from.startsWith("owner:") || item.data.to.startsWith("owner:");
+    // A claim that holds money back is a beat of its own: leave time to read the caption.
+    if (item.data.type === "CLAIM_OPEN") return 1700;
     return ownerSide ? 28 : 380;
   }
   const kind = item.data.kind;

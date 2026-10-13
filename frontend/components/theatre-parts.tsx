@@ -57,11 +57,13 @@ const SHORT: Record<string, string> = {
 export function DayStrip({
   steps,
   progress,
+  recorded,
   onPick,
 }: {
   steps: Step[];
   progress: Record<string, StepProgress>;
-  /** Jump to a step that is in the recording (undefined for steps not recorded yet). */
+  /** The steps that can be jumped to: every one in a finished recording, played or not. */
+  recorded: ReadonlySet<string>;
   onPick: (step: string) => void;
 }) {
   return (
@@ -73,20 +75,23 @@ export function DayStrip({
         const state = progress[step.key] ?? "pending";
         const [day] = splitTitle(step.title);
         const what = SHORT[step.key] ?? splitTitle(step.title)[1];
+        const pickable = recorded.has(step.key);
         return (
           <li key={step.key} className="min-w-0 flex-1">
             <button
               type="button"
               onClick={() => onPick(step.key)}
-              disabled={state === "pending"}
+              disabled={!pickable}
               aria-current={state === "running" ? "step" : undefined}
               title={`${step.title}: ${step.description}`}
               className={cx(
                 // On a phone there is room for the day only; the step's name is in the caption.
                 "group flex h-full w-full flex-col items-center rounded-lg px-1 py-1.5 transition sm:min-w-[4.25rem] sm:items-start sm:px-1.5 sm:text-left",
                 state === "running" && "bg-honey text-[#1c1400]",
-                state === "done" && "text-ink hover:bg-surface-2",
-                state === "pending" && "text-muted cursor-default",
+                state === "done" && "text-ink",
+                state === "pending" && "text-muted",
+                state !== "running" && pickable && "hover:bg-surface-2 hover:text-ink",
+                !pickable && "cursor-default",
               )}
             >
               <span className="flex items-center gap-1 text-[10px] font-semibold tracking-wider uppercase">

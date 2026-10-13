@@ -55,6 +55,34 @@ describe("the recorded week", () => {
   });
 });
 
+describe("a week with a claim in it", () => {
+  const message = (type: string, from: string, to: string): StreamItem =>
+    ({
+      event: "agent_message",
+      seq: 1,
+      data: {
+        id: `m-${type}`,
+        seq: 1,
+        conversation_id: "invoice:g1",
+        from,
+        to,
+        type,
+        text: "Bakery Lim reports 2 trays of eggs damaged.",
+        payload: { amount_cents: 1550, supplier: "johorfarm", held_back: true },
+        at: "2026-10-15T06:00:00+00:00",
+      },
+    }) as StreamItem;
+  const open = message("CLAIM_OPEN", "claims:swarm", "coordinator:swarm");
+
+  it("gives the open claim time to be read, and a line in the story", () => {
+    expect(gapAfter(open)).toBeGreaterThan(4 * gapAfter(message("INVOICE", "a", "b")));
+    const state = ingest(EMPTY_STREAM, open, 1000);
+    expect(state.timeline.map((item) => item.kind === "message" && item.message.type)).toEqual([
+      "CLAIM_OPEN",
+    ]);
+  });
+});
+
 describe("the world worked out from events", () => {
   const end = playAll().world;
 
