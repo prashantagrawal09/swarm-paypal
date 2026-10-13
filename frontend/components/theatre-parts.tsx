@@ -309,7 +309,21 @@ export function Tally({ world }: { world: World }) {
           <Leaf className="text-good-ink h-3.5 w-3.5" aria-hidden />
           {kg(stats?.food_saved_grams ?? 0)} of food not wasted
         </span>
-        <span className="tabular">{world.paypalCalls} PayPal calls</span>
+        <span
+          className="tabular"
+          title={
+            world.realCalls > 0
+              ? "Calls to the real PayPal sandbox; the rest went to the simulator"
+              : "No sandbox keys are set, so every call went to the simulator, which follows the same rules"
+          }
+        >
+          {world.paypalCalls} PayPal calls
+          {world.paypalCalls === 0
+            ? ""
+            : world.realCalls > 0
+              ? `, ${world.realCalls} real`
+              : ", all simulated"}
+        </span>
       </div>
     </section>
   );
@@ -638,7 +652,7 @@ export function Finale({
     {
       icon: <BookCheck className="h-4 w-4" aria-hidden />,
       title: stats.books_balanced ? "Every cent accounted for" : "The books need a look",
-      detail: `${calls} PayPal calls, ${moneyWhole(stats.captured_cents)} charged, ${moneyWhole(stats.payouts_cents)} paid out.`,
+      detail: `${calls} PayPal calls (${stats.paypal_calls.REAL ? `${stats.paypal_calls.REAL} on the real sandbox` : "all simulated"}), ${moneyWhole(stats.captured_cents)} charged, ${moneyWhole(stats.payouts_cents)} paid out.`,
     },
   ];
 

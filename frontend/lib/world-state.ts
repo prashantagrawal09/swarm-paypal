@@ -49,6 +49,8 @@ export type World = {
   refundedCents: number;
   /** Money-moving PayPal calls so far. */
   paypalCalls: number;
+  /** How many of those went to the real PayPal sandbox (the rest were simulated). */
+  realCalls: number;
   /** The server's totals as of the last finished step (null before the first). */
   stats: Stats | null;
   negotiations: Negotiation[];
@@ -72,6 +74,7 @@ export const EMPTY_WORLD: World = {
   paidTo: {},
   refundedCents: 0,
   paypalCalls: 0,
+  realCalls: 0,
   stats: null,
   negotiations: [],
   activeNegotiation: null,
@@ -186,6 +189,7 @@ export function advance(world: World, item: StreamItem): World {
     ...world,
     at: text(event.at) ?? world.at,
     paypalCalls: world.paypalCalls + (CALLS[event.kind] ?? 0),
+    realCalls: world.realCalls + (event.mode === "REAL" ? (CALLS[event.kind] ?? 0) : 0),
   };
   const shop = text(event.shop);
   const order = text(event.shop_order_id) ?? text(event.swap_id);
@@ -213,6 +217,7 @@ export function advance(world: World, item: StreamItem): World {
         paidOutCents: stats ? stats.payouts_cents : base.paidOutCents,
         refundedCents: stats ? stats.refunds_cents : base.refundedCents,
         paypalCalls: stats ? callsIn(stats) : base.paypalCalls,
+        realCalls: stats ? (stats.paypal_calls.REAL ?? 0) : base.realCalls,
         activeNegotiation: event.step === "negotiation" ? null : base.activeNegotiation,
       };
     }

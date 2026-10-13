@@ -49,3 +49,15 @@ describe("agents", () => {
     expect(slotColor("packpro")).toBe("var(--s3)");
   });
 });
+
+describe("exporting a table", () => {
+  it("writes amounts in dollars and names instead of objects", async () => {
+    const { exportValue } = await import("@/components/data-grid");
+    expect(exportValue("amount_cents", 13333)).toBe("133.33");
+    expect(exportValue("amount_cents", 0)).toBe("0.00");
+    expect(exportValue("qty", 34)).toBe("34");
+    expect(exportValue("shop", { code: "cafe-mei", name: "Café Mei" })).toBe("Café Mei");
+    expect(exportValue("supplier", null)).toBe("");
+    expect(exportValue("paypal_id", "SIM-CAPTURE-000162")).toBe("SIM-CAPTURE-000162");
+  });
+});

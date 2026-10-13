@@ -814,3 +814,10 @@ phone-sized pages, each in light and dark: 42 checks.
 **Not covered**
 - This is an automated audit. It cannot judge whether the reading order makes sense or how
   the pages sound in a screen reader; nobody has tested with one.
+
+**Also in this pass**
+- **Download as CSV** under the PayPal activity, orders and quotes tables, with amounts in
+  dollars and names instead of internal IDs.
+- **The watch page says what was real.** Its tally and closing summary now state how many
+  PayPal calls went to the real sandbox and how many were simulated, counted from the events
+  themselves and checked against the server at every step.

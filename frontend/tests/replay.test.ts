@@ -106,6 +106,7 @@ describe("the world worked out from events", () => {
       expect(counted.refundedCents).toBe(stats.refunds_cents);
       expect(counted.heldCents).toBe(stats.holds_outstanding_cents);
       expect(counted.paypalCalls).toBe(stats.paypal_calls.REAL + stats.paypal_calls.SIMULATED);
+      expect(counted.realCalls).toBe(stats.paypal_calls.REAL);
     }
   });
 
@@ -141,6 +142,20 @@ describe("the world worked out from events", () => {
 
     const done = shopsAt(shops, end);
     expect(done.every((s) => s.orders.every((o) => o.status === "CAPTURED"))).toBe(true);
+  });
+
+  it("counts calls to the real sandbox apart from simulated ones", () => {
+    const real: StreamItem = {
+      event: "paypal",
+      data: { kind: "hold_placed", at: "", shop: "cafe-mei", amount_cents: 1000, mode: "REAL" },
+    };
+    const simulated: StreamItem = {
+      event: "paypal",
+      data: { kind: "swap_completed", at: "", amount_cents: 500, mode: "SIMULATED" },
+    };
+    const world = advance(advance(EMPTY_WORLD, real), simulated);
+    expect(world.paypalCalls).toBe(3);
+    expect(world.realCalls).toBe(1);
   });
 
   it("starts over on a reset", () => {

@@ -69,10 +69,12 @@ export function PaymentsGrid({
   rows,
   showParties = true,
   height,
+  exportName = "swarm-paypal-activity",
 }: {
   rows?: PaymentRow[];
   showParties?: boolean;
   height?: number;
+  exportName?: string;
 }) {
   const columns: ColDef<PaymentRow>[] = [
     { field: "at", headerName: "When", valueFormatter: when, minWidth: 120, sort: "desc" },
@@ -97,7 +99,15 @@ export function PaymentsGrid({
     { field: "mode", headerName: "PayPal", cellRenderer: ModeCell, minWidth: 90, maxWidth: 110 },
     { field: "paypal_id", headerName: "PayPal ID", cellRenderer: IdCell, minWidth: 150 },
   ];
-  return <DataGrid rows={rows} columns={columns} height={height} empty="No PayPal activity yet." />;
+  return (
+    <DataGrid
+      rows={rows}
+      columns={columns}
+      height={height}
+      empty="No PayPal activity yet."
+      exportName={exportName}
+    />
+  );
 }
 
 export function OrdersGrid({ rows, height }: { rows?: ShopOrderLine[]; height?: number }) {
@@ -158,6 +168,7 @@ export function OrdersGrid({ rows, height }: { rows?: ShopOrderLine[]; height?: 
       columns={columns}
       height={height}
       empty="No orders yet. The agent proposes the week's order on Monday."
+      exportName="swarm-orders"
     />
   );
 }
@@ -284,6 +295,7 @@ export function QuotesGrid({ rows, height }: { rows?: QuoteRow[]; height?: numbe
       columns={columns}
       height={height}
       empty="No quotes yet. Suppliers quote on Tuesday."
+      exportName="swarm-quotes"
     />
   );
 }
