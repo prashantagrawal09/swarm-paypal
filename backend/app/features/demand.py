@@ -60,6 +60,8 @@ class ProductForecast:
     explanation: str
     weather: str | None = None
     multiplier: float = 1.0
+    # What the shop used in each of the weeks the forecast is based on, oldest first.
+    history: tuple[int, ...] = ()
 
 
 def holiday_in_week(week_start: date) -> str | None:
@@ -199,6 +201,7 @@ async def forecast_shop(
                 weather=weather.summary,
                 multiplier=round(factor, 4),
                 explanation=explanation + ".",
+                history=tuple(qty for _, qty in weeks),
             )
         )
     return forecasts

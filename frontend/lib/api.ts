@@ -114,6 +114,9 @@ export type ShopDetail = Omit<ShopSummary, "orders" | "saved_week_cents" | "pend
       confirmed: number | null;
       status: string | null;
       explanation: string;
+      /** What the shop used in each week the forecast is based on, oldest first. */
+      history: number[];
+      average: number;
     }[];
   };
 };

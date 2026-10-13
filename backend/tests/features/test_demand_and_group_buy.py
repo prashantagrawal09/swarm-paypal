@@ -144,3 +144,17 @@ async def test_suppliers_that_cannot_supply_everything_decline(db, world, clock)
     offers, declined = await group_buy.supplier_offers(db, ["tomatoes-1kg", "lettuce-1kg"])
     assert [o.supplier.code for o in offers] == ["johorfarm"]
     assert {s.code for s, _ in declined} == {"freshdairy", "packpro"}
+
+
+async def test_a_forecast_carries_the_weeks_it_is_based_on(db, world):
+    from app.db.models import Shop
+    from app.features import demand
+
+    shop = await db.scalar(select(Shop).where(Shop.code == "cafe-mei"))
+    forecasts = await demand.forecast_shop(db, shop, DEMO_WEEK)
+    assert forecasts
+    for forecast in forecasts:
+        assert len(forecast.history) == forecast.weeks_used == demand.LOOKBACK_WEEKS
+        assert all(qty > 0 for qty in forecast.history)
+        # The average the explanation quotes is the average of exactly these weeks.
+        assert forecast.average_qty == round(sum(forecast.history) / len(forecast.history), 1)

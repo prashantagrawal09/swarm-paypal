@@ -207,6 +207,8 @@ async def shop_detail(code: str, ctx: CtxDep) -> dict[str, Any]:
                     "confirmed": stored[f.item_id].confirmed_qty if f.item_id in stored else None,
                     "status": stored[f.item_id].status.value if f.item_id in stored else None,
                     "explanation": f.explanation,
+                    "history": list(f.history),
+                    "average": f.average_qty,
                 }
                 for f in forecasts
             ],

@@ -17,6 +17,7 @@ import { useState } from "react";
 import useSWR from "swr";
 
 import { Dumbbell } from "@/components/charts/dumbbell";
+import { ForecastSpark } from "@/components/charts/forecast-spark";
 import { ClaimsGrid, OrdersGrid, PaymentsGrid, SwapsGrid } from "@/components/grids";
 import { OwnerPhone } from "@/components/owner-phone";
 import { ShopWeekCard } from "@/components/shop-week";
@@ -291,10 +292,15 @@ export function ShopView({ code }: { code: string }) {
                   {(shop?.forecast.items ?? []).map((item) => (
                     <li
                       key={item.product}
-                      className="flex items-baseline gap-3 py-1.5"
+                      className="flex items-center gap-3 py-1.5"
                       title={item.explanation}
                     >
                       <span className="text-ink min-w-0 flex-1 truncate">{item.name}</span>
+                      <ForecastSpark
+                        history={item.history ?? []}
+                        forecast={item.confirmed ?? item.predicted}
+                        unit={item.unit}
+                      />
                       {item.confirmed !== null && item.confirmed !== item.predicted ? (
                         <span className="tabular text-muted text-xs line-through">
                           {item.predicted}
@@ -307,6 +313,18 @@ export function ShopView({ code }: { code: string }) {
                     </li>
                   ))}
                 </ul>
+                {shop?.forecast.items.some((item) => item.history?.length) ? (
+                  <p className="text-muted flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="bg-muted h-2.5 w-2 rounded-sm" aria-hidden />
+                      the last {shop.forecast.items[0]?.history.length ?? 4} weeks
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="bg-ink h-2.5 w-2 rounded-sm" aria-hidden />
+                      this week&apos;s order
+                    </span>
+                  </p>
+                ) : null}
                 {shop && Object.keys(shop.accepted_brands).length ? (
                   <ul className="text-ink-2 space-y-1 text-xs">
                     {Object.entries(shop.accepted_brands).map(([product, brands]) => (

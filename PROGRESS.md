@@ -827,6 +827,9 @@ phone-sized pages, each in light and dark: 42 checks.
 - The order page's conversation stays in view while the page scrolls and opens from its
   first message.
 
-**Not done in this pass**
-- The backend suite was last run in full before the flash-deal and decision-example changes;
-  the tests for those changes pass, but `make check` should be run once more end to end.
+**Checked**
+- The whole backend suite and the frontend suite pass after everything above.
+- **The weeks behind each forecast.** The shop page's forecast list now draws the last four
+  weeks beside each number (grey bars) with this week's order (dark bar), so "based on your
+  last four weeks, a little less for the rain" is something you can see. The forecast API
+  returns those weeks.
