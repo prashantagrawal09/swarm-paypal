@@ -36,11 +36,15 @@ export type Player = {
 
 export function usePlayer(
   items: StreamItem[],
-  { follow, autoplay }: { follow: boolean; autoplay: boolean },
+  {
+    follow,
+    autoplay,
+    speed: startSpeed = 1,
+  }: { follow: boolean; autoplay: boolean; speed?: Speed },
 ): Player {
   const [frame, setFrame] = useState<Frame>(EMPTY_FRAME);
   const [playing, setPlaying] = useState(autoplay);
-  const [speed, setSpeed] = useState<Speed>(1);
+  const [speed, setSpeed] = useState<Speed>(startSpeed);
   // The timer callback reads the newest items without restarting on every arrival.
   const latest = useRef(items);
   useEffect(() => {

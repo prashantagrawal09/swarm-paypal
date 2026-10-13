@@ -22,6 +22,7 @@ import {
   Webhook,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useMemo, useRef } from "react";
 import useSWR from "swr";
 
 import { Explainers } from "@/components/explainers";
@@ -32,9 +33,13 @@ import { SwarmMap } from "@/components/swarm-map";
 import { ButtonLink, Card, cx, Logo } from "@/components/ui";
 import { WakeScreen } from "@/components/wake-screen";
 import type { Overview, ShopSummary, SupplierSummary } from "@/lib/api";
-import { agentName, kg, moneyWhole } from "@/lib/format";
-import { useLive } from "@/lib/live";
+import { agentName, dayTime, kg, moneyWhole } from "@/lib/format";
+import { LiveContext, useLive } from "@/lib/live";
 import { useServerStatus } from "@/lib/server-status";
+import { stageLive, stageOverview } from "@/lib/stage";
+import { currentCaption } from "@/lib/story";
+import { useHeroReplay } from "@/lib/use-hero-replay";
+import { shopsAt, suppliersAt } from "@/lib/world-state";
 
 const WEEK = [
   {
@@ -146,6 +151,20 @@ export function Landing() {
   const stats = data?.stats;
   // On a hosted demo the server may be asleep: say so instead of showing zeros.
   const waking = status === "waking" && !data;
+
+  // Once a week has been recorded, the hero map replays it on a loop (unless the week is
+  // running right now, in which case the map is already live).
+  const heroCard = useRef<HTMLDivElement>(null);
+  const hero = useHeroReplay(Boolean(data) && !data?.running, heroCard);
+  const { stream: heroStream, world: heroWorld } = hero.frame;
+  const heroLive = useMemo(() => stageLive(heroStream), [heroStream]);
+  const heroCaption = useMemo(
+    () =>
+      hero.active && data
+        ? currentCaption(heroStream.timeline, names, stageOverview(data, heroWorld, true)).caption
+        : null,
+    [hero.active, data, heroStream.timeline, heroWorld, names],
+  );
   // Agent-to-agent talk only (owner chats are private to the owner), without the repeats a
   // broadcast produces.
   const recent = messages
@@ -226,15 +245,27 @@ export function Landing() {
                   />
                   {data?.running
                     ? "Running now"
-                    : connected
-                      ? "Live"
-                      : waking
-                        ? "Waiting"
-                        : "Connecting"}
+                    : hero.active
+                      ? "Replaying the week"
+                      : connected
+                        ? "Live"
+                        : waking
+                          ? "Waiting"
+                          : "Connecting"}
                 </span>
               </div>
-              <div className="px-2 pt-1">
-                {shops ? (
+              <div className="px-2 pt-1" ref={heroCard}>
+                {shops && hero.active ? (
+                  // The replay stands in for the live stream, for this map only.
+                  <LiveContext.Provider value={heroLive}>
+                    <SwarmMap
+                      shops={shopsAt(shops, heroWorld)}
+                      suppliers={suppliers ? suppliersAt(suppliers, heroWorld) : undefined}
+                      heldCents={heroWorld.heldCents}
+                      interactive={false}
+                    />
+                  </LiveContext.Provider>
+                ) : shops ? (
                   <SwarmMap
                     shops={shops}
                     suppliers={suppliers}
@@ -247,6 +278,16 @@ export function Landing() {
                   </div>
                 )}
               </div>
+              {/* What the replay is showing right now. The line keeps its height, so the
+                  card doesn't move as captions come and go. */}
+              {hero.active ? (
+                <p className="text-ink-2 flex h-9 items-center gap-2 px-5 text-xs" aria-hidden>
+                  <span className="text-muted tabular shrink-0">
+                    {heroWorld.at ? dayTime(heroWorld.at) : ""}
+                  </span>
+                  <span className="truncate">{heroCaption?.title}</span>
+                </p>
+              ) : null}
               <dl className="border-line bg-line grid grid-cols-2 gap-px border-t text-sm sm:grid-cols-4">
                 {[
                   {

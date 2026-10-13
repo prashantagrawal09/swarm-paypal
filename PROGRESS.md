@@ -857,3 +857,18 @@ phone-sized pages, each in light and dark: 42 checks.
   S$38.75 + S$4.11 = S$133.33).
 - Checked on screen, at phone width, and as a printed A4 page; `make a11y` now covers 46
   page states, all passing.
+
+## A hero that moves
+
+**Built**
+- **The home page's map replays the week on a loop.** Once a week has been recorded, the
+  hero map plays it back at double speed, with a one-line caption of what is happening,
+  rests on the finished week for a few seconds and starts again. The headline numbers stay
+  the real, final ones. If the week is running right now the map is simply live.
+- It stops when the map scrolls out of view, and does not start at all for visitors who ask
+  their system for reduced motion.
+- One focus ring for the whole site (keyboard users), in place of each browser's default.
+
+**Decisions**
+- The watch page and the home page share the replay staging (`frontend/lib/stage.ts`), so
+  there is one way of turning a recording into what the map and captions show.

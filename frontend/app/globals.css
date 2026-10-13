@@ -274,6 +274,15 @@ body {
   }
 }
 
+/*
+ * One focus ring everywhere, for people using the keyboard: the same colour as "real
+ * sandbox" blue, which is not used for anything a ring could be mistaken for.
+ */
+:focus-visible {
+  outline: 2px solid var(--real);
+  outline-offset: 2px;
+}
+
 /* Thin, quiet scrollbars inside feeds. */
 .feed {
   scrollbar-width: thin;

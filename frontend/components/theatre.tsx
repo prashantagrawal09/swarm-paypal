@@ -35,17 +35,11 @@ import {
 } from "@/components/theatre-parts";
 import { Button, cx, Logo } from "@/components/ui";
 import { Hive } from "@/components/wake-screen";
-import {
-  ApiError,
-  type Overview,
-  post,
-  type ShopSummary,
-  type Stats,
-  type SupplierSummary,
-} from "@/lib/api";
+import { ApiError, type Overview, post, type ShopSummary, type SupplierSummary } from "@/lib/api";
 import { dayTime, moneyWhole, shortDate } from "@/lib/format";
-import { LiveContext, type LiveState } from "@/lib/live";
+import { LiveContext } from "@/lib/live";
 import { chapters, isComplete, SPEEDS } from "@/lib/replay";
+import { stageLive, stageOverview } from "@/lib/stage";
 import { currentCaption } from "@/lib/story";
 import { useNow } from "@/lib/use-now";
 import { usePlayer } from "@/lib/use-player";
@@ -57,21 +51,6 @@ const TITLE_CARD_MS = 1700;
 const TITLE_CARD_MIN_MS = 800;
 /** How long without input before the controls fade while the week plays. */
 const IDLE_MS = 2800;
-const NO_STATS: Stats = {
-  saved_cents: 0,
-  negotiation_saved_cents: 0,
-  food_saved_grams: 0,
-  captured_cents: 0,
-  payouts_cents: 0,
-  refunds_cents: 0,
-  holds_outstanding_cents: 0,
-  fees_cents: 0,
-  paypal_calls: { REAL: 0, SIMULATED: 0 },
-  books_balanced: true,
-  shops: 12,
-  delivered_lines: 0,
-};
-
 export function Theatre() {
   const router = useRouter();
   const params = useSearchParams();
@@ -223,20 +202,7 @@ export function Theatre() {
   const quiet = idle && watching && !help;
 
   // ---- What the stage shows ----------------------------------------------------------------
-  const stageLive = useMemo<LiveState>(
-    () => ({
-      connected: true,
-      started: true,
-      messages: stream.messages,
-      events: stream.events,
-      activity: stream.activity,
-      arcs: stream.arcs,
-      flights: stream.flights,
-      timeline: stream.timeline,
-      lastAward: stream.lastAward,
-    }),
-    [stream],
-  );
+  const live = useMemo(() => stageLive(stream), [stream]);
   const stagedShops = useMemo(() => (shops ? shopsAt(shops, world) : undefined), [shops, world]);
   const stagedSuppliers = useMemo(
     () => (suppliers ? suppliersAt(suppliers, world) : undefined),
@@ -244,28 +210,17 @@ export function Theatre() {
   );
 
   const steps = useMemo(() => overview?.steps ?? [], [overview]);
-  const stageOverview = useMemo<Overview | null>(() => {
-    if (!overview) return null;
-    let nextSeen = false;
-    return {
-      ...overview,
-      running: player.playing && !atEnd,
-      stats: world.stats ?? NO_STATS,
-      steps: overview.steps.map((step) => {
-        if (world.steps[step.key] === "done") return { ...step, status: "done" as const };
-        if (nextSeen) return { ...step, status: "pending" as const };
-        nextSeen = true;
-        return { ...step, status: "next" as const };
-      }),
-    };
-  }, [overview, world, player.playing, atEnd]);
+  const staged = useMemo(
+    () => (overview ? stageOverview(overview, world, player.playing && !atEnd) : null),
+    [overview, world, player.playing, atEnd],
+  );
 
   const { caption, id: captionId } = useMemo(
     () =>
-      stageOverview
-        ? currentCaption(stream.timeline, names, stageOverview)
+      staged
+        ? currentCaption(stream.timeline, names, staged)
         : { caption: { title: "", tone: "neutral" as const }, id: "none" },
-    [stream.timeline, names, stageOverview],
+    [stream.timeline, names, staged],
   );
   const tone = TONE[caption.tone];
   const CaptionIcon = tone.icon ?? (caption.step ? STEP_ICON[caption.step] : undefined) ?? Sparkles;
@@ -404,7 +359,7 @@ export function Theatre() {
                 </div>
               </div>
             ) : (
-              <LiveContext.Provider value={stageLive}>
+              <LiveContext.Provider value={live}>
                 <div className="text-ink-2 tabular flex items-center justify-between text-xs">
                   <span>{world.at ? dayTime(world.at) : overview.local}</span>
                   <span className="lg:hidden">
