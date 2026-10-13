@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { SWRConfig } from "swr";
 
+import { InspectorProvider } from "@/components/message-inspector";
 import { demoKey, fetcher } from "@/lib/api";
 import { LiveProvider } from "@/lib/live";
 import { ServerStatusProvider } from "@/lib/server-status";
@@ -22,7 +23,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }}
     >
       <ServerStatusProvider>
-        <LiveProvider>{children}</LiveProvider>
+        <LiveProvider>
+          <InspectorProvider>{children}</InspectorProvider>
+        </LiveProvider>
       </ServerStatusProvider>
     </SWRConfig>
   );

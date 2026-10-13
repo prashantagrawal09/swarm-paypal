@@ -16,6 +16,7 @@ import {
   Repeat2,
   RotateCcw,
   ShieldAlert,
+  ScanSearch,
   Sparkles,
   Undo2,
   Zap,
@@ -24,23 +25,15 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import useSWR from "swr";
 
+import { hasExplanation, useInspect } from "@/components/message-inspector";
 import { cx, ModeBadge, Mono } from "@/components/ui";
-import type { AgentMessage, PaymentRow, ShopSummary, SupplierSummary } from "@/lib/api";
+import { type AgentMessage, fetcher, type PaymentRow } from "@/lib/api";
 import { agentKind, agentName, initials, money, slotColor, time } from "@/lib/format";
 import { type PayPalEvent, useLive } from "@/lib/live";
 import { paymentEvent } from "@/lib/payment-events";
+import { useNames } from "@/lib/use-names";
 
-/** id -> display name for every shop and supplier. */
-export function useNames(): Record<string, string> {
-  const { data: shops } = useSWR<ShopSummary[]>("/api/shops");
-  const { data: suppliers } = useSWR<SupplierSummary[]>("/api/suppliers");
-  return useMemo(() => {
-    const names: Record<string, string> = {};
-    for (const shop of shops ?? []) names[shop.code] = shop.name;
-    for (const supplier of suppliers ?? []) names[supplier.code] = supplier.name;
-    return names;
-  }, [shops, suppliers]);
-}
+export { useNames } from "@/lib/use-names";
 
 // ---------------------------------------------------------------------------------------
 // Agent conversation
@@ -158,16 +151,48 @@ export function AgentFeed({
   className,
   initialTopic = "all",
   filter,
+  conversations,
 }: {
   className?: string;
   initialTopic?: Topic;
   filter?: (message: AgentMessage) => boolean;
+  /**
+   * Show these conversations in full: their history is loaded from the server, however
+   * long ago they happened, and anything new arrives live.
+   */
+  conversations?: string[];
 }) {
-  const { messages, connected } = useLive();
+  const { messages: live, connected } = useLive();
   const names = useNames();
+  const inspect = useInspect();
   const [topic, setTopic] = useState<Topic>(initialTopic);
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+
+  const { data: history } = useSWR<AgentMessage[]>(
+    conversations?.length ? ["conversations", ...conversations] : null,
+    async ([, ...ids]: string[]) =>
+      (
+        await Promise.all(
+          ids.map((id) =>
+            fetcher<AgentMessage[]>(
+              `/api/agent-messages?limit=500&conversation_id=${encodeURIComponent(id)}`,
+            ),
+          ),
+        )
+      ).flat(),
+    { revalidateOnFocus: false },
+  );
+
+  const messages = useMemo(() => {
+    if (!conversations?.length) return live;
+    const wanted = new Set(conversations);
+    const byId = new Map<string, AgentMessage>();
+    for (const message of history ?? []) byId.set(message.id, message);
+    for (const message of live)
+      if (wanted.has(message.conversation_id)) byId.set(message.id, message);
+    return [...byId.values()].sort((a, b) => a.seq - b.seq);
+  }, [conversations, history, live]);
 
   const shown = useMemo(
     () => messages.filter((m) => TOPICS[topic].match(m) && (!filter || filter(m))).slice(-120),
@@ -260,6 +285,16 @@ export function AgentFeed({
                     <p className="text-ink-2 mt-0.5 text-sm leading-snug break-words whitespace-pre-line">
                       {message.text}
                     </p>
+                    {hasExplanation(message) ? (
+                      <button
+                        type="button"
+                        onClick={() => inspect(message)}
+                        className="text-ink-2 hover:text-ink mt-1 inline-flex items-center gap-1 text-[11px] font-medium underline decoration-dotted underline-offset-2"
+                      >
+                        <ScanSearch className="h-3 w-3" aria-hidden />
+                        How was this decided?
+                      </button>
+                    ) : null}
                   </div>
                 </motion.li>
               ))}

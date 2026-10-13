@@ -158,10 +158,9 @@ export function OrderView({ id }: { id: string }) {
             {group ? (
               <AgentFeed
                 className="flex-1"
-                filter={(m) =>
-                  m.conversation_id === group.conversation_id ||
-                  m.conversation_id === `invoice:${group.id}`
-                }
+                conversations={[group.conversation_id, `invoice:${group.id}`].filter(
+                  (id): id is string => Boolean(id),
+                )}
               />
             ) : null}
           </Card>

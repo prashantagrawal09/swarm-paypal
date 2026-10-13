@@ -83,12 +83,14 @@ amount. Prices, holds, captures, refunds and payouts are computed by a money eng
 state machines, idempotency keys on every PayPal call and a double-entry ledger. What one
 agent says to another is treated as untrusted data, and every agent action passes a mandate
 check first. Without a model key, every agent falls back to a deterministic policy, so the
-demo never depends on a model call.
+demo never depends on a model call. You can see this for yourself: click any quote or award
+in the conversation and the site shows the options code priced, who chose among them, and
+the rules the choice passed before it was sent.
 
 **Stack.** Python, FastAPI, PostgreSQL and SQLAlchemy on the back; Next.js, TypeScript,
 Tailwind and AG Grid on the front, with live updates over Server-Sent Events. Telegram for
-the owners. Hosted on Render. 263 backend tests (including four simulated weeks that must
-keep the ledger balanced) and 41 frontend tests.
+the owners. Hosted on Render. 278 backend tests (including four simulated weeks that must
+keep the ledger balanced) and 56 frontend tests.
 
 **Honest about what is real.** Four shops, the three suppliers and the platform use the
 real PayPal sandbox. The other eight shops run on a simulator that follows the same rules

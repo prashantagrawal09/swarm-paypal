@@ -89,7 +89,8 @@ export const EMPTY_STREAM: StreamState = {
   burst: { at: 0, index: 0 },
 };
 
-export const MAX_MESSAGES = 250;
+// A whole week of messages (about 300), so the feed's filters reach back to Monday.
+export const MAX_MESSAGES = 500;
 export const MAX_EVENTS = 80;
 export const MAX_FLIGHTS = 70;
 export const MAX_STORY = 40;

@@ -120,6 +120,30 @@ export type ShopDetail = Omit<ShopSummary, "orders" | "saved_week_cents" | "pend
 
 export type Tier = { min_qty: number; unit_price_cents: number };
 
+/** How the decision behind an agent message was reached (GET /api/agent-messages/:id/decision). */
+export type Decision = {
+  message_id: string;
+  actor: string;
+  kind: "quote" | "award";
+  at: string;
+  /** True when part of the record belongs to one party only (a supplier's options). */
+  private: boolean;
+  chosen: string;
+  chosen_by: "llm" | "fallback" | "rule";
+  round?: number;
+  rounds?: number;
+  options?: { label: string; landed_total_cents: number }[];
+  checked?: string[];
+  rule?: string;
+  ranking?: {
+    supplier: string;
+    landed_total_cents: number;
+    reliability: number;
+    eligible: boolean;
+  }[];
+  declined?: { supplier: string; reason: string }[];
+};
+
 /** The home page's worked examples (GET /api/explain). */
 export type Explain = {
   product: { code: string; name: string; unit: string; units: string };

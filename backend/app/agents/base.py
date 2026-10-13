@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 M = TypeVar("M", bound=BaseModel)
 
+# Audit-log actions that record how a decision was reached start with this.
+DECISION_PREFIX = "decided:"
+
 
 @dataclass(frozen=True)
 class Action:
@@ -43,10 +46,12 @@ class Verdict:
     ok: bool
     code: str = ""
     reason: str = ""
+    # The rules that were checked and passed, in plain words (for the decision record).
+    checked: tuple[str, ...] = ()
 
     @classmethod
-    def allow(cls) -> Verdict:
-        return cls(True)
+    def allow(cls, checked: tuple[str, ...] = ()) -> Verdict:
+        return cls(True, checked=checked)
 
     @classmethod
     def deny(cls, code: str, reason: str) -> Verdict:
@@ -134,11 +139,12 @@ class Agent:
             return Verdict.deny("TOOL_NOT_ALLOWED", f"{action.tool} is not one of my tools")
         return self.check(action)
 
-    async def require(self, session: AsyncSession, action: Action) -> None:
-        """Run the gate; refuse (and audit) anything outside the mandate."""
+    async def require(self, session: AsyncSession, action: Action) -> Verdict:
+        """Run the gate; refuse (and audit) anything outside the mandate. Returns the
+        verdict of an allowed action, which lists the rules it passed."""
         verdict = self.validate(action)
         if verdict.ok:
-            return
+            return verdict
         session.add(
             AuditLog(
                 actor=self.agent_id,
@@ -153,6 +159,26 @@ class Agent:
         )
         await session.commit()
         raise MandateViolation(self.agent_id, action, verdict)
+
+    async def decided(
+        self,
+        session: AsyncSession,
+        message: AgentMessage,
+        kind: str,
+        details: dict[str, Any],
+    ) -> None:
+        """Keep how a decision was reached, next to the message that announced it: what the
+        options were, who chose, and which rules the choice passed. It goes to the audit
+        log, not into the message, so the other side of a negotiation never sees it."""
+        session.add(
+            AuditLog(
+                actor=self.agent_id,
+                action=f"{DECISION_PREFIX}{kind}",
+                details={"message_id": str(message.id), **_safe(details)},
+                created_at=self.clock.now(),
+            )
+        )
+        await session.commit()
 
     # -- messaging ----------------------------------------------------------------------
 

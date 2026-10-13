@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import date
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.base import DECISION_PREFIX
 from app.agents.bus import BusEvent, MessageBus, message_dict
 from app.agents.recorder import as_dict, recorded
 from app.clock import Clock, week_start
-from app.db.models import AgentMessage, StreamEvent
+from app.config import Settings, get_settings
+from app.db.models import AgentMessage, AuditLog, StreamEvent
 from app.db.session import get_session, get_sessionmaker
 from app.runtime import get_bus, get_clock
 
@@ -104,3 +107,41 @@ async def agent_messages(
         return [message_dict(row) for row in reversed(list(newest))]
     rows = await session.scalars(query.order_by(AgentMessage.seq).limit(limit))
     return [message_dict(row) for row in rows]
+
+
+@router.get("/agent-messages/{message_id}/decision")
+async def message_decision(
+    message_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict[str, Any]:
+    """How the decision behind a message was reached: the options code allowed, who chose
+    (the language model, the built-in policy, or a rule), and the rules the choice passed.
+
+    A supplier's options are its own business. They are shown in the demo, which lets you
+    look inside every agent; outside demo mode they are left out.
+    """
+    row = await session.scalar(
+        select(AuditLog)
+        .where(
+            AuditLog.action.startswith(DECISION_PREFIX),
+            AuditLog.details["message_id"].astext == str(message_id),
+        )
+        .order_by(AuditLog.seq.desc())
+        .limit(1)
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="No decision is recorded for this message")
+    details = {k: v for k, v in row.details.items() if k != "message_id"}
+    kind = row.action.removeprefix(DECISION_PREFIX)
+    private = kind == "quote"
+    if private and not settings.demo_mode:
+        details.pop("options", None)
+    return {
+        "message_id": str(message_id),
+        "actor": row.actor,
+        "kind": kind,
+        "at": row.created_at.isoformat(),
+        "private": private,
+        **details,
+    }

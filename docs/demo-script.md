@@ -67,6 +67,21 @@ replays the recorded week, or runs it there and then if nobody has run it yet.
 After the run, the **Money** page shows where every cent went as a flow diagram (shops →
 PayPal → suppliers, neighbours, refunds, fee), and it always adds up.
 
+## Showing that the agents can't set prices
+
+Open a group order (for example **Dairy & eggs** from the live board) and, in **The
+conversation**, press **How was this decided?** under a supplier's quote. The panel shows:
+
+1. the options code priced from that supplier's price list and floor (hold, a small step
+   down, just beat the best rival, a big step down, the floor);
+2. who chose one: the language model, or the built-in policy when no model key is set;
+3. the rules the choice passed before it was sent (nothing below the floor, enough stock,
+   never higher than the last quote).
+
+Under the **Awarded** message it shows the award rule, the final quotes in order, and that no
+model was asked who should win. Say: "The model can only pick from a list that code has
+already priced, and code checks the pick again before anything is sent."
+
 ## Surprises (demo panel → Surprises this week)
 
 Each is armed for its day and can be changed before running:

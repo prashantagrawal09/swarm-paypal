@@ -242,7 +242,15 @@ class SupplierAgent(Agent):
                 return Verdict.deny("OUT_OF_STOCK", f"Not enough {product} in stock")
             if self.previous and price > self.previous[product]:
                 return Verdict.deny("PRICE_RAISED", f"{product} higher than our last quote")
-        return Verdict.allow()
+        passed = [
+            "Every product asked for is priced",
+            "Everything quoted is something we sell",
+            "No price is below the owner's floor",
+            "There is enough stock for the whole order",
+        ]
+        if self.previous:
+            passed.append("No price is higher than in our last quote")
+        return Verdict.allow(tuple(passed))
 
     # -- responding -------------------------------------------------------------------------
 
@@ -285,7 +293,7 @@ class SupplierAgent(Agent):
             source = "fallback"
         chosen = by_label[label]
         tool = "submit_quote" if rfq.round == 1 else "counter_offer"
-        await self.require(
+        verdict = await self.require(
             session, Action(tool, {"unit_prices": chosen.unit_prices, "quantities": rfq.quantities})
         )
 
@@ -312,7 +320,7 @@ class SupplierAgent(Agent):
         await session.flush()
         quote.quote_id = row.id
         self.previous = dict(chosen.unit_prices)
-        await self.say(
+        said = await self.say(
             session,
             conversation_id=conversation_id,
             to="coordinator:swarm",
@@ -326,6 +334,23 @@ class SupplierAgent(Agent):
                 "landed_total_cents": chosen.landed_total_cents,
                 "strategy": label,
                 "decided_by": source,
+            },
+        )
+        await self.decided(
+            session,
+            said,
+            "quote",
+            {
+                "round": rfq.round,
+                # Code priced every option from the owner's floors; the choice was only
+                # ever between these.
+                "options": [
+                    {"label": option.label, "landed_total_cents": option.landed_total_cents}
+                    for option in options
+                ],
+                "chosen": label,
+                "chosen_by": source,
+                "checked": list(verdict.checked),
             },
         )
         return quote

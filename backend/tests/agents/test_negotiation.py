@@ -138,3 +138,80 @@ async def test_model_choices_off_the_menu_fall_back_to_policy(db, world, clock, 
     opening = [q for q in result.quotes if q.round == 1 and not q.declined]
     assert all(q.strategy != "floor" and q.source == "fallback" for q in opening)
     assert all("Rock bottom" not in q.message for q in opening)
+
+
+async def test_every_quote_and_the_award_record_how_they_were_decided(db, world, clock, bus):
+    """The decision record behind the inspector: the options code allowed, who chose, the
+    rules the choice passed. It lives in the audit log, never in the message itself."""
+    from app.agents.base import DECISION_PREFIX
+    from app.api.live import message_decision
+    from app.config import Settings
+    from app.db.models import AuditLog
+
+    groups = await prepare_week(db, DEMO_WEEK, clock)
+    coordinator = Coordinator(llm=OfflineLLM(), bus=bus, clock=clock)
+    result = await coordinator.negotiate(db, groups[Category.DAIRY].id)
+    thread = await messages(db, result.conversation_id)
+    decisions = {
+        row.details["message_id"]: row
+        for row in await db.scalars(
+            select(AuditLog).where(AuditLog.action.startswith(DECISION_PREFIX))
+        )
+    }
+
+    quotes = [m for m in thread if m.type in ("QUOTE", "FINAL_QUOTE")]
+    assert quotes and all(str(m.id) in decisions for m in quotes)
+    for message in quotes:
+        record = decisions[str(message.id)]
+        details = record.details
+        assert record.actor == message.from_agent and record.action == "decided:quote"
+        labels = [option["label"] for option in details["options"]]
+        assert details["chosen"] in labels and details["chosen_by"] == "fallback"
+        # What was sent is exactly the chosen option: the choice was only among these.
+        chosen = next(o for o in details["options"] if o["label"] == details["chosen"])
+        assert chosen["landed_total_cents"] == message.payload["landed_total_cents"]
+        assert "No price is below the owner's floor" in details["checked"]
+        assert ("No price is higher than in our last quote" in details["checked"]) == (
+            details["round"] > 1
+        )
+        # The other side never sees the menu.
+        assert "options" not in message.payload
+
+    award = next(m for m in thread if m.type == "AWARD")
+    record = decisions[str(award.id)].details
+    assert record["chosen_by"] == "rule" and record["chosen"] == result.winner.supplier_code
+    landed = [row["landed_total_cents"] for row in record["ranking"]]
+    assert landed == sorted(landed) and record["ranking"][0]["supplier"] == record["chosen"]
+    assert record["declined"] == [
+        {"supplier": "packpro", "reason": "we don't carry butter, eggs or milk"}
+    ]
+
+    # The API shows a supplier's options in the demo only.
+    shown = await message_decision(quotes[0].id, db, Settings(demo_mode=True))
+    assert shown["kind"] == "quote" and shown["private"] is True and shown["options"]
+    hidden = await message_decision(quotes[0].id, db, Settings(demo_mode=False))
+    assert "options" not in hidden and hidden["chosen"] == shown["chosen"]
+    public = await message_decision(award.id, db, Settings(demo_mode=False))
+    assert public["private"] is False and public["ranking"]
+
+    rfq = next(m for m in thread if m.type == "RFQ")
+    with pytest.raises(Exception) as missing:
+        await message_decision(rfq.id, db, Settings())
+    assert getattr(missing.value, "status_code", None) == 404
+
+
+async def test_a_models_choice_is_recorded_as_the_models(db, world, clock, bus):
+    groups = await prepare_week(db, DEMO_WEEK, clock)
+    from app.agents.base import DECISION_PREFIX
+    from app.db.models import AuditLog
+
+    llm = ScriptedLLM(
+        {"supplier_agent.quote": {"strategy": "small", "message": "A little off for you."}}
+    )
+    coordinator = Coordinator(llm=llm, bus=bus, clock=clock)
+    await coordinator.negotiate(db, groups[Category.DAIRY].id)
+    rows = list(
+        await db.scalars(select(AuditLog).where(AuditLog.action == f"{DECISION_PREFIX}quote"))
+    )
+    assert rows and {row.details["chosen_by"] for row in rows} <= {"llm", "fallback"}
+    assert any(row.details["chosen_by"] == "llm" for row in rows)

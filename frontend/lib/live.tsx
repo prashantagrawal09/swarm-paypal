@@ -104,7 +104,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetcher<AgentMessage[]>("/api/agent-messages?tail=true&limit=150")
+    fetcher<AgentMessage[]>(`/api/agent-messages?tail=true&limit=${MAX_MESSAGES}`)
       .then((messages) => {
         if (!cancelled) dispatch({ type: "seed", messages });
       })

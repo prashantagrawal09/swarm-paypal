@@ -395,7 +395,7 @@ class Coordinator(Agent):
             f"{Money(saved)} versus the best opening quote.",
             award_fallback,
         )
-        await self.say(
+        awarded = await self.say(
             session,
             conversation_id=conversation,
             to=f"supplier:{winner.supplier_code}",
@@ -406,6 +406,34 @@ class Coordinator(Agent):
                 "landed_total_cents": winner.landed_total_cents,
                 "rounds": result.rounds,
                 "excluded": result.award.excluded,
+            },
+        )
+        await self.decided(
+            session,
+            awarded,
+            "award",
+            {
+                "rule": (
+                    "Lowest landed price among suppliers with a reliability score of "
+                    f"{self.reliability_threshold} or more; a tie goes to the more reliable."
+                ),
+                "ranking": [
+                    {
+                        "supplier": code,
+                        "landed_total_cents": q.landed_total_cents,
+                        "reliability": q.reliability,
+                        "eligible": q.reliability >= self.reliability_threshold,
+                    }
+                    for code, q in sorted(
+                        latest.items(), key=lambda pair: pair[1].landed_total_cents
+                    )
+                ],
+                "declined": [
+                    {"supplier": code, "reason": reason} for code, reason in result.declined
+                ],
+                "chosen": winner.supplier_code,
+                "chosen_by": "rule",
+                "rounds": result.rounds,
             },
         )
         for code, quote in latest.items():

@@ -76,12 +76,12 @@ food out of the bin. It takes 94 PayPal calls, and the books balance to the cent
 | ![Watch page during settlement](docs/screenshots/watch.png) | ![The week in review](docs/screenshots/watch-finale.png) |
 | **Live board, mid-week** | **Where the money went** |
 | ![Live board during settlement](docs/screenshots/live-board-running.png) | ![Money flow](docs/screenshots/money-flow.png) |
-| **Live board, week complete** | **Demo panel and the owner's phone** |
-| ![Live board](docs/screenshots/live-board-full.png) | ![Demo panel](docs/screenshots/demo-panel.png) |
-| **Shop page** | **Invoice check (supplier page)** |
-| ![Shop page](docs/screenshots/shop.png) | ![Invoices](docs/screenshots/supplier-invoices.png) |
+| **Shop page** | **Demo panel and the owner's phone** |
+| ![Shop page](docs/screenshots/shop.png) | ![Demo panel](docs/screenshots/demo-panel.png) |
 | **Home** | **Home: two things to try** |
 | ![Home](docs/screenshots/landing.png) | ![Pooling and short-delivery examples](docs/screenshots/explainers.png) |
+| **How a quote was decided (click any agent message)** | **Invoice check (supplier page)** |
+| ![Inspector](docs/screenshots/inspector.png) | ![Invoices](docs/screenshots/supplier-invoices.png) |
 | **Dark mode** | **Phone** |
 | ![Dark](docs/screenshots/live-board-dark.png) | ![Phone](docs/screenshots/mobile-live.png) |
 
@@ -265,7 +265,9 @@ make check                    # ruff, mypy, eslint, tsc, prettier, pytest and vi
 
 The full 3-minute script, mapped to the buttons, is in
 [docs/demo-script.md](docs/demo-script.md). The watch page plays the week as a film, and the
-live board narrates each step in plain words as it happens. In short:
+live board narrates each step in plain words as it happens. Under any quote or award in a
+conversation, **How was this decided?** shows the options code priced, who chose among them
+(the language model or the built-in policy) and the rules the choice passed. In short:
 
 1. **Monday:** each shop's agent proposes next week's order from its last four weeks,
    adjusted for the weather forecast, and says why. The owner approves.

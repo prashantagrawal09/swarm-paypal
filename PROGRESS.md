@@ -672,3 +672,36 @@ resetting it for everyone. Now every run is recorded and anyone can play it back
 - The README now opens with a recording of the watch page (`docs/screenshots/watch.gif`,
   4.3 MB) in place of the older live-board recording, with new watch-page and home-page
   screenshots.
+
+## Inspector: how was this decided?
+
+"Agents suggest, code decides" was a claim in the README. Now it is something you can click.
+
+**Built**
+- **Decision records.** When a supplier's agent quotes, the server keeps the options code
+  priced, which one was chosen, whether the language model or the built-in policy chose it,
+  and the rules the choice passed (`Agent.decided`, stored in the audit log next to the
+  message's ID). The coordinator's award keeps the rule, the final quotes in order and who
+  declined.
+- **`GET /api/agent-messages/{id}/decision`** returns the record.
+- **The inspector.** **How was this decided?** under a message opens a side panel: the
+  message, the three steps of the decision (options, choice, checks), and the numbers it
+  carried. Counter-offers show the one thing the supplier was told (the price to beat);
+  invoice messages show the line-by-line check; charges show captured and released.
+- Order pages now load their whole conversation from the server. Before, they only showed
+  what was still in the browser's recent messages, so an order opened later looked empty.
+  The live feed keeps a full week of messages, so its Negotiation filter reaches back to
+  Tuesday.
+
+**Decisions**
+- The record goes to the audit log, not into the message. A quote's payload is read by the
+  other side of the negotiation, and a supplier's options (down to its floor) are its own
+  business. The API shows them in demo mode, with a note saying so, and leaves them out
+  otherwise.
+- The gate now reports which rules it checked (`Verdict.checked`), so the record lists the
+  rules that actually ran, not a description of them.
+
+**Works**
+- Tests: every quote and award in a negotiation has a record; the option sent is exactly the
+  chosen one; the message itself never carries the options; a model's choice is recorded as
+  the model's; the options are hidden outside demo mode.
