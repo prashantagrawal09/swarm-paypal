@@ -82,7 +82,7 @@ export function DayStrip({
               title={`${step.title}: ${step.description}`}
               className={cx(
                 // On a phone there is room for the day only; the step's name is in the caption.
-                "group flex h-full w-full flex-col items-center rounded-lg px-1 py-1.5 transition sm:min-w-[4.25rem] sm:items-start sm:px-2 sm:text-left",
+                "group flex h-full w-full flex-col items-center rounded-lg px-1 py-1.5 transition sm:min-w-[4.25rem] sm:items-start sm:px-1.5 sm:text-left",
                 state === "running" && "bg-honey text-[#1c1400]",
                 state === "done" && "text-ink hover:bg-surface-2",
                 state === "pending" && "text-muted cursor-default",
@@ -94,7 +94,7 @@ export function DayStrip({
                   <CheckCircle2 className="h-3 w-3 opacity-70" aria-hidden />
                 ) : null}
               </span>
-              <span className="hidden max-w-full truncate text-xs font-medium sm:block">
+              <span className="hidden max-w-full truncate text-[11px] font-medium sm:block">
                 {what}
               </span>
             </button>
@@ -781,7 +781,7 @@ export function ShortcutList({ onClose }: { onClose: () => void }) {
           ))}
         </dl>
         <p className="text-muted mt-4 text-xs">
-          While the week plays, the controls fade after a moment so a recording stays clean. Move
+          While the week plays, these buttons fade after a moment so a recording stays clean. Move
           the mouse to bring them back.
         </p>
       </div>

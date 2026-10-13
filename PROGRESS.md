@@ -821,3 +821,12 @@ phone-sized pages, each in light and dark: 42 checks.
 - **The watch page says what was real.** Its tally and closing summary now state how many
   PayPal calls went to the real sandbox and how many were simulated, counted from the events
   themselves and checked against the server at every step.
+- On the watch page only the buttons fade while the week plays; the day strip stays, so a
+  recording still shows where in the week it is. The README GIF and the watch, shop and
+  home-page screenshots were retaken.
+- The order page's conversation stays in view while the page scrolls and opens from its
+  first message.
+
+**Not done in this pass**
+- The backend suite was last run in full before the flash-deal and decision-example changes;
+  the tests for those changes pass, but `make check` should be run once more end to end.

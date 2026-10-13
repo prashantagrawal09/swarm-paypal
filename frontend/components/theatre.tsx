@@ -312,13 +312,7 @@ export function Theatre() {
         <div className="theatre-glow" aria-hidden />
 
         {/* Top bar */}
-        <header
-          className={cx(
-            "border-line relative z-10 flex min-h-14 flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-1.5 transition-opacity duration-500 sm:px-5",
-            // Keyboard users keep the controls: focus inside the bar brings it back.
-            quiet && "opacity-0 focus-within:opacity-100",
-          )}
-        >
+        <header className="border-line relative z-10 flex min-h-14 flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-1.5 sm:px-5">
           <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Swarm home">
             <Logo className="h-6 w-6" />
             <span className="text-ink hidden text-sm font-semibold sm:inline">Swarm</span>
@@ -361,7 +355,14 @@ export function Theatre() {
             />
           </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1">
+          <div
+            className={cx(
+              "ml-auto flex shrink-0 items-center gap-1 transition-opacity duration-500",
+              // The buttons step back while the week plays; the days stay, so a recording
+              // still shows where in the week it is. Focus brings the buttons back.
+              quiet && "opacity-0 focus-within:opacity-100",
+            )}
+          >
             <Controls
               playing={player.playing && !atEnd}
               speed={player.speed}
