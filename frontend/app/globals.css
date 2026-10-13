@@ -350,3 +350,45 @@ body {
 .swarm-range:focus-visible::-moz-range-thumb {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--honey) 45%, transparent);
 }
+
+/*
+ * On paper everything is light, whatever theme is on screen: ink on white, hairlines dark
+ * enough to print, and none of the site's own chrome.
+ */
+@media print {
+  :root,
+  .dark {
+    color-scheme: light;
+    --page: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f4f3ef;
+    --surface-3: #e9e7e0;
+    --ink: #000000;
+    --ink-2: #3d3c3a;
+    --muted: #5c5a56;
+    --grid: #d8d7d0;
+    --axis: #a9a89e;
+    --line: rgba(0, 0, 0, 0.22);
+    --line-strong: rgba(0, 0, 0, 0.4);
+    --honey: #f2a900;
+    --honey-soft: #fdf1d0;
+    --honey-ink: #6b4a00;
+    --good-ink: #006300;
+    --good-soft: #dff3df;
+    --warning-ink: #7a5300;
+    --warning-soft: #fdf0d2;
+    --critical-ink: #b42b2b;
+    --critical-soft: #fbe3e3;
+    --real: #1c5cab;
+    --real-soft: #dbe9fb;
+    --shadow: none;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  @page {
+    margin: 16mm;
+  }
+}

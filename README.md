@@ -270,7 +270,8 @@ The full 3-minute script, mapped to the buttons, is in
 [docs/demo-script.md](docs/demo-script.md). The watch page plays the week as a film, and the
 live board narrates each step in plain words as it happens. Under any quote or award in a
 conversation, **How was this decided?** shows the options code priced, who chose among them
-(the language model or the built-in policy) and the rules the choice passed. In short:
+(the language model or the built-in policy) and the rules the choice passed. Each shop page
+has a **Weekly statement** an owner can print or save as a PDF. In short:
 
 1. **Monday:** each shop's agent proposes next week's order from its last four weeks,
    adjusted for the weather forecast, and says why. The owner approves.

@@ -840,3 +840,20 @@ phone-sized pages, each in light and dark: 42 checks.
   award in the watch page's conversation pauses the week, opens the panel in the stage's
   dark theme, and resumes when it closes.
 - `make a11y` still passes all 42 checks after these additions.
+
+## Weekly statement
+
+**Built**
+- **A printable statement for each shop** (`/shop/<code>/statement`, linked from the shop
+  page): what it bought with the street, order by order; its share of each delivery; what
+  PayPal held, charged and released; the PayPal IDs; what it sold to or borrowed from
+  neighbours; and how the week's saving adds up. **Print or save as PDF** gives a clean
+  page: no site chrome, and light on paper even when the site is in dark mode.
+- On a phone each order line stacks instead of squeezing into a six-column table.
+
+**Works**
+- Each order's lines plus its delivery share equal exactly what PayPal charged for it
+  (`frontend/lib/statement.ts`, tested with the demo week's numbers: S$63.24 + S$27.23 +
+  S$38.75 + S$4.11 = S$133.33).
+- Checked on screen, at phone width, and as a printed A4 page; `make a11y` now covers 46
+  page states, all passing.

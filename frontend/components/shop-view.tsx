@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   CircleSlash,
+  FileText,
   Leaf,
   MapPin,
   MessageCircle,
@@ -113,6 +114,9 @@ export function ShopView({ code }: { code: string }) {
         </div>
         {shop ? (
           <div className="flex flex-wrap items-center gap-2">
+            <ButtonLink href={`/shop/${shop.code}/statement`} className="py-1.5 text-xs">
+              <FileText className="h-3.5 w-3.5" aria-hidden /> Weekly statement
+            </ButtonLink>
             {shop.connected ? (
               <StatusPill tone="good">PayPal connected</StatusPill>
             ) : (

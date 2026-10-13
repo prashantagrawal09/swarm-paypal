@@ -65,7 +65,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <main id="main" className="flex flex-1 flex-col">
             <ServerGate>{children}</ServerGate>
           </main>
-          <footer className="border-line border-t">
+          <footer className="border-line border-t print:hidden">
             <div className="text-muted mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs sm:px-6">
               <span>Swarm · Tiong Bahru, Singapore</span>
               <span>Payments by PayPal (sandbox). Agents suggest; code decides every amount.</span>

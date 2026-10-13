@@ -34,7 +34,7 @@ export function SiteHeader() {
     pathname === href || (href !== "/" && pathname.startsWith(href.replace(/s$/, "")));
 
   return (
-    <header className="border-line bg-page/80 sticky top-0 z-40 border-b backdrop-blur-md">
+    <header className="border-line bg-page/80 sticky top-0 z-40 border-b backdrop-blur-md print:hidden">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
         <Link
           href="/"

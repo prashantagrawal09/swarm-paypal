@@ -75,7 +75,7 @@ export function Toaster() {
 
   return (
     <div
-      className="pointer-events-none fixed right-4 bottom-4 z-40 flex w-[min(24rem,calc(100vw-2rem))] flex-col-reverse gap-2"
+      className="pointer-events-none fixed right-4 bottom-4 z-40 flex w-[min(24rem,calc(100vw-2rem))] flex-col-reverse gap-2 print:hidden"
       role="status"
       aria-live="polite"
     >
