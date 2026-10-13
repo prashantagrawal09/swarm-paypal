@@ -95,6 +95,10 @@ def parse_changes(text: str) -> dict[str, int]:
     return found
 
 
+# How many of a shop's recent charged deliveries a bare photo is matched against.
+RECENT_ORDERS = 10
+
+
 class OwnerService:
     def __init__(self, ctx: Ctx) -> None:
         self.ctx = ctx
@@ -335,18 +339,26 @@ class OwnerService:
                 description = caption or state.get("description", "")
                 await self._file_claim(shop, state["ref"], description, data, media_type)
                 return
-            latest = await self.ctx.session.scalar(
-                select(ShopOrder)
-                .where(ShopOrder.shop_id == shop.id, ShopOrder.captured_amount_cents > 0)
-                .order_by(ShopOrder.captured_at.desc())
+            charged = list(
+                await self.ctx.session.scalars(
+                    select(ShopOrder)
+                    .where(ShopOrder.shop_id == shop.id, ShopOrder.captured_amount_cents > 0)
+                    .options(selectinload(ShopOrder.lines).selectinload(GroupOrderLine.item))
+                    .order_by(ShopOrder.captured_at.desc())
+                    .limit(RECENT_ORDERS)
+                )
             )
-            if latest is None:
+            if not charged:
                 await self._say(shop, "Thanks for the photo! Nothing to claim yet.", kind="INFO")
                 return
+            # The delivery the owner is talking about: the newest one with the product they
+            # named ("2 trays of eggs cracked" is about the dairy order, even if packaging
+            # was charged after it). With nothing to go on, the newest delivery.
+            about = next((so for so in charged if _named_line(so, caption)), charged[0])
             await self._set_state(
-                shop, {"awaiting": "claim_photo", "ref": latest.id.hex, "pending_photo": True}
+                shop, {"awaiting": "claim_photo", "ref": about.id.hex, "pending_photo": True}
             )
-            await self._file_claim(shop, latest.id.hex, caption, data, media_type)
+            await self._file_claim(shop, about.id.hex, caption, data, media_type)
         except FRIENDLY_ERRORS as exc:
             await self._say(shop, _friendly(exc), kind="ERROR")
 
@@ -407,11 +419,21 @@ def _claim_type(text: str) -> ClaimType:
     return ClaimType.DAMAGED
 
 
-def _pick_line(so: ShopOrder, text: str) -> Any:
+def _named_line(so: ShopOrder, text: str) -> Any | None:
+    """The delivered line of this order whose product the text mentions, if any."""
     lowered = text.lower()
     for line in so.lines:
-        if any(w in lowered for w in KEYWORDS.get(line.item.product_code, ())):
+        if (line.qty_delivered or 0) > 0 and any(
+            w in lowered for w in KEYWORDS.get(line.item.product_code, ())
+        ):
             return line
+    return None
+
+
+def _pick_line(so: ShopOrder, text: str) -> Any:
+    named = _named_line(so, text)
+    if named is not None:
+        return named
     return next(line for line in so.lines if (line.qty_delivered or 0) > 0)
 
 

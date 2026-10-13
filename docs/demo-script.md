@@ -82,6 +82,19 @@ Under the **Awarded** message it shows the award rule, the final quotes in order
 model was asked who should win. Say: "The model can only pick from a list that code has
 already priced, and code checks the pick again before anything is sent."
 
+## Showing a refund
+
+The scripted week has no damage claim, so it never issues a refund. To show one (after
+Thursday's settlement):
+
+1. Demo panel → **Be the owner** → pick **Bakery Lim** → attach any photo with the message
+   `2 trays of eggs arrived cracked`.
+2. With `ANTHROPIC_API_KEY` set, the claims agent looks at the photo and refunds a clear case
+   by itself (up to S$50). Without a key, or if the photo is unclear, the claim appears under
+   **Claims waiting for a person**: press **Approve**.
+3. PayPal refunds S$15.50 (two trays at the agreed S$7.75) to the original payment, the
+   owner is told, and **Money → PayPal, capability by capability** shows the refund call.
+
 ## Surprises (demo panel → Surprises this week)
 
 Each is armed for its day and can be changed before running:

@@ -120,6 +120,18 @@ export type ShopDetail = Omit<ShopSummary, "orders" | "saved_week_cents" | "pend
 
 export type Tier = { min_qty: number; unit_price_cents: number };
 
+/** One PayPal capability and the completed calls behind it (GET /api/paypal-usage). */
+export type PayPalUsage = {
+  key: string;
+  name: string;
+  use: string;
+  call: string;
+  real: number;
+  simulated: number;
+  amount_cents: number;
+  latest: { paypal_id: string; mode: Mode; at: string } | null;
+};
+
 /** How the decision behind an agent message was reached (GET /api/agent-messages/:id/decision). */
 export type Decision = {
   message_id: string;

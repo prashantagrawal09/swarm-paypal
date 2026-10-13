@@ -705,3 +705,32 @@ resetting it for everyone. Now every run is recorded and anyone can play it back
 - Tests: every quote and award in a negotiation has a record; the option sent is exactly the
   chosen one; the message itself never carries the options; a model's choice is recorded as
   the model's; the options are hidden outside demo mode.
+
+## PayPal, capability by capability
+
+**Built**
+- A section on the Money page listing each PayPal capability Swarm uses (Vault, authorize,
+  capture, void, reauthorize, refunds, Payouts, Invoicing, webhooks): what it is used for,
+  the REST call behind it, and the completed calls so far, split into real sandbox calls and
+  simulated ones, with the amount moved and the latest PayPal ID
+  (`GET /api/paypal-usage`, `app/features/paypal_usage.py`).
+- A capability with nothing against it says so ("Not needed yet this week") instead of
+  being left off.
+
+**Works**
+- A test runs a whole week and checks that every completed PayPal call is counted in exactly
+  one row, and that each row's count and amount equal the payments table.
+
+**Fixed along the way**
+- **A photo claim could refund the wrong product.** A photo sent without first pressing a
+  claim button was filed against whichever order had been charged last. "2 trays of eggs
+  arrived cracked" was matched to the packaging order and refunded S$22.86 for something
+  else. It is now filed against the newest delivery that contains the product the owner
+  named (S$15.50 for two trays of eggs), with a test.
+
+**Known gap**
+- The scripted week has no damage claim, so the default demo never issues a refund, never
+  voids a hold and never needs to reauthorize one; the table shows all three as not needed.
+  `docs/demo-script.md` has the steps to show a refund by hand. I did not script one into
+  the week: without a model key a claim has to be approved by a person, and a scripted
+  approval of a claim nobody looked at would not be an honest demonstration.

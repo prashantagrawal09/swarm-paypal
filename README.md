@@ -80,10 +80,12 @@ food out of the bin. It takes 94 PayPal calls, and the books balance to the cent
 | ![Shop page](docs/screenshots/shop.png) | ![Demo panel](docs/screenshots/demo-panel.png) |
 | **Home** | **Home: two things to try** |
 | ![Home](docs/screenshots/landing.png) | ![Pooling and short-delivery examples](docs/screenshots/explainers.png) |
-| **How a quote was decided (click any agent message)** | **Invoice check (supplier page)** |
-| ![Inspector](docs/screenshots/inspector.png) | ![Invoices](docs/screenshots/supplier-invoices.png) |
-| **Dark mode** | **Phone** |
-| ![Dark](docs/screenshots/live-board-dark.png) | ![Phone](docs/screenshots/mobile-live.png) |
+| **How a quote was decided (under any quote or award)** | **PayPal, capability by capability (Money page)** |
+| ![Inspector](docs/screenshots/inspector.png) | ![PayPal capabilities with the calls behind them](docs/screenshots/paypal-capabilities.png) |
+| **Invoice check (supplier page)** | **Dark mode** |
+| ![Invoices](docs/screenshots/supplier-invoices.png) | ![Dark](docs/screenshots/live-board-dark.png) |
+| **Phone** | |
+| ![Phone](docs/screenshots/mobile-live.png) | |
 
 _The submission video goes here._
 

@@ -128,3 +128,42 @@ async def test_help_and_report(db, world, ctx):
     assert any("I'm your Swarm agent" in t for t in texts)
     assert any("Your Swarm week" in t for t in texts)
     assert not await db.scalar(select(ShopOrder))
+
+
+async def test_a_photo_claim_is_about_the_product_named_not_the_latest_charge(
+    db, world, ctx, runtime
+):
+    """A bare photo used to be filed against whichever order was charged last, so "2 trays
+    of eggs cracked" refunded a line of the packaging order."""
+    from app.db.models import GroupOrderLine, Item
+
+    runner = WeekRunner(ctx, DEMO_WEEK)
+    for key in ("forecasts", "negotiation", "holds", "delivery", "settlement"):
+        await runner.run(key)
+    charged = list(
+        await db.scalars(
+            select(ShopOrder)
+            .join(ShopOrder.shop)
+            .where(ShopOrder.captured_amount_cents > 0)
+            .order_by(ShopOrder.captured_at.desc())
+        )
+    )
+    shops = await shops_by_code(db)
+    mine = [so for so in charged if so.shop_id == shops["bakery-lim"].id]
+    assert len(mine) > 1  # several deliveries were charged, dairy not the last of them
+
+    await OwnerService(ctx).handle_photo(
+        "bakery-lim", b"jpeg", "image/jpeg", "2 trays of eggs arrived cracked"
+    )
+    claim = await db.scalar(select(Claim))
+    line = await db.get(GroupOrderLine, claim.group_order_line_id)
+    item = await db.get(Item, line.item_id)
+    assert item.product_code == "eggs-tray-30" and claim.qty_affected == 2
+    # No model looked at the photo, so a person decides; nothing is refunded yet.
+    assert claim.decision == ClaimDecision.ESCALATED_OPERATOR and claim.refund_payment_id is None
+
+    from app.features import claims
+
+    refunded = await claims.operator_decision(ctx, claim.id, approve=True)
+    assert refunded.decision == ClaimDecision.REFUNDED
+    assert refunded.amount_cents == 2 * line.agreed_unit_price_cents

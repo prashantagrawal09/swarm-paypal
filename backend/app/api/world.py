@@ -38,7 +38,7 @@ from app.db.models import (
     TelegramChat,
 )
 from app.demo import controls
-from app.features import demand, explain, group_buy, money_flow, savings
+from app.features import demand, explain, group_buy, money_flow, paypal_usage, savings
 from app.features.context import Ctx
 from app.features.invoice_checker import OPEN_CLAIMS
 from app.features.products import wording
@@ -366,6 +366,12 @@ async def shop_report(code: str, ctx: CtxDep, week: date | None = None) -> dict[
         **report.to_dict(),
         "text": savings.report_text(report, await savings.shop_to_date(ctx, shop)),
     }
+
+
+@router.get("/paypal-usage")
+async def paypal_usage_table(ctx: CtxDep) -> list[dict[str, Any]]:
+    """Each PayPal capability Swarm uses, with the completed calls that back it up."""
+    return await shared(ctx, "paypal-usage", lambda: paypal_usage.usage(ctx))
 
 
 @router.get("/explain")

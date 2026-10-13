@@ -9,6 +9,7 @@ import useSWR from "swr";
 import { MoneyFlowChart } from "@/components/charts/money-flow";
 import { useNames } from "@/components/feeds";
 import { PaymentsGrid } from "@/components/grids";
+import { PayPalUsageCard } from "@/components/paypal-usage";
 import { StatTile } from "@/components/stats";
 import { InvoiceCard } from "@/components/supplier-view";
 import { Card, CardHeader, cx, Empty, Status } from "@/components/ui";
@@ -102,6 +103,10 @@ export function MoneyView() {
           {flow ? <MoneyFlowChart flow={flow} /> : <div className="h-[440px]" />}
         </div>
       </Card>
+
+      <div className="mt-6">
+        <PayPalUsageCard />
+      </div>
 
       <Card className="mt-6">
         <CardHeader
