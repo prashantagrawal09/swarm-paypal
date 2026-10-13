@@ -652,3 +652,20 @@ resetting it for everyone. Now every run is recorded and anyone can play it back
   carries on and the event is still sent live.
 - A finished recording is frozen in the visitor's browser: someone else resetting the demo
   does not interrupt a replay.
+
+## Home page: two things to try
+
+**Built**
+- **Buying together.** A slider for how many shops order together. The price per litre
+  steps down the supplier's own price list (S$2.45 alone, S$2.15 from three shops, S$1.96
+  from nine), with the pooled order's position marked on the list and the weekly saving
+  beside it.
+- **Paying for what arrives.** A slider for how much of an order turns up. The hold splits
+  into what is charged and what is released, with the three PayPal calls behind it
+  (authorize, final capture, remainder released).
+- Both play themselves once when scrolled into view, then wait for the visitor.
+
+**Decisions**
+- The page computes nothing. `GET /api/explain` (`app/features/explain.py`) builds both
+  tables with `app.money.pricing`, the functions the week itself runs on, from the street's
+  usual milk order. Tests check every row against those functions.

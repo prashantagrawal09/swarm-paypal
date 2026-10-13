@@ -120,6 +120,33 @@ export type ShopDetail = Omit<ShopSummary, "orders" | "saved_week_cents" | "pend
 
 export type Tier = { min_qty: number; unit_price_cents: number };
 
+/** The home page's worked examples (GET /api/explain). */
+export type Explain = {
+  product: { code: string; name: string; unit: string; units: string };
+  supplier: { code: string; name: string };
+  pooling: {
+    tiers: Tier[];
+    steps: {
+      shops: number;
+      joined: { code: string; name: string; qty: number };
+      qty: number;
+      unit_price_cents: number;
+      pooled_cents: number;
+      alone_cents: number;
+      saved_cents: number;
+    }[];
+  };
+  delivery: {
+    shop: { code: string; name: string };
+    ordered: number;
+    unit_price_cents: number;
+    delivery_fee_cents: number;
+    delivery_share_cents: number;
+    hold_cents: number;
+    rows: { delivered: number; charged_cents: number; released_cents: number }[];
+  };
+};
+
 export type LadderEntry = {
   product: string;
   name: string;

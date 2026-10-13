@@ -38,7 +38,7 @@ from app.db.models import (
     TelegramChat,
 )
 from app.demo import controls
-from app.features import demand, group_buy, money_flow, savings
+from app.features import demand, explain, group_buy, money_flow, savings
 from app.features.context import Ctx
 from app.features.invoice_checker import OPEN_CLAIMS
 from app.features.products import wording
@@ -366,6 +366,15 @@ async def shop_report(code: str, ctx: CtxDep, week: date | None = None) -> dict[
         **report.to_dict(),
         "text": savings.report_text(report, await savings.shop_to_date(ctx, shop)),
     }
+
+
+@router.get("/explain")
+async def explain_examples(ctx: CtxDep) -> dict[str, Any]:
+    """Worked examples for the home page, computed by the pricing rules the week runs on."""
+    examples = await shared(ctx, "explain", lambda: explain.worked_examples(ctx))
+    if examples is None:
+        raise HTTPException(status_code=404, detail="The demo world isn't seeded")
+    return examples
 
 
 @router.get("/products")

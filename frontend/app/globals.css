@@ -294,3 +294,59 @@ body {
     radial-gradient(circle, color-mix(in oklab, var(--ink) 9%, transparent) 1px, transparent 1.5px)
       0 0 / 22px 22px;
 }
+
+/* Sliders on the home page: a quiet track with a honey thumb. */
+.swarm-range {
+  appearance: none;
+  height: 1.5rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.swarm-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.swarm-range::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.swarm-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 999px;
+  background: var(--honey);
+  border: 3px solid var(--surface);
+  box-shadow:
+    0 0 0 1px var(--line-strong),
+    0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.swarm-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--honey);
+  border: 3px solid var(--surface);
+  box-shadow:
+    0 0 0 1px var(--line-strong),
+    0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.swarm-range:focus-visible {
+  outline: none;
+}
+
+.swarm-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--honey) 45%, transparent);
+}
+
+.swarm-range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--honey) 45%, transparent);
+}

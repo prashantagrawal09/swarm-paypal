@@ -24,6 +24,7 @@ import {
 import { motion } from "motion/react";
 import useSWR from "swr";
 
+import { Explainers } from "@/components/explainers";
 import { useNames } from "@/components/feeds";
 import { Reveal } from "@/components/reveal";
 import { AnimatedNumber } from "@/components/stats";
@@ -310,6 +311,8 @@ export function Landing() {
           </div>
         ) : null}
       </section>
+
+      <Explainers />
 
       {/* The week */}
       <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6">
