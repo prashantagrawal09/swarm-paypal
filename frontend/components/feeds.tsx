@@ -156,10 +156,16 @@ export function AgentFeed({
   initialTopic = "all",
   filter,
   conversations,
+  openAt = "newest",
 }: {
   className?: string;
   initialTopic?: Topic;
   filter?: (message: AgentMessage) => boolean;
+  /**
+   * Where the list opens. A live feed follows the newest message; a finished conversation
+   * reads better from its first one.
+   */
+  openAt?: "newest" | "oldest";
   /**
    * Show these conversations in full: their history is loaded from the server, however
    * long ago they happened, and anything new arrives live.
@@ -171,7 +177,7 @@ export function AgentFeed({
   const inspect = useInspect();
   const [topic, setTopic] = useState<Topic>(initialTopic);
   const scroller = useRef<HTMLDivElement>(null);
-  const stick = useRef(true);
+  const stick = useRef(openAt === "newest");
 
   const { data: history } = useSWR<AgentMessage[]>(
     conversations?.length ? ["conversations", ...conversations] : null,
@@ -230,7 +236,8 @@ export function AgentFeed({
             role="tab"
             aria-selected={topic === key}
             onClick={() => {
-              stick.current = true;
+              stick.current = openAt === "newest";
+              if (openAt === "oldest") scroller.current?.scrollTo({ top: 0 });
               setTopic(key);
             }}
             className={cx(

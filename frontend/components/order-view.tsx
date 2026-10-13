@@ -143,13 +143,14 @@ export function OrderView({ id }: { id: string }) {
       </h1>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-        <div className="space-y-6">
+        {/* Stays in view while the right-hand column scrolls. */}
+        <div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
           {group ? (
             <GroupOrderCard group={group} compact heading="h2" />
           ) : (
             <Card className="h-64 animate-pulse" />
           )}
-          <Card className="flex h-[560px] flex-col">
+          <Card className="flex h-[560px] flex-col lg:h-[calc(100dvh-25rem)] lg:min-h-[24rem]">
             <CardHeader
               title="The conversation"
               subtitle="Everything the agents said about this order"
@@ -161,6 +162,8 @@ export function OrderView({ id }: { id: string }) {
                 conversations={[group.conversation_id, `invoice:${group.id}`].filter(
                   (id): id is string => Boolean(id),
                 )}
+                // While the deal is being made, follow it; afterwards, read from the start.
+                openAt={["COLLECTING", "NEGOTIATING"].includes(group.status) ? "newest" : "oldest"}
               />
             ) : null}
           </Card>
