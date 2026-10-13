@@ -40,7 +40,11 @@ export { useNames } from "@/lib/use-names";
 // ---------------------------------------------------------------------------------------
 
 const TOPICS = {
-  all: { label: "All", match: () => true },
+  // Agents talking to each other. What an owner and their own agent say is under Owners.
+  all: {
+    label: "Agents",
+    match: (m: AgentMessage) => !m.from.startsWith("owner:") && !m.to.startsWith("owner:"),
+  },
   deals: {
     label: "Negotiation",
     match: (m: AgentMessage) =>

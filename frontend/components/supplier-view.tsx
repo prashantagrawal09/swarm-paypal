@@ -264,7 +264,11 @@ export function InvoiceCard({ invoice }: { invoice: InvoiceRow }) {
           </span>
         ) : null}
         {invoice.issued_via ? (
-          <span>issued via {invoice.issued_via.replaceAll("_", " ")}</span>
+          <span>
+            {invoice.issued_via === "simulated"
+              ? "issued by the simulator"
+              : `issued via ${invoice.issued_via.replaceAll("_", " ")}`}
+          </span>
         ) : null}
         <Link
           href={`/orders/${invoice.group_order_id}`}

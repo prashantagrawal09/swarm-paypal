@@ -14,6 +14,7 @@ import { CheckCircle2, Undo2, Wallet } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import useSWR from "swr";
 
+import { HoldBar } from "@/components/charts/hold-bar";
 import { AnimatedNumber } from "@/components/stats";
 import { Card, cx } from "@/components/ui";
 import type { Explain } from "@/lib/api";
@@ -325,10 +326,8 @@ function ShortDelivery({ data }: { data: Explain }) {
   for (let value = ordered; value >= short; value -= 1) frames.push(value);
   const [delivered, setDelivered, card] = useDemonstration(frames, 260);
   const sliderId = useId();
-  const patternId = useId();
   const row = rows[Math.max(0, Math.min(rows.length - 1, delivered))];
   const unit = data.product.unit;
-  const chargedShare = hold > 0 ? (row.charged_cents / hold) * 100 : 0;
 
   return (
     <Card className="p-5 sm:p-6">
@@ -363,47 +362,12 @@ function ShortDelivery({ data }: { data: Explain }) {
         </div>
 
         {/* The hold, split into what is charged and what goes back. */}
-        <svg
-          className="mt-4 block h-9 w-full"
-          role="img"
-          aria-label={`Of the ${money(hold)} held, ${money(row.charged_cents)} is charged and ${money(row.released_cents)} is released.`}
-          preserveAspectRatio="none"
-        >
-          <defs>
-            <pattern
-              id={patternId}
-              width="7"
-              height="7"
-              patternUnits="userSpaceOnUse"
-              patternTransform="rotate(45)"
-            >
-              <rect width="7" height="7" fill="var(--warning-soft)" />
-              <line x1="0" y1="0" x2="0" y2="7" stroke="var(--warning)" strokeWidth="2.5" />
-            </pattern>
-            <clipPath id={`${patternId}-round`}>
-              <rect width="100%" height="100%" rx="8" />
-            </clipPath>
-          </defs>
-          <g clipPath={`url(#${patternId}-round)`}>
-            <rect width="100%" height="100%" fill={`url(#${patternId})`} />
-            <rect
-              height="100%"
-              fill="var(--good)"
-              style={{ width: `${chargedShare}%`, transition: "width 260ms ease-out" }}
-            />
-            {/* a surface-coloured gap between the two parts */}
-            <rect
-              height="100%"
-              width="2"
-              fill="var(--surface)"
-              style={{
-                transform: `translateX(calc(${chargedShare}% - 1px))`,
-                transition: "transform 260ms ease-out",
-                opacity: row.released_cents > 0 && row.charged_cents > 0 ? 1 : 0,
-              }}
-            />
-          </g>
-        </svg>
+        <HoldBar
+          className="mt-4"
+          holdCents={hold}
+          chargedCents={row.charged_cents}
+          label={`Of the ${money(hold)} held, ${money(row.charged_cents)} is charged and ${money(row.released_cents)} is released.`}
+        />
 
         <label htmlFor={sliderId} className="text-ink mt-4 block text-sm font-medium">
           On Thursday{" "}

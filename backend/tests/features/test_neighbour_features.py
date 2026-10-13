@@ -231,3 +231,25 @@ async def test_lines_belong_to_their_shop(db, world, ctx):
     )
     with pytest.raises(rules.RuleViolation):
         await claims.file_claim(ctx, "cafe-mei", other.id, ClaimType.SHORT, 1)
+
+
+async def test_flash_deal_times_are_local_and_ended_deals_say_so(db, world, ctx, runtime):
+    """The deal message used to show the UTC hour as if it were Singapore time, and the API
+    went on calling a deal open days after it had ended."""
+    from sqlalchemy import select
+
+    from app.api.world import flash_deal_list
+    from app.clock import local_time
+    from app.db.models import AgentMessage
+
+    deal = await flash_deals.post(ctx, "johorfarm", "TOMATO-1KG-CAMERON", 20, 40, hours=8)
+    message = await db.scalar(select(AgentMessage).where(AgentMessage.type == "FLASH_DEAL"))
+    ends = local_time(deal.expires_at)
+    assert f"until {ends:%H:%M}" in message.text
+    assert ends.utcoffset().total_seconds() == 8 * 3600  # Singapore, not UTC
+
+    listed = (await flash_deal_list(ctx))[0]
+    assert listed["status"] == "OPEN"
+    runtime.clock.advance(hours=9)
+    listed = (await flash_deal_list(ctx))[0]
+    assert listed["status"] == "EXPIRED"

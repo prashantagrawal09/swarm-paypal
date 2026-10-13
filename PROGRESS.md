@@ -751,3 +751,23 @@ empty database, in production mode with a demo key.
 - The timeline is 31 KB compressed; a reconnect with `Last-Event-ID` gets exactly the
   events it missed; the worked examples, the capability table and the decision records all
   answer.
+
+## Interface pass 3
+
+Started from a full-page audit of every page at desktop and phone width.
+
+**Built**
+- **A shop's week, step by step** (shop page): what the agent did each day and what happened
+  to the money, in the shop's own terms. "34 of 38 L milk arrived, so PayPal charged
+  S$506.60 and released S$7.81", with the hold drawn as one bar split into charged and
+  released. Built by a pure function from what the page already loads
+  (`frontend/lib/shop-week.ts`, tested).
+- The live board's two columns are now about the same height (neighbour activity moved
+  under the PayPal feed), and the conversation opens on agents talking to each other; what
+  owners and their own agents say is under **Owners**.
+
+**Fixed along the way**
+- **Flash deal times were in the wrong time zone.** "Until 14:00" was the UTC hour; the deal
+  runs until 22:00 in Singapore. Messages now use Singapore time.
+- **A flash deal stayed "Open" for days after it ended.** The API now reports a deal past
+  its time as ended.

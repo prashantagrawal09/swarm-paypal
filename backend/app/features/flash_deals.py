@@ -18,7 +18,7 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
-from app.clock import week_start
+from app.clock import local_time, week_start
 from app.config import get_settings
 from app.db.enums import FlashDealStatus, PayPalModeEnum, ShopStatus
 from app.db.models import FlashDeal, Item, Shop, SupplierItem
@@ -85,7 +85,7 @@ async def post(
         type="FLASH_DEAL",
         text=(
             f"Flash deal: {what} of {item.brand} at {Money(price)}/{unit} "
-            f"({deal.details['discount_pct']}% off) until {deal.expires_at:%H:%M}."
+            f"({deal.details['discount_pct']}% off) until {local_time(deal.expires_at):%H:%M}."
         ),
         payload={"deal_id": str(deal.id), "price_cents": price, "list_price_cents": list_price},
     )
@@ -103,7 +103,8 @@ async def post(
                 shop,
                 f"⚡ {supplier.name} has {item.brand} {wording(item.product_code).name} at "
                 f"{Money(price)}/{unit} ({deal.details['discount_pct']}% off) until "
-                f"{deal.expires_at:%H:%M}. Want {describe(item.product_code, suggested)} for "
+                f"{local_time(deal.expires_at):%H:%M}. "
+                f"Want {describe(item.product_code, suggested)} for "
                 f"{Money(price * suggested)}?",
                 kind="FLASH_DEAL",
                 ref=deal.id.hex,

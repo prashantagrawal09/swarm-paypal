@@ -187,8 +187,6 @@ export function LiveBoard() {
               </Empty>
             )}
           </section>
-
-          <NeighbourActivity />
         </div>
 
         <div className="space-y-6 lg:col-span-5">
@@ -209,6 +207,7 @@ export function LiveBoard() {
             />
             <PayPalFeed className="flex-1" />
           </Card>
+          <NeighbourActivity />
         </div>
       </div>
     </div>

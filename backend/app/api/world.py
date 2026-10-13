@@ -17,7 +17,7 @@ from app.agents.coordinator import conversation_id_for
 from app.api.deps import CtxDep
 from app.api.readcache import shared
 from app.clock import week_start
-from app.db.enums import ApprovalStatus, PaymentKind
+from app.db.enums import ApprovalStatus, FlashDealStatus, PaymentKind
 from app.db.models import (
     ApprovalRequest,
     Claim,
@@ -761,6 +761,7 @@ async def money_flow_week(ctx: CtxDep, week: date | None = None) -> dict[str, An
 
 @router.get("/flash-deals")
 async def flash_deal_list(ctx: CtxDep) -> list[dict[str, Any]]:
+    now = ctx.now()
     rows = await ctx.session.execute(
         select(FlashDeal, Supplier, Item)
         .join(Supplier, Supplier.id == FlashDeal.supplier_id)
@@ -780,7 +781,12 @@ async def flash_deal_list(ctx: CtxDep) -> list[dict[str, Any]]:
             "price_cents": d.price_cents,
             "list_price_cents": d.list_price_cents,
             "discount_pct": d.details.get("discount_pct"),
-            "status": d.status.value,
+            # A deal past its time has ended, whether or not anything has marked it so.
+            "status": (
+                FlashDealStatus.EXPIRED.value
+                if d.status == FlashDealStatus.OPEN and d.expires_at <= now
+                else d.status.value
+            ),
             "expires_at": _iso(d.expires_at),
             "purchases": d.details.get("purchases", []),
         }

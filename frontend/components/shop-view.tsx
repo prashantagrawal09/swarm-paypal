@@ -19,6 +19,7 @@ import useSWR from "swr";
 import { Dumbbell } from "@/components/charts/dumbbell";
 import { ClaimsGrid, OrdersGrid, PaymentsGrid, SwapsGrid } from "@/components/grids";
 import { OwnerPhone } from "@/components/owner-phone";
+import { ShopWeekCard } from "@/components/shop-week";
 import { HeroFigure, StatTile } from "@/components/stats";
 import {
   ButtonLink,
@@ -216,6 +217,17 @@ export function ShopView({ code }: { code: string }) {
               />
             </div>
           </Card>
+
+          {shop && orders && payments && swaps ? (
+            <ShopWeekCard
+              shop={shop}
+              orders={orders}
+              payments={payments}
+              swaps={swaps}
+              steps={state?.steps ?? []}
+              productName={productName}
+            />
+          ) : null}
 
           {/* Records */}
           <Card>
