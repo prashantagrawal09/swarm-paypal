@@ -15,7 +15,7 @@ The demo world is 12 fictional shops and 3 suppliers in Tiong Bahru, Singapore, 
 page. The whole week plays back in about a minute. It is a replay of the recorded week, so
 nothing is reset and any number of people can watch at once.
 
-![One Swarm week on the live board: agents negotiate, PayPal holds, charges and pays out](docs/screenshots/week.gif)
+![One Swarm week on the watch page: agents negotiate, PayPal holds, charges and pays out, ending on the week's summary](docs/screenshots/watch.gif)
 
 _One week, start to finish. Thin streaks on the map are agent messages; thick glowing
 streaks are money moving through PayPal (honey = held, green = charged, dark = paid out)._
@@ -71,15 +71,19 @@ food out of the bin. It takes 94 PayPal calls, and the books balance to the cent
 | F5 | Emergency borrow | "Out of eggs, need 30 now" is matched to a nearby shop in under two minutes. |
 | F6–F9 | Supporting | Demand forecasts, weekly savings report, supplier flash deals, spending limits. |
 
-| Live board, mid-week | Where the money went |
+| Watch page, Thursday | Watch page, the week's summary |
 |---|---|
+| ![Watch page during settlement](docs/screenshots/watch.png) | ![The week in review](docs/screenshots/watch-finale.png) |
+| **Live board, mid-week** | **Where the money went** |
 | ![Live board during settlement](docs/screenshots/live-board-running.png) | ![Money flow](docs/screenshots/money-flow.png) |
 | **Live board, week complete** | **Demo panel and the owner's phone** |
 | ![Live board](docs/screenshots/live-board-full.png) | ![Demo panel](docs/screenshots/demo-panel.png) |
 | **Shop page** | **Invoice check (supplier page)** |
 | ![Shop page](docs/screenshots/shop.png) | ![Invoices](docs/screenshots/supplier-invoices.png) |
-| **Home** | **Dark mode, phone** |
-| ![Home](docs/screenshots/landing.png) | ![Dark](docs/screenshots/live-board-dark.png) ![Phone](docs/screenshots/mobile-live.png) |
+| **Home** | **Home: two things to try** |
+| ![Home](docs/screenshots/landing.png) | ![Pooling and short-delivery examples](docs/screenshots/explainers.png) |
+| **Dark mode** | **Phone** |
+| ![Dark](docs/screenshots/live-board-dark.png) | ![Phone](docs/screenshots/mobile-live.png) |
 
 _The submission video goes here._
 

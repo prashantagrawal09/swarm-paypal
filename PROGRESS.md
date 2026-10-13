@@ -669,3 +669,6 @@ resetting it for everyone. Now every run is recorded and anyone can play it back
 - The page computes nothing. `GET /api/explain` (`app/features/explain.py`) builds both
   tables with `app.money.pricing`, the functions the week itself runs on, from the street's
   usual milk order. Tests check every row against those functions.
+- The README now opens with a recording of the watch page (`docs/screenshots/watch.gif`,
+  4.3 MB) in place of the older live-board recording, with new watch-page and home-page
+  screenshots.

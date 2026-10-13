@@ -503,7 +503,8 @@ export function Chatter({
     .slice(-5);
   return (
     <section
-      className="border-line bg-surface flex min-h-0 flex-1 flex-col rounded-2xl border p-4"
+      // On a short window there is no room for it under the tally and the money.
+      className="border-line bg-surface hidden min-h-0 flex-1 flex-col rounded-2xl border p-4 [@media(min-height:840px)]:flex"
       aria-label="What the agents are saying"
     >
       <h2 className="text-ink text-sm font-semibold">What the agents are saying</h2>
