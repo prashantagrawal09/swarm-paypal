@@ -181,7 +181,7 @@ export function Landing() {
               arrives.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <ButtonLink href="/live?play=1" variant="honey" className="px-5 py-2.5">
+              <ButtonLink href="/watch?play=1" variant="honey" className="px-5 py-2.5">
                 <Play className="h-4 w-4" aria-hidden /> Watch a week run
               </ButtonLink>
               <ButtonLink href="/live" variant="primary" className="px-5 py-2.5">
@@ -189,7 +189,7 @@ export function Landing() {
               </ButtonLink>
             </div>
             <p className="text-muted mt-4 text-xs">
-              Two minutes, start to finish. Nothing to install, no login.
+              About a minute, start to finish. Nothing to install, no login.
             </p>
           </motion.div>
 
@@ -402,7 +402,7 @@ export function Landing() {
             goes wrong and play any shop owner on their phone.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <ButtonLink href="/live?play=1" variant="honey">
+            <ButtonLink href="/watch?play=1" variant="honey">
               <Play className="h-4 w-4" aria-hidden /> Watch a week run
             </ButtonLink>
             <ButtonLink href="/demo">Demo panel</ButtonLink>

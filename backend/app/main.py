@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, text
 
@@ -85,6 +86,9 @@ def create_app() -> FastAPI:
         description="Small shops buy together and pay like a chain. Every hold, capture, "
         "payout, invoice and refund runs through PayPal.",
     )
+    # JSON compresses well (a week's timeline is about 200 KB raw); the event stream is left
+    # alone by the middleware, so live events are never held back.
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,

@@ -603,3 +603,52 @@ the real deploy.
 - Page titles no longer wait on a sleeping API (2.5 s limit on the server-side name lookup).
 - `docs/deploy.md` now covers what Render's free plan does to a demo: services sleep, the
   free database expires after 30 days, and the 750 shared hours rule out a keep-awake pinger.
+
+## Watch page: the week as a film
+
+The demo depended on someone pressing Run, and a second visitor could only watch by
+resetting it for everyone. Now every run is recorded and anyone can play it back.
+
+**Built**
+- **A recording of the live stream.** Every agent message and PayPal event is written to a
+  new `stream_events` table in the order it was sent (`app/agents/recorder.py`, migration
+  `5c7c62089217`). `GET /api/timeline` returns a week of it (about 200 KB, 31 KB gzipped;
+  JSON responses are now compressed, the event stream is not).
+- **`/watch`.** A dark, full-window stage: the swarm map, a title card as each day begins,
+  one sentence about what is happening, a tally (saved, held, charged, paid out, released,
+  PayPal calls), the negotiation with each supplier's price falling round by round, and a
+  closing summary of the week. Space pauses, the arrow keys jump between days, 1/2/3 set
+  the speed, F is full screen. It works at phone width.
+- **Replay, live, or start.** A finished week is replayed from the recording: each visitor
+  gets their own showing, nothing is reset and PayPal isn't called again. A week that is
+  running is followed live. A week nobody has run offers to run it. The home page's **Watch
+  a week run** now goes here.
+- **Reconnecting browsers catch up.** Stream events carry their position as the SSE `id`.
+  A browser that reconnects sends `Last-Event-ID` and first gets what it missed, so a
+  dropped connection no longer loses events on the live board either.
+- **One step function for the stream.** The live layer's bookkeeping moved out of a React
+  provider into a pure function (`lib/stream-state.ts`), used by both the live connection
+  and the replay. The replay's totals are worked out from the events alone
+  (`lib/world-state.ts`).
+
+**Works**
+- A test replays a real recorded week and checks the event-derived totals against the
+  server's own books at the end of every step: charged, paid out, refunded, held and the
+  number of PayPal calls all match to the cent.
+- Backend: the recorder (ordering, weeks, pruning old weeks, failure never stops the week),
+  catch-up without duplicates, the timeline endpoint, reset clears the recording.
+- Checked in headless Chrome: replay at 1×, 2× and 4×, a live run started from
+  `/watch?play=1`, the not-started state, the closing summary, and a phone-sized window.
+
+**Fixed along the way**
+- A flash-deal event didn't say what the supplier was actually paid (the amount less the
+  fee), so anything adding up payouts from events was 96 cents out. It now carries
+  `payout_cents`.
+- Each finished step's event now carries the week's totals at that moment.
+
+**Decisions**
+- Events are recorded through their own short transaction, not the caller's, so recording
+  can neither commit half-finished work nor be lost with it. If recording fails, the week
+  carries on and the event is still sent live.
+- A finished recording is frozen in the visitor's browser: someone else resetting the demo
+  does not interrupt a replay.

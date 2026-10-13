@@ -279,3 +279,18 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--surface-3) transparent;
 }
+
+/* The watch page's stage: a soft honey glow over a dotted floor. */
+.theatre-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      60rem 34rem at 38% 38%,
+      color-mix(in oklab, var(--honey) 13%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(circle, color-mix(in oklab, var(--ink) 9%, transparent) 1px, transparent 1.5px)
+      0 0 / 22px 22px;
+}

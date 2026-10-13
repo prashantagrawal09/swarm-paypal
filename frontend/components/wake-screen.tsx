@@ -117,7 +117,7 @@ function Heading({ compact, children }: { compact: boolean; children: React.Reac
 }
 
 /** Seven cells of honeycomb, lighting up in turn. */
-function Hive() {
+export function Hive() {
   const cells = [
     [0, 0],
     [1, 0],

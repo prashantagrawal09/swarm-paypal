@@ -57,7 +57,8 @@ Every shop gets its own agent. Over one week:
 In the demo week, twelve shops save about S$2,340 (32% on dairy), keep 8.4 kg of food out
 of the bin, and it takes 94 PayPal calls. The ledger balances to the cent.
 
-The live board shows all of it as it happens: agent messages and money fly between the
+The watch page replays the whole week as a one-minute film, and the live board shows all
+of it as it happens: agent messages and money fly between the
 shops, the suppliers and the coordinator on a map of the neighbourhood, and a narrator says
 in one sentence what just happened.
 
@@ -137,8 +138,10 @@ Tailwind CSS, AG Grid, Telegram Bot API, Render.
 
 ## Try it
 
-1. Open the hosted URL and press **Watch a week run**. (If you set `DEMO_PANEL_KEY`, give
-   the link `.../live?play=1#key=YOUR-KEY` here instead, so judges aren't asked for it.)
+1. Open the hosted URL and press **Watch a week run**: the recorded week plays back in
+   about a minute (space pauses, arrow keys jump between days). No key or login is needed.
+   (To let judges run or reset the week themselves when `DEMO_PANEL_KEY` is set, also give
+   them `.../demo#key=YOUR-KEY`.)
 2. Open **Demo panel** to change what goes wrong (a short delivery, an overcharged invoice)
    and to play any shop owner on their phone.
 3. Open **Money** afterwards to see where every cent went.

@@ -2,3 +2,6 @@
 node_modules
 package-lock.json
 next-env.d.ts
+
+# Recorded data, kept exactly as the API returned it.
+tests/fixtures/

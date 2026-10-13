@@ -494,6 +494,22 @@ class AgentMessage(UUIDPrimaryKey, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class StreamEvent(Base):
+    """Everything the live stream carried, in order, so a week can be watched again later
+    and a dropped connection can catch up on what it missed."""
+
+    __tablename__ = "stream_events"
+
+    seq: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    week_start: Mapped[date] = mapped_column(Date, index=True)
+    # The SSE event name: "agent_message" or "paypal".
+    event: Mapped[str] = mapped_column(String(32))
+    data: Mapped[dict[str, Any]] = mapped_column(default=dict)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class ApprovalRequest(UUIDPrimaryKey, Timestamps, Base):
     __tablename__ = "approval_requests"
 

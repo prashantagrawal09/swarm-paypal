@@ -152,6 +152,7 @@ export function SwarmMap({
   heldCents = 0,
   className,
   interactive = true,
+  legend,
 }: {
   shops: ShopSummary[];
   suppliers?: SupplierSummary[];
@@ -160,6 +161,8 @@ export function SwarmMap({
   className?: string;
   /** Off for decorative use: no tooltips, links or legend. */
   interactive?: boolean;
+  /** The key under the map. On by default wherever the map is interactive. */
+  legend?: boolean;
 }) {
   const router = useRouter();
   const { activity, arcs, flights } = useLive();
@@ -612,7 +615,7 @@ export function SwarmMap({
       ) : null}
 
       {/* Legend: the pin states on the map now, and whatever is flying. */}
-      {interactive ? (
+      {(legend ?? interactive) ? (
         <ul className="text-ink-2 mt-2 flex min-h-5 flex-wrap gap-x-4 gap-y-1 px-1 text-xs">
           {(Object.keys(PIN_STATE) as PinState[])
             .filter((key) => used.has(key))

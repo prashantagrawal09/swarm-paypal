@@ -1,5 +1,24 @@
 # Demo script (3 minutes)
 
+## The easy recording: the watch page
+
+`/watch` plays the whole week as a film on a dark stage: the map, each day's title, one
+sentence about what is happening, and the money adding up, ending on a summary of the week.
+It replays the recording of the last run, so you can record it as many times as you like
+without resetting anything.
+
+1. Run the week once (the first press of **Watch a week run** does this, or **Run the
+   week** on the live board).
+2. Open `/watch`, press `F` for full screen, and record. **Space** pauses, **←** and **→**
+   jump between days, **1** / **2** / **3** set the speed (a full week is about 70 seconds
+   at 1×), **R** starts again.
+3. Talk over it with the "Say" column below; the day titles tell you where you are.
+
+Use the live board (next section) when you want to show the detail: the owner's phone, the
+price ladder, an invoice being rejected line by line.
+
+## The detailed walkthrough: the live board
+
 One window is enough: the **live board** (`/live`). It has its own **Run the week** and
 **One step** buttons, and a narrator line that says in plain words what is happening. Open
 the **demo panel** (`/demo`) in a second window if you want the owner's phone on screen, set
@@ -42,8 +61,8 @@ the same: code computes every amount.
 ## Shortcut
 
 **Run the week** plays every step, paced so the board can be followed (about 75 seconds).
-Use it for a hands-off recording, or for judges trying it themselves. The landing page's
-**Watch a week run** button does the same in one click (`/live?play=1`).
+The landing page's **Watch a week run** button opens the watch page (`/watch?play=1`): it
+replays the recorded week, or runs it there and then if nobody has run it yet.
 
 After the run, the **Money** page shows where every cent went as a flow diagram (shops →
 PayPal → suppliers, neighbours, refunds, fee), and it always adds up.

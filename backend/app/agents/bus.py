@@ -15,7 +15,7 @@ import asyncio
 import contextlib
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -33,9 +33,19 @@ HEARTBEAT_SECONDS = 15.0
 class BusEvent:
     event: str
     data: dict[str, Any]
+    # Position in the recorded stream (None when nothing is recording). Sent as the SSE id,
+    # so a reconnecting browser can say where it got to.
+    seq: int | None = None
 
     def to_sse(self) -> str:
-        return f"event: {self.event}\ndata: {json.dumps(self.data, default=str)}\n\n"
+        head = f"id: {self.seq}\n" if self.seq is not None else ""
+        return f"{head}event: {self.event}\ndata: {json.dumps(self.data, default=str)}\n\n"
+
+
+# Takes (event name, data), stores it and returns its position in the stream.
+Recorder = Callable[[str, dict[str, Any]], Awaitable[int]]
+# Housekeeping for the people at the controls, not part of the week's story.
+UNRECORDED_KINDS = frozenset({"reset", "demo_action"})
 
 
 def message_dict(message: AgentMessage) -> dict[str, Any]:
@@ -60,6 +70,8 @@ class MessageBus:
         self.pace_seconds = 0.0
         # Moves on every message and event, so read models can tell "nothing has happened".
         self.version = 0
+        # Set by the running app (see `StreamRecorder`); tests and scripts leave it off.
+        self.recorder: Recorder | None = None
         self._subscribers: set[asyncio.Queue[BusEvent]] = set()
 
     # -- subscribers ----------------------------------------------------------------------
@@ -83,6 +95,17 @@ class MessageBus:
                 with contextlib.suppress(asyncio.QueueEmpty):
                     queue.get_nowait()  # drop the oldest event for this slow subscriber
             queue.put_nowait(event)
+
+    async def announce(self, event: str, data: dict[str, Any]) -> None:
+        """Record (when recording is on), then send to everyone connected."""
+        seq: int | None = None
+        if self.recorder is not None and data.get("kind") not in UNRECORDED_KINDS:
+            try:
+                seq = await self.recorder(event, data)
+            except Exception:
+                # The week matters more than its recording.
+                logger.exception("Could not record a %s stream event", event)
+        self.broadcast(BusEvent(event, data, seq))
 
     # -- publishing -----------------------------------------------------------------------
 
@@ -109,7 +132,7 @@ class MessageBus:
         session.add(message)
         await session.commit()
         await session.refresh(message)
-        self.broadcast(BusEvent("agent_message", message_dict(message)))
+        await self.announce("agent_message", message_dict(message))
         if self.pace_seconds > 0:
             owner_side = from_agent.startswith("owner:") or to_agent.startswith("owner:")
             await asyncio.sleep(self.pace_seconds / 12 if owner_side else self.pace_seconds)
@@ -117,22 +140,33 @@ class MessageBus:
 
     async def emit(self, kind: str, payload: dict[str, Any]) -> None:
         """EventSink for the money engine: PayPal events on the live stream."""
-        self.broadcast(
-            BusEvent("paypal", {"kind": kind, "at": self.clock.now().isoformat(), **payload})
-        )
+        await self.announce("paypal", {"kind": kind, "at": self.clock.now().isoformat(), **payload})
 
     # -- SSE ------------------------------------------------------------------------------
 
-    async def sse(self, heartbeat: float = HEARTBEAT_SECONDS) -> AsyncIterator[str]:
+    async def sse(
+        self,
+        heartbeat: float = HEARTBEAT_SECONDS,
+        missed: Callable[[], Awaitable[list[BusEvent]]] | None = None,
+    ) -> AsyncIterator[str]:
+        """The stream for one browser. `missed` loads what a reconnecting browser didn't
+        get; it runs after subscribing, so nothing can fall between the two."""
         queue = self.subscribe()
         try:
             yield BusEvent("hello", {"at": self.clock.now().isoformat()}).to_sse()
+            caught_up_to = 0
+            if missed is not None:
+                for event in await missed():
+                    caught_up_to = max(caught_up_to, event.seq or 0)
+                    yield event.to_sse()
             while True:
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=heartbeat)
                 except TimeoutError:
                     yield ": keep-alive\n\n"
                     continue
+                if event.seq is not None and event.seq <= caught_up_to:
+                    continue  # already sent as part of the catch-up
                 yield event.to_sse()
         finally:
             self.unsubscribe(queue)

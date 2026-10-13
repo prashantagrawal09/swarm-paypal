@@ -182,3 +182,43 @@ async def test_paced_steps_run_in_the_background(db, runtime, world, test_databa
         assert state["log"][0]["action"] == "week_complete"
     finally:
         await engine.dispose()
+
+
+async def test_timeline_is_the_recorded_week_and_reset_clears_it(
+    client, runtime, test_database_url
+):
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    from app.agents.recorder import StreamRecorder
+
+    engine = create_async_engine(test_database_url, poolclass=NullPool)
+    runtime.bus.recorder = StreamRecorder(
+        async_sessionmaker(engine, expire_on_commit=False), runtime.clock.now
+    )
+    api, _ = client
+    try:
+        assert (await api.get("/api/timeline")).json()["events"] == []
+
+        await api.post("/api/demo/advance")  # Monday
+        body = (await api.get("/api/timeline")).json()
+        kinds = [e["data"].get("kind") or e["data"].get("type") for e in body["events"]]
+        assert kinds[0] == "step_started" and kinds[-1] == "step_finished"
+        assert kinds.count("WEEKLY_NEEDS") == 12
+        assert "demo_action" not in kinds
+        # Each step ends with where the week stands, so a replay can show that moment's totals.
+        assert body["events"][-1]["data"]["stats"]["books_balanced"] is True
+        assert body["week"] == "2026-10-12"
+        assert body["last_seq"] == body["events"][-1]["seq"]
+        seqs = [e["seq"] for e in body["events"]]
+        assert seqs == sorted(seqs) and len(set(seqs)) == len(seqs)
+
+        newer = (await api.get("/api/timeline", params={"after": body["last_seq"]})).json()
+        assert newer == {"week": "2026-10-12", "last_seq": body["last_seq"], "events": []}
+        other = (await api.get("/api/timeline", params={"week": "2026-10-05"})).json()
+        assert other["events"] == []
+
+        assert (await api.post("/api/demo/reset")).status_code == 200
+        assert (await api.get("/api/timeline")).json()["events"] == []
+    finally:
+        await engine.dispose()

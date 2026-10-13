@@ -40,6 +40,7 @@ type Command = {
 };
 
 const PAGES = [
+  { href: "/watch", label: "Watch the week", keywords: "replay film play theatre story" },
   { href: "/live", label: "Live board", keywords: "map agents paypal feed week" },
   { href: "/shops", label: "Shops", keywords: "directory" },
   { href: "/suppliers", label: "Suppliers", keywords: "directory" },

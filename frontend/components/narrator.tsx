@@ -33,7 +33,7 @@ import { ApiError, type Overview, post } from "@/lib/api";
 import { useLive } from "@/lib/live";
 import { currentCaption, type Tone } from "@/lib/story";
 
-const STEP_ICON: Record<string, LucideIcon> = {
+export const STEP_ICON: Record<string, LucideIcon> = {
   forecasts: Sunrise,
   negotiation: Handshake,
   holds: Wallet,
@@ -44,7 +44,7 @@ const STEP_ICON: Record<string, LucideIcon> = {
   report: CalendarCheck,
 };
 
-const TONE: Record<Tone, { chip: string; icon?: LucideIcon }> = {
+export const TONE: Record<Tone, { chip: string; icon?: LucideIcon }> = {
   neutral: { chip: "bg-surface-2 text-ink" },
   honey: { chip: "bg-honey text-[#1c1400]" },
   good: { chip: "bg-good-soft text-good-ink", icon: CheckCircle2 },

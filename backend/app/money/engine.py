@@ -1230,6 +1230,8 @@ class MoneyEngine:
             shop=shop.code,
             supplier=supplier.code,
             amount_cents=amount_cents,
+            # What reached the supplier, after the platform fee.
+            payout_cents=net,
             paypal_id=payment.paypal_id,
             payout_paypal_id=payout.paypal_id,
             mode=shop.paypal_mode,

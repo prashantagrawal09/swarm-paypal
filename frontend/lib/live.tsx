@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * One Server-Sent Events connection for the whole app. It keeps the recent agent messages
- * and PayPal events, turns each into a flight between two agents for the map, keeps the
- * week's story for the narrator, marks who just had activity (pulses, swap arcs), and
- * revalidates every SWR query shortly after anything happens so the numbers agree.
+ * One Server-Sent Events connection for the whole app. Everything it receives goes through
+ * `ingest` (see stream-state.ts), which keeps the recent agent messages and PayPal events,
+ * the flights for the map and the week's story; this file adds the connection itself and
+ * revalidates every SWR query shortly after anything happens, so the numbers agree.
  */
 
 import {
@@ -13,76 +13,45 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from "react";
 import { useSWRConfig } from "swr";
 
 import { API_URL, type AgentMessage, fetcher } from "@/lib/api";
-import { moneyFlight, nodeOf } from "@/lib/flights";
+import {
+  EMPTY_STREAM,
+  ingest,
+  MAX_MESSAGES,
+  type StreamItem,
+  type StreamState,
+} from "@/lib/stream-state";
 
-export type PayPalEvent = {
-  id: string;
-  kind: string;
-  at: string;
-  shop?: string;
-  supplier?: string;
-  buyer?: string;
-  seller?: string;
-  amount_cents?: number;
-  gross_cents?: number;
-  paypal_id?: string;
-  payout_paypal_id?: string;
-  capture_paypal_id?: string;
-  mode?: "REAL" | "SIMULATED";
-  category?: string;
-  partial?: boolean;
-  hold_cents?: number;
-  reason?: string;
-  step?: string;
-  title?: string;
-  [key: string]: unknown;
-};
+export type {
+  Arc,
+  Flight,
+  FlightKind,
+  PayPalEvent,
+  PayPalEventData,
+  StoryItem,
+  StreamItem,
+} from "@/lib/stream-state";
 
-export type Arc = { id: string; from: string; to: string; kind: string; at: number };
-
-/**
- * Something travelling between two agents on the map. Ends are node tokens: `shop:<code>`,
- * `supplier:<code>`, `hub` (the coordinator and Swarm's PayPal balance), or the broadcasts
- * `shop:*` / `supplier:*`.
- */
-export type FlightKind = "message" | "hold" | "charge" | "payout" | "refund";
-export type Flight = {
-  id: string;
-  from: string;
-  to: string;
-  kind: FlightKind;
-  at: number;
-  /** Milliseconds to wait before taking off, so a burst fans out instead of overlapping. */
-  delay: number;
-};
-
-/** One line of the week's story, in arrival order (newest first in `timeline`). */
-export type StoryItem = { id: string; /** When this browser saw it (ms). */ seenAt: number } & (
-  { kind: "event"; event: PayPalEvent } | { kind: "message"; message: AgentMessage }
-);
-
-type LiveState = {
+export type LiveState = Pick<
+  StreamState,
+  "messages" | "events" | "activity" | "arcs" | "flights" | "timeline" | "lastAward"
+> & {
   connected: boolean;
   /** False until the stream has connected once (so the UI can say "connecting", not "offline"). */
   started: boolean;
-  messages: AgentMessage[];
-  events: PayPalEvent[];
-  /** Last activity per shop code, supplier code, or "hub". */
-  activity: Record<string, { at: number; kind: string }>;
-  arcs: Arc[];
-  flights: Flight[];
-  timeline: StoryItem[];
-  /** The negotiation that was just awarded while this page was open (for the spotlight). */
-  lastAward: { conversation: string; at: number } | null;
 };
 
-const LiveContext = createContext<LiveState>({
+/**
+ * Exported so a subtree can be given a different stream to show: the watch page puts a
+ * replayed week here, and every component that reads `useLive` plays it back unchanged.
+ */
+export const LiveContext = createContext<LiveState>({
   connected: false,
   started: false,
   messages: [],
@@ -94,67 +63,29 @@ const LiveContext = createContext<LiveState>({
   lastAward: null,
 });
 
-const MAX_MESSAGES = 250;
-const MAX_EVENTS = 80;
-const MAX_FLIGHTS = 70;
-const MAX_STORY = 40;
-const FLIGHT_MS = 2600;
-const REVALIDATE_MS = 1200;
-let eventCounter = 0;
-let flightCounter = 0;
+type Listener = (item: StreamItem) => void;
+const TapContext = createContext<(listener: Listener) => () => void>(() => () => undefined);
 
-/** Agent messages that move the week's story forward (the narrator shows these). */
-const STORY_MESSAGES = new Set(["RFQ", "FINAL_CALL", "AWARD_SUMMARY", "NO_AWARD", "FLASH_DEAL"]);
-const STORY_EVENTS = new Set([
-  "step_started",
-  "captured",
-  "refunded",
-  "supplier_paid",
-  "swap_completed",
-  "flash_deal_bought",
-  "invoice_checked",
-  "approval_needed",
-  "hold_failed",
-  "week_summary",
-]);
+const REVALIDATE_MS = 1200;
+
+type Action =
+  { type: "item"; item: StreamItem; now: number } | { type: "seed"; messages: AgentMessage[] };
+
+function reduce(state: StreamState, action: Action): StreamState {
+  if (action.type === "item") return ingest(state, action.item, action.now);
+  // The recent history, fetched once on load; anything that already arrived live wins.
+  const seen = new Set(state.messages.map((m) => m.id));
+  const older = action.messages.filter((m) => !seen.has(m.id));
+  return { ...state, messages: [...older, ...state.messages].slice(-MAX_MESSAGES) };
+}
 
 export function LiveProvider({ children }: { children: React.ReactNode }) {
   const { mutate } = useSWRConfig();
   const [connected, setConnected] = useState(false);
   const [started, setStarted] = useState(false);
-  const [messages, setMessages] = useState<AgentMessage[]>([]);
-  const [events, setEvents] = useState<PayPalEvent[]>([]);
-  const [activity, setActivity] = useState<LiveState["activity"]>({});
-  const [arcs, setArcs] = useState<Arc[]>([]);
-  const [flights, setFlights] = useState<Flight[]>([]);
-  const [timeline, setTimeline] = useState<StoryItem[]>([]);
-  const [lastAward, setLastAward] = useState<LiveState["lastAward"]>(null);
+  const [stream, dispatch] = useReducer(reduce, EMPTY_STREAM);
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const burst = useRef({ at: 0, index: 0 });
-
-  const launch = useCallback((from: string, to: string, kind: FlightKind) => {
-    const now = Date.now();
-    // Things that arrive together take off one after another.
-    burst.current =
-      now - burst.current.at < 150
-        ? { at: now, index: burst.current.index + 1 }
-        : { at: now, index: 0 };
-    const flight: Flight = {
-      id: `fl-${++flightCounter}`,
-      from,
-      to,
-      kind,
-      at: now,
-      delay: Math.min(burst.current.index * 45, 1100),
-    };
-    setFlights((current) =>
-      [...current.filter((f) => now - f.at < FLIGHT_MS), flight].slice(-MAX_FLIGHTS),
-    );
-  }, []);
-
-  const tell = useCallback((item: StoryItem) => {
-    setTimeline((current) => [item, ...current].slice(0, MAX_STORY));
-  }, []);
+  const listeners = useRef(new Set<Listener>());
 
   const revalidateSoon = useCallback(() => {
     if (pending.current) return;
@@ -164,20 +95,18 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
     }, REVALIDATE_MS);
   }, [mutate]);
 
-  const touch = useCallback((codes: (string | undefined)[], kind: string) => {
-    const now = Date.now();
-    setActivity((current) => {
-      const next = { ...current };
-      for (const code of codes) if (code) next[code] = { at: now, kind };
-      return next;
-    });
+  const tap = useCallback((listener: Listener) => {
+    listeners.current.add(listener);
+    return () => {
+      listeners.current.delete(listener);
+    };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     fetcher<AgentMessage[]>("/api/agent-messages?tail=true&limit=150")
-      .then((initial) => {
-        if (!cancelled) setMessages(initial);
+      .then((messages) => {
+        if (!cancelled) dispatch({ type: "seed", messages });
       })
       .catch(() => undefined);
 
@@ -188,90 +117,58 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
     });
     source.addEventListener("error", () => setConnected(false));
     source.addEventListener("hello", () => setConnected(true));
-    source.addEventListener("agent_message", (event) => {
-      const message = JSON.parse((event as MessageEvent<string>).data) as AgentMessage;
-      setMessages((current) => {
-        if (current.some((m) => m.id === message.id)) return current;
-        return [...current, message].slice(-MAX_MESSAGES);
-      });
-      const codes = [message.from, message.to].map((id) => {
-        const [kind, code] = id.split(":");
-        if (kind === "shop" || kind === "owner" || kind === "supplier") return code;
-        return kind === "coordinator" || kind === "claims" ? "hub" : undefined;
-      });
-      touch(codes, message.type);
-      const from = nodeOf(message.from);
-      const to = nodeOf(message.to);
-      if (from && to && from !== to) launch(from, to, "message");
-      if (STORY_MESSAGES.has(message.type)) {
-        tell({ id: `st-${message.id}`, seenAt: Date.now(), kind: "message", message });
-      }
-      if (message.type === "AWARD_SUMMARY") {
-        setLastAward({ conversation: message.conversation_id, at: Date.now() });
-      }
+
+    const receive = (name: StreamItem["event"]) => (raw: Event) => {
+      const message = raw as MessageEvent<string>;
+      const seq = Number(message.lastEventId);
+      const item = {
+        event: name,
+        data: JSON.parse(message.data),
+        seq: message.lastEventId && Number.isFinite(seq) ? seq : undefined,
+      } as StreamItem;
+      dispatch({ type: "item", item, now: Date.now() });
+      for (const listener of listeners.current) listener(item);
       revalidateSoon();
-    });
-    source.addEventListener("paypal", (event) => {
-      const data = JSON.parse((event as MessageEvent<string>).data) as PayPalEvent;
-      const item = { ...data, id: `ev-${++eventCounter}` };
-      if (data.kind === "reset") {
-        setMessages([]);
-        setEvents([]);
-        setActivity({});
-        setArcs([]);
-        setFlights([]);
-        setTimeline([]);
-        setLastAward(null);
-      } else {
-        setEvents((current) => [item, ...current].slice(0, MAX_EVENTS));
-        touch([data.shop, data.buyer, data.seller, data.supplier], data.kind);
-        const money = moneyFlight(data);
-        if (money) {
-          touch(["hub"], data.kind);
-          launch(...money);
-        }
-        // Ordinary charges would drown the story; only short deliveries make a line.
-        const routine = data.kind === "captured" && !data.partial;
-        if (STORY_EVENTS.has(data.kind) && !routine) {
-          tell({ id: `st-${item.id}`, seenAt: Date.now(), kind: "event", event: item });
-        }
-        if (data.kind === "swap_completed" && data.seller && data.buyer) {
-          const arc: Arc = {
-            id: item.id,
-            from: data.seller,
-            to: data.buyer,
-            kind: data.kind,
-            at: Date.now(),
-          };
-          setArcs((current) => [...current.filter((a) => Date.now() - a.at < 8000), arc]);
-        }
-      }
-      revalidateSoon();
-    });
+    };
+    source.addEventListener("agent_message", receive("agent_message"));
+    source.addEventListener("paypal", receive("paypal"));
+
     return () => {
       cancelled = true;
       source.close();
       if (pending.current) clearTimeout(pending.current);
     };
-  }, [revalidateSoon, touch, launch, tell]);
+  }, [revalidateSoon]);
 
-  const value = useMemo(
+  const value = useMemo<LiveState>(
     () => ({
       connected,
       started,
-      messages,
-      events,
-      activity,
-      arcs,
-      flights,
-      timeline,
-      lastAward,
+      messages: stream.messages,
+      events: stream.events,
+      activity: stream.activity,
+      arcs: stream.arcs,
+      flights: stream.flights,
+      timeline: stream.timeline,
+      lastAward: stream.lastAward,
     }),
-    [connected, started, messages, events, activity, arcs, flights, timeline, lastAward],
+    [connected, started, stream],
   );
-  return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;
+  return (
+    <TapContext.Provider value={tap}>
+      <LiveContext.Provider value={value}>{children}</LiveContext.Provider>
+    </TapContext.Provider>
+  );
 }
 
 export function useLive(): LiveState {
   return useContext(LiveContext);
+}
+
+/**
+ * Every item the live connection receives, as it arrives (after it has been applied to the
+ * shared state). Returns a function that registers a listener and gives back its unsubscribe.
+ */
+export function useStreamTap(): (listener: Listener) => () => void {
+  return useContext(TapContext);
 }

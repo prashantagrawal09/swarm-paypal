@@ -32,3 +32,10 @@ async def test_health_reports_database_down_without_failing(api, monkeypatch):
 async def test_health_sees_the_database(api):
     response = await api.get("/health")
     assert response.json()["database"] == "ok"
+
+
+async def test_large_json_is_compressed_and_small_answers_are_not(api):
+    docs = await api.get("/openapi.json", headers={"Accept-Encoding": "gzip"})
+    assert docs.headers.get("content-encoding") == "gzip"
+    small = await api.get("/health", headers={"Accept-Encoding": "gzip"})
+    assert "content-encoding" not in small.headers

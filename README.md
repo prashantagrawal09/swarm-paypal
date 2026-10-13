@@ -12,7 +12,8 @@ emergency.
 The demo world is 12 fictional shops and 3 suppliers in Tiong Bahru, Singapore, trading in SGD.
 
 **Hosted demo:** _link added after deployment_ · press **Watch a week run** on the home
-page. The whole week plays on the live board in about 75 seconds.
+page. The whole week plays back in about a minute. It is a replay of the recorded week, so
+nothing is reset and any number of people can watch at once.
 
 ![One Swarm week on the live board: agents negotiate, PayPal holds, charges and pays out](docs/screenshots/week.gif)
 
@@ -201,8 +202,11 @@ make backend                  # API on http://localhost:8000
 make frontend                 # web app on http://localhost:3000
 ```
 
-Open http://localhost:3000 and press **Watch a week run**. With no keys at all, everything
-runs on the PayPal simulator and the agents use their deterministic policies. The demo panel
+Open http://localhost:3000 and press **Watch a week run**. The first time, that runs the
+week; after that it replays the recording (http://localhost:3000/watch: space pauses, the
+arrow keys jump between days, `1` `2` `3` set the speed, `F` goes full screen). With no keys
+at all, everything runs on the PayPal simulator and the agents use their deterministic
+policies. The demo panel
 (http://localhost:3000/demo) lets you change what goes wrong and play any owner on their
 phone. Press `⌘K` / `Ctrl+K` anywhere to jump to a shop, supplier or group order.
 
@@ -256,8 +260,8 @@ make check                    # ruff, mypy, eslint, tsc, prettier, pytest and vi
 ## Demo walkthrough
 
 The full 3-minute script, mapped to the buttons, is in
-[docs/demo-script.md](docs/demo-script.md). The live board narrates each step in plain
-words as it happens. In short:
+[docs/demo-script.md](docs/demo-script.md). The watch page plays the week as a film, and the
+live board narrates each step in plain words as it happens. In short:
 
 1. **Monday:** each shop's agent proposes next week's order from its last four weeks,
    adjusted for the weather forecast, and says why. The owner approves.

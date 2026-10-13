@@ -3,7 +3,7 @@
  * live layer and the tests.
  */
 
-import type { FlightKind, PayPalEvent } from "@/lib/live";
+import type { FlightKind, PayPalEvent } from "@/lib/stream-state";
 
 /** Agent id -> map node token (owners sit inside their shop, so they have no node). */
 export function nodeOf(agent: string): string | null {

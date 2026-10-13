@@ -56,7 +56,8 @@ export function Toaster() {
   const now = useNow(500);
   const [dismissed, setDismissed] = useState<string[]>([]);
 
-  if (pathname.startsWith("/live")) return null;
+  // The live board and the watch page narrate these moments themselves.
+  if (pathname.startsWith("/live") || pathname.startsWith("/watch")) return null;
 
   const toasts = timeline
     .filter(

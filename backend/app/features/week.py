@@ -211,7 +211,14 @@ class WeekRunner:
         await self._mark(key, result)
         await self.ctx.bus.emit(
             "step_finished",
-            {"step": key, "title": step.title, "week": str(self.week), "result": result},
+            {
+                "step": key,
+                "title": step.title,
+                "week": str(self.week),
+                "result": result,
+                # Where the week stands now, so a replay can show the totals of that moment.
+                "stats": await savings.platform_summary(self.ctx),
+            },
         )
         return result
 

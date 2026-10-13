@@ -15,6 +15,7 @@ import { useLive } from "@/lib/live";
 import { ThemeToggle } from "@/lib/theme";
 
 const NAV = [
+  { href: "/watch", label: "Watch" },
   { href: "/live", label: "Live board" },
   { href: "/shops", label: "Shops" },
   { href: "/suppliers", label: "Suppliers" },

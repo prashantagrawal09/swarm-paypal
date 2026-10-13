@@ -34,10 +34,12 @@ plans are worth knowing before judging starts (from https://render.com/docs/free
    - `ANTHROPIC_API_KEY`: optional. Without it the agents use their deterministic policies.
    - `TELEGRAM_BOT_TOKEN`: optional. Use a separate bot from your local one, because a bot
      can have only one webhook.
-   - `DEMO_PANEL_KEY`: optional. Set it to stop strangers pressing Reset during judging.
-     The site then asks for the key once per browser, wherever a run button is pressed.
-     To spare the judges that, give them a link that carries the key after a `#`, for
-     example `https://swarm-web-xxxx.onrender.com/live?play=1#key=YOUR-KEY`. The part
+   - `DEMO_PANEL_KEY`: optional, and worth setting. It stops strangers pressing Reset
+     during judging. Watching needs no key: once the week has been run (step 2), **Watch a
+     week run** replays the recording for every visitor. The key is only asked for when
+     someone tries to run, step or reset the week, or play an owner on the phone. To let
+     someone do those without typing it, give them a link that carries the key after a
+     `#`, for example `https://swarm-web-xxxx.onrender.com/demo#key=YOUR-KEY`. The part
      after `#` never leaves the browser, and the site removes it from the address bar.
    - `PUBLIC_BACKEND_URL`, `PUBLIC_FRONTEND_URL`, `CORS_ORIGINS`, `NEXT_PUBLIC_API_URL`:
      put anything for now (for example `https://example.com`); you set them in step 2.
@@ -64,6 +66,11 @@ Check:
 - `https://swarm-api-xxxx.onrender.com/health` returns `{"status": "ok", ..., "database": "ok"}`.
 - The web app's header shows the Swarm Clock and a green **Live** dot.
 - `/demo` → **Run the rest of the week**, then watch `/live`.
+
+**Run the week once before you share the link.** The run is recorded, and from then on the
+home page's **Watch a week run** replays it for each visitor on their own: nothing is reset,
+PayPal isn't called again, and ten judges can watch at the same time. Until a week has been
+run, that button offers to run it (and asks for the demo key if you set one).
 
 ## 3. PayPal webhooks
 
