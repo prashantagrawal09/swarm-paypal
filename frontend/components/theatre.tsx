@@ -18,6 +18,7 @@ import useSWR from "swr";
 
 import { DemoKeyPrompt } from "@/components/demo-key-prompt";
 import { useNames } from "@/components/feeds";
+import { useInspect } from "@/components/message-inspector";
 import { STEP_ICON, TONE } from "@/components/narrator";
 import { SwarmMap } from "@/components/swarm-map";
 import {
@@ -79,6 +80,7 @@ export function Theatre() {
   const { data: shops } = useSWR<ShopSummary[]>("/api/shops");
   const { data: suppliers } = useSWR<SupplierSummary[]>("/api/suppliers");
   const names = useNames();
+  const inspect = useInspect();
   const now = useNow(200);
 
   const complete = useMemo(() => isComplete(items), [items]);
@@ -175,6 +177,8 @@ export function Theatre() {
       const target = event.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      // A panel on top (the inspector) has the keyboard until it closes.
+      if (document.querySelector('[aria-modal="true"]')) return;
       const key = event.key.toLowerCase();
       if (key === "?") showHelp(!help);
       else if (key === "escape" && help) showHelp(false);
@@ -475,7 +479,16 @@ export function Theatre() {
             ) : (
               <MoneyTicker events={stream.events} names={names} />
             )}
-            <Chatter messages={stream.messages} names={names} />
+            <Chatter
+              messages={stream.messages}
+              names={names}
+              onInspect={(message) => {
+                // The week waits while you read how a decision was made, then carries on.
+                const wasPlaying = playing;
+                pause();
+                inspect(message, { dark: true, onClose: wasPlaying ? play : undefined });
+              }}
+            />
           </aside>
         </div>
 

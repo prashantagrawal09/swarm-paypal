@@ -34,10 +34,15 @@ import type { AgentMessage, Decision, GroupOrder, Product } from "@/lib/api";
 import { agentName, dayTime, humanize, money, slotColor } from "@/lib/format";
 import { useNames } from "@/lib/use-names";
 
-const InspectContext = createContext<(message: AgentMessage) => void>(() => undefined);
+type Inspect = (message: AgentMessage, options?: { dark?: boolean; onClose?: () => void }) => void;
 
-/** Open the inspector for a message. */
-export function useInspect(): (message: AgentMessage) => void {
+const InspectContext = createContext<Inspect>(() => undefined);
+
+/**
+ * Open the inspector for a message. `dark` draws it in the dark theme whatever the site's
+ * theme is, for use over the watch page's dark stage.
+ */
+export function useInspect(): Inspect {
   return useContext(InspectContext);
 }
 
@@ -64,14 +69,20 @@ export function hasExplanation(message: AgentMessage): boolean {
 
 export function InspectorProvider({ children }: { children: React.ReactNode }) {
   const [message, setMessage] = useState<AgentMessage | null>(null);
+  const [dark, setDark] = useState(false);
   const opener = useRef<HTMLElement | null>(null);
+  const whenClosed = useRef<(() => void) | undefined>(undefined);
 
-  const open = useCallback((next: AgentMessage) => {
+  const open = useCallback<Inspect>((next, options) => {
     opener.current = document.activeElement as HTMLElement | null;
+    whenClosed.current = options?.onClose;
+    setDark(Boolean(options?.dark));
     setMessage(next);
   }, []);
   const close = useCallback(() => {
     setMessage(null);
+    whenClosed.current?.();
+    whenClosed.current = undefined;
     opener.current?.focus();
   }, []);
 
@@ -91,7 +102,9 @@ export function InspectorProvider({ children }: { children: React.ReactNode }) {
         ? null
         : createPortal(
             <AnimatePresence>
-              {message ? <Drawer key={message.id} message={message} onClose={close} /> : null}
+              {message ? (
+                <Drawer key={message.id} message={message} dark={dark} onClose={close} />
+              ) : null}
             </AnimatePresence>,
             document.body,
           )}
@@ -103,7 +116,15 @@ export function InspectorProvider({ children }: { children: React.ReactNode }) {
 // Drawer
 // ---------------------------------------------------------------------------------------
 
-function Drawer({ message, onClose }: { message: AgentMessage; onClose: () => void }) {
+function Drawer({
+  message,
+  dark,
+  onClose,
+}: {
+  message: AgentMessage;
+  dark: boolean;
+  onClose: () => void;
+}) {
   const names = useNames();
   const closeButton = useRef<HTMLButtonElement>(null);
   // Only quotes and awards have a decision record; asking for the rest would be a 404.
@@ -121,7 +142,7 @@ function Drawer({ message, onClose }: { message: AgentMessage; onClose: () => vo
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex justify-end bg-black/30"
+      className={cx("fixed inset-0 z-50 flex justify-end bg-black/30", dark && "dark")}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

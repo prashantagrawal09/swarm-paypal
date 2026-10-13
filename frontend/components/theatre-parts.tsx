@@ -22,6 +22,7 @@ import {
 import { motion } from "motion/react";
 import Link from "next/link";
 
+import { hasExplanation } from "@/components/message-inspector";
 import { AnimatedNumber } from "@/components/stats";
 import { cx } from "@/components/ui";
 import type { AgentMessage, Step } from "@/lib/api";
@@ -515,9 +516,12 @@ export function MoneyTicker({
 export function Chatter({
   messages,
   names,
+  onInspect,
 }: {
   messages: AgentMessage[];
   names: Record<string, string>;
+  /** Open "How was this decided?" for a message that has something to explain. */
+  onInspect?: (message: AgentMessage) => void;
 }) {
   // Agents talking to each other; an owner's chat is theirs.
   const rows = messages
@@ -550,6 +554,15 @@ export function Chatter({
                 <span className="truncate">{agentName(message.to, names)}</span>
               </div>
               <p className="text-ink mt-0.5 line-clamp-2 leading-snug">{message.text}</p>
+              {onInspect && hasExplanation(message) ? (
+                <button
+                  type="button"
+                  onClick={() => onInspect(message)}
+                  className="text-ink-2 hover:text-ink mt-0.5 text-[11px] font-medium underline decoration-dotted underline-offset-2"
+                >
+                  How was this decided?
+                </button>
+              ) : null}
             </motion.li>
           ))}
         </ul>
