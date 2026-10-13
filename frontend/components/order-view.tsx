@@ -13,7 +13,7 @@ import { GroupOrderCard } from "@/components/group-order-card";
 import { NegotiationChart } from "@/components/charts/negotiation-chart";
 import { PriceLadder } from "@/components/charts/price-ladder";
 import { InvoiceCard } from "@/components/supplier-view";
-import { Card, CardHeader, Empty, ModeBadge, Mono, Status } from "@/components/ui";
+import { Card, CardHeader, Empty, Missing, ModeBadge, Mono, Status } from "@/components/ui";
 import { ApiError, type GroupOrderDetail } from "@/lib/api";
 import { CATEGORY_LABEL, money, shortDate } from "@/lib/format";
 
@@ -28,9 +28,9 @@ export function OrderView({ id }: { id: string }) {
 
   if (error instanceof ApiError && (error.status === 404 || error.status === 422)) {
     return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6">
-        <Empty>That group order doesn&apos;t exist (maybe the demo was reset).</Empty>
-      </div>
+      <Missing title="That group order isn't here" href="/live" action="Go to the live board">
+        Group orders start again when the demo is reset, so an old link stops working.
+      </Missing>
     );
   }
 

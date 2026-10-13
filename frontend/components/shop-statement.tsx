@@ -11,7 +11,7 @@ import { ArrowLeft, Printer } from "lucide-react";
 import Link from "next/link";
 import useSWR from "swr";
 
-import { Button, Empty, Logo, ModeBadge } from "@/components/ui";
+import { Button, Logo, Missing, ModeBadge } from "@/components/ui";
 import {
   ApiError,
   type DemoState,
@@ -46,15 +46,13 @@ export function ShopStatement({ code }: { code: string }) {
 
   if (error instanceof ApiError && error.status === 404) {
     return (
-      <div className="mx-auto w-full max-w-3xl px-4 py-16">
-        <Empty>
-          There&apos;s no shop called &ldquo;{code}&rdquo;.{" "}
-          <Link href="/shops" className="underline">
-            See all shops
-          </Link>
-          .
-        </Empty>
-      </div>
+      <Missing
+        title={<>There&apos;s no shop called &ldquo;{code}&rdquo;</>}
+        href="/shops"
+        action="See all shops"
+      >
+        Twelve shops on the street are part of Swarm. This isn&apos;t one of them.
+      </Missing>
     );
   }
   if (!shop || !lines || !payments || !swaps) {

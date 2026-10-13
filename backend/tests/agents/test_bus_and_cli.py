@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 import httpx
 import pytest
@@ -51,6 +52,8 @@ async def test_sse_stream_says_hello_then_relays_events(clock):
     bus = MessageBus(clock)
     stream = bus.sse(heartbeat=0.05)
     assert (await anext(stream)).startswith("event: hello")
+    # Nothing to replay for a first visit: it is caught up straight away.
+    assert (await anext(stream)).startswith("event: caught_up")
     waiting = asyncio.ensure_future(anext(stream))
     await asyncio.sleep(0)
     bus.broadcast(BusEvent("paypal", {"kind": "hold_placed"}))
@@ -58,6 +61,40 @@ async def test_sse_stream_says_hello_then_relays_events(clock):
     assert chunk.startswith("event: paypal") and '"hold_placed"' in chunk
     assert await asyncio.wait_for(anext(stream), 1) == ": keep-alive\n\n"
     await stream.aclose()
+
+
+async def test_a_reset_starts_a_new_epoch_and_says_so(clock):
+    bus = MessageBus(clock)
+    before = bus.epoch
+    queue = bus.subscribe()
+    await bus.emit("captured", {"shop": "cafe-mei"})
+    assert bus.epoch == before and "epoch" not in queue.get_nowait().data
+
+    await bus.emit("reset", {"week": "2026-10-12"})
+    told = queue.get_nowait().data
+    assert bus.epoch != before and told["epoch"] == bus.epoch
+
+    hello = await anext(bus.sse(heartbeat=0.05))
+    assert json.loads(hello.split("data: ")[1])["epoch"] == bus.epoch
+
+
+async def test_a_position_from_before_a_reset_is_not_replayed(clock):
+    from app.api.live import stream
+
+    bus = MessageBus(clock)
+
+    async def chunks(**asked) -> list[str]:
+        response = await stream(bus, **asked)
+        body = response.body_iterator
+        seen = [await anext(body), await anext(body)]
+        await body.aclose()
+        return [chunk.split("\n")[0] for chunk in seen]
+
+    # No position, or one from another epoch: hello, then caught up with nothing replayed.
+    nothing = ["event: hello", "event: caught_up"]
+    assert await chunks(last_event_id=None, after=None, epoch=None) == nothing
+    assert await chunks(last_event_id=None, after=40, epoch="stale") == nothing
+    assert bus.subscriber_count == 0
 
 
 async def test_agent_messages_api(db, bus):

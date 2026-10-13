@@ -25,8 +25,15 @@ import { SwarmMap } from "@/components/swarm-map";
 import { AnimatedNumber, HeroFigure, StatTile } from "@/components/stats";
 import { Card, CardHeader, Empty, StatusPill } from "@/components/ui";
 import { WeekStepper } from "@/components/week-stepper";
-import type { ClaimRow, GroupOrder, Overview, ShopSummary, SupplierSummary } from "@/lib/api";
-import { kg, money, moneyWhole, shortDate } from "@/lib/format";
+import type {
+  ClaimRow,
+  GroupOrder,
+  Overview,
+  Product,
+  ShopSummary,
+  SupplierSummary,
+} from "@/lib/api";
+import { CATEGORY_EMOJI, CATEGORY_LABEL, kg, money, moneyWhole, shortDate } from "@/lib/format";
 
 export function LiveBoard() {
   const { data: overview, error } = useSWR<Overview>("/api/overview");
@@ -187,10 +194,10 @@ export function LiveBoard() {
                   <GroupOrderCard key={group.id} group={group} />
                 ))}
               </div>
+            ) : groups ? (
+              <UpcomingOrders />
             ) : (
-              <Empty>
-                Group orders appear on Tuesday, after the shop agents send in their weekly needs.
-              </Empty>
+              <div className="h-40" />
             )}
           </section>
         </div>
@@ -245,5 +252,45 @@ function WaitingOnAPerson({ claims }: { claims: ClaimRow[] }) {
         Decide it <ArrowRight className="h-3.5 w-3.5" aria-hidden />
       </Link>
     </div>
+  );
+}
+
+/** Before Tuesday: the four group orders that are about to open, and what goes into each. */
+function UpcomingOrders() {
+  const { data: products } = useSWR<Product[]>("/api/products");
+  const categories = Object.keys(CATEGORY_LABEL).filter(
+    (category) => !products || products.some((p) => p.category === category),
+  );
+  return (
+    <>
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {categories.map((category) => {
+          const items = (products ?? []).filter((p) => p.category === category).map((p) => p.name);
+          return (
+            <li
+              key={category}
+              className="border-line-strong flex items-center gap-3 rounded-2xl border border-dashed px-4 py-3"
+            >
+              <span
+                className="bg-surface-2 grid h-10 w-10 shrink-0 place-items-center rounded-xl text-lg"
+                aria-hidden
+              >
+                {CATEGORY_EMOJI[category] ?? "📦"}
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-ink text-sm font-medium">{CATEGORY_LABEL[category]}</h3>
+                <p className="text-ink-2 truncate text-xs">
+                  {items.length ? items.join(", ") : "\u00a0"}
+                </p>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-ink-2 mt-3 text-sm">
+        These four open on Tuesday. Each shop&apos;s agent sends in what it needs, the orders are
+        pooled into one, and three supplier agents quote for it.
+      </p>
+    </>
   );
 }

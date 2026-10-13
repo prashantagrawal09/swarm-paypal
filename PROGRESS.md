@@ -908,3 +908,31 @@ phone-sized pages, each in light and dark: 42 checks.
   amount. The Money page says so; taking it off the next payout is not built (README,
   Limitations).
 
+## Many tabs, and the page before anything has run
+
+**Fixed**
+- **With six tabs open, a seventh could not reach the server** and showed "The Swarm backend
+  isn't answering". Each tab held its own live stream, and over plain HTTP (a local run) a
+  browser allows six connections per server across all tabs. Now a tab nobody is looking at
+  lets go of its stream and catches up, without replaying the animations, when it is shown
+  again. A reset while a tab is hidden is noticed too: the tab starts over clean. On Render
+  (HTTP/2) the limit did not apply, but hidden tabs now cost the server nothing there either.
+- "No flash deals yet. One comes up on Saturday" and "Swaps and deals happen on Friday and
+  Saturday" named the wrong day: the flash deal is Wednesday's.
+- The empty agent feed said "Start the week from the demo panel" next to a Run the week button.
+
+**Built**
+- **A live board that explains itself before the week starts.** The two feeds list, day by
+  day, what the agents will say and what PayPal will do; the group orders section shows the
+  four orders about to open and what goes into each.
+- **PayPal, capability by capability** says when each one comes up ("Thursday, when
+  deliveries arrive") or what it would take ("Only when a claim is upheld"), in place of
+  "Not needed yet this week".
+- **Proper pages for things that aren't there**: an unknown shop, supplier or group order gets
+  a heading, a sentence and a way back, in place of a dashed box.
+
+**Works**
+- Checked with nine tabs open at once (all load), with a tab hidden through Tuesday's
+  negotiation (12 messages before, 62 after it came back), and with a reset while hidden.
+- `make a11y` passes both with a week run and on a freshly reset demo.
+

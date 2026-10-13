@@ -22,7 +22,7 @@ import { NegotiationChart } from "@/components/charts/negotiation-chart";
 import { shortId } from "@/components/feeds";
 import { PaymentsGrid, QuotesGrid } from "@/components/grids";
 import { StatTile } from "@/components/stats";
-import { Card, CardHeader, cx, Empty, ModeBadge, Mono, StatusPill } from "@/components/ui";
+import { Card, CardHeader, cx, Empty, Missing, ModeBadge, Mono, StatusPill } from "@/components/ui";
 import {
   ApiError,
   type GroupOrder,
@@ -51,15 +51,13 @@ export function SupplierView({ code }: { code: string }) {
 
   if (error instanceof ApiError && error.status === 404) {
     return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6">
-        <Empty>
-          There&apos;s no supplier called &ldquo;{code}&rdquo;.{" "}
-          <Link href="/suppliers" className="underline">
-            See all suppliers
-          </Link>
-          .
-        </Empty>
-      </div>
+      <Missing
+        title={<>There&apos;s no supplier called &ldquo;{code}&rdquo;</>}
+        href="/suppliers"
+        action="See all suppliers"
+      >
+        Three suppliers quote for the street&apos;s orders. This isn&apos;t one of them.
+      </Missing>
     );
   }
 

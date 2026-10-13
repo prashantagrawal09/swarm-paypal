@@ -129,6 +129,8 @@ export type PayPalUsage = {
   name: string;
   use: string;
   call: string;
+  /** The day it comes up in the week, or the condition for it to come up at all. */
+  when: string;
   real: number;
   simulated: number;
   amount_cents: number;

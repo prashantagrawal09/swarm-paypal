@@ -125,10 +125,8 @@ export function PayPalUsageCard() {
                         </>
                       ) : null}
                     </>
-                  ) : row.key === "webhooks" ? (
-                    "Needs sandbox keys and a public address"
                   ) : (
-                    "Not needed yet this week"
+                    row.when
                   )}
                 </p>
                 {row.latest ? (

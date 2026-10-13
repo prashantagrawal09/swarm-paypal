@@ -23,6 +23,9 @@ async def test_before_the_week_only_the_saved_wallets_count(db, world, runtime):
         assert rows[key]["real"] == 0 and rows[key]["simulated"] == 0
         assert rows[key]["latest"] is None
     assert all(row["call"].startswith("POST /v") for row in rows.values())
+    # With nothing to count yet, each row can still say when it will have something.
+    assert rows["authorize"]["when"].startswith("Wednesday")
+    assert rows["refund"]["when"] == "Only when a claim is upheld"
 
 
 async def test_after_a_week_every_count_matches_the_payments_table(db, world, runtime):

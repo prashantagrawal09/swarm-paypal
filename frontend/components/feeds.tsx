@@ -267,11 +267,31 @@ export function AgentFeed({
         aria-label="Agent conversation"
       >
         {shown.length === 0 ? (
-          <div className="text-muted grid h-full min-h-40 place-items-center text-center text-sm">
-            {connected
-              ? "Quiet for now. Start the week from the demo panel."
-              : "Connecting to the live stream..."}
-          </div>
+          !connected ? (
+            <div className="text-muted grid h-full min-h-40 place-items-center text-center text-sm">
+              Connecting to the live stream...
+            </div>
+          ) : conversations?.length || topic !== "all" ? (
+            <div className="text-muted grid h-full min-h-40 place-items-center text-center text-sm">
+              Nothing here yet.
+            </div>
+          ) : (
+            <ComingUp
+              lead="Nobody has spoken yet. Once the week starts you will hear:"
+              rows={[
+                ["Mon", "Each shop's agent proposes the week's order to its owner."],
+                [
+                  "Tue",
+                  "Twelve orders become one, and three supplier agents quote against each other.",
+                ],
+                [
+                  "Thu",
+                  "Suppliers send invoices; the coordinator checks every line before paying.",
+                ],
+                ["Fri, Sat", "Neighbours sell surplus before it expires and lend in an emergency."],
+              ]}
+            />
+          )
         ) : (
           <ol className="space-y-3">
             <AnimatePresence initial={false}>
@@ -434,9 +454,15 @@ export function PayPalFeed({ className, limit = 40 }: { className?: string; limi
       aria-label="PayPal activity"
     >
       {shown.length === 0 ? (
-        <div className="text-muted grid h-full min-h-40 place-items-center text-center text-sm">
-          Holds, charges, payouts and invoices appear here as they happen.
-        </div>
+        <ComingUp
+          lead="No money has moved yet. This is what PayPal will do:"
+          rows={[
+            ["Wed", "Hold each shop's share of the deals. Reserved, not taken."],
+            ["Thu", "Charge only for what arrived and release the rest of each hold."],
+            ["Thu", "Pay each supplier once its invoice passes the check, less the 2% fee."],
+            ["Fri, Sat", "Move money between neighbours on the spot, buyer to seller."],
+          ]}
+        />
       ) : (
         <ol className="space-y-1">
           <AnimatePresence initial={false}>
@@ -494,6 +520,27 @@ export function PayPalFeed({ className, limit = 40 }: { className?: string; limi
           </AnimatePresence>
         </ol>
       )}
+    </div>
+  );
+}
+
+/** An empty feed says what is about to come through it, day by day. */
+function ComingUp({ lead, rows }: { lead: string; rows: [day: string, what: string][] }) {
+  return (
+    <div className="grid h-full min-h-40 place-items-center">
+      <div className="w-full max-w-sm py-4">
+        <p className="text-ink-2 text-sm">{lead}</p>
+        <ol className="mt-3 space-y-2.5">
+          {rows.map(([day, what], index) => (
+            <li key={index} className="flex items-baseline gap-3">
+              <span className="text-muted tabular w-14 shrink-0 text-[11px] font-medium tracking-wide uppercase">
+                {day}
+              </span>
+              <span className="text-ink-2 text-sm leading-snug">{what}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   );
 }

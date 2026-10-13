@@ -20,12 +20,14 @@ CAPABILITIES: list[dict[str, Any]] = [
         "name": "Vault",
         "use": "The owner approves once; after that the agent can place holds without a login.",
         "call": "POST /v2/checkout/orders (save PayPal for later)",
+        "when": "When an owner connects PayPal",
     },
     {
         "key": "authorize",
         "name": "Orders: authorize",
         "use": "Each shop's share of a deal is held on its PayPal, not taken.",
         "call": "POST /v2/checkout/orders/{id}/authorize",
+        "when": "Wednesday, once the deals are agreed",
         "kinds": [PaymentKind.AUTHORIZATION],
     },
     {
@@ -33,6 +35,7 @@ CAPABILITIES: list[dict[str, Any]] = [
         "name": "Payments: capture",
         "use": "Only what was delivered is charged, as the final capture; the rest is released.",
         "call": "POST /v2/payments/authorizations/{id}/capture",
+        "when": "Thursday, when deliveries arrive",
         "kinds": [PaymentKind.CAPTURE, PaymentKind.SWAP_PAYMENT],
     },
     {
@@ -40,6 +43,7 @@ CAPABILITIES: list[dict[str, Any]] = [
         "name": "Void",
         "use": "A cancelled order, or nothing delivered: the whole hold is released.",
         "call": "POST /v2/payments/authorizations/{id}/void",
+        "when": "Only if an order is cancelled or nothing arrives",
         "kinds": [PaymentKind.VOID],
     },
     {
@@ -47,6 +51,7 @@ CAPABILITIES: list[dict[str, Any]] = [
         "name": "Reauthorize",
         "use": "A hold older than three days is refreshed before it is captured.",
         "call": "POST /v2/payments/authorizations/{id}/reauthorize",
+        "when": "Only if a hold is over three days old at delivery",
         "kinds": [PaymentKind.REAUTHORIZATION],
     },
     {
@@ -54,6 +59,7 @@ CAPABILITIES: list[dict[str, Any]] = [
         "name": "Refunds",
         "use": "Damage claims go back to the original payment.",
         "call": "POST /v2/payments/captures/{id}/refund",
+        "when": "Only when a claim is upheld",
         "kinds": [PaymentKind.REFUND],
     },
     {
@@ -61,6 +67,7 @@ CAPABILITIES: list[dict[str, Any]] = [
         "name": "Payouts",
         "use": "Suppliers are paid less the platform fee; neighbours are paid for surplus.",
         "call": "POST /v1/payments/payouts",
+        "when": "Thursday, after each invoice passes its check",
         "kinds": [PaymentKind.PAYOUT],
     },
     {
@@ -68,12 +75,14 @@ CAPABILITIES: list[dict[str, Any]] = [
         "name": "Invoicing",
         "use": "Supplier agents bill through PayPal; every line is checked before paying.",
         "call": "POST /v2/invoicing/invoices (through the PayPal Agent Toolkit)",
+        "when": "Thursday, after delivery",
     },
     {
         "key": "webhooks",
         "name": "Webhooks",
         "use": "Events are verified with PayPal before Swarm's books trust them.",
         "call": "POST /v1/notifications/verify-webhook-signature",
+        "when": "Needs sandbox keys and a public address",
     },
 ]
 
@@ -166,6 +175,7 @@ async def usage(ctx: Ctx) -> list[dict[str, Any]]:
             "name": row["name"],
             "use": row["use"],
             "call": row["call"],
+            "when": row["when"],
             **evidence[row["key"]],
         }
         for row in CAPABILITIES

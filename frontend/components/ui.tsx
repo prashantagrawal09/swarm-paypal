@@ -307,3 +307,29 @@ export function Kbd({ children }: { children: React.ReactNode }) {
 export function Mono({ children, className }: { children: React.ReactNode; className?: string }) {
   return <span className={cx("text-ink-2 font-mono text-[11px]", className)}>{children}</span>;
 }
+
+/** A page for something that isn't there: a shop, supplier or order nobody has heard of. */
+export function Missing({
+  title,
+  children,
+  href,
+  action,
+}: {
+  title: React.ReactNode;
+  children?: React.ReactNode;
+  href: string;
+  action: string;
+}) {
+  return (
+    <div className="honeycomb flex flex-1 items-center justify-center px-4 py-24">
+      <div className="max-w-md text-center">
+        <Logo className="mx-auto h-10 w-10" />
+        <h1 className="text-ink mt-4 text-xl font-semibold text-balance">{title}</h1>
+        {children ? <p className="text-ink-2 mt-1 text-sm">{children}</p> : null}
+        <ButtonLink href={href} variant="primary" className="mt-6">
+          {action}
+        </ButtonLink>
+      </div>
+    </div>
+  );
+}

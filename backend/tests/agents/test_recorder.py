@@ -136,6 +136,11 @@ async def test_a_reconnecting_browser_catches_up_without_duplicates(clock):
     assert hello.startswith("event: hello")
     first, second = await anext(stream), await anext(stream)
     assert first.startswith("id: 4\n") and second.startswith("id: 5\n")
+    # The replay is over: the browser can tell old news from what is happening now.
+    marker = await anext(stream)
+    assert marker.startswith("event: caught_up") and json.loads(marker.split("data: ")[1]) == {
+        "seq": 5
+    }
 
     bus.broadcast(BusEvent("paypal", {"kind": "supplier_paid"}, 6))
     bus.broadcast(BusEvent("paypal", {"kind": "demo_action"}))  # unrecorded: always sent

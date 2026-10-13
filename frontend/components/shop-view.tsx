@@ -30,6 +30,7 @@ import {
   cx,
   Empty,
   Meter,
+  Missing,
   ModeBadge,
   Status,
   StatusPill,
@@ -62,15 +63,13 @@ export function ShopView({ code }: { code: string }) {
 
   if (error instanceof ApiError && error.status === 404) {
     return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6">
-        <Empty>
-          There&apos;s no shop called &ldquo;{code}&rdquo;.{" "}
-          <Link href="/shops" className="underline">
-            See all shops
-          </Link>
-          .
-        </Empty>
-      </div>
+      <Missing
+        title={<>There&apos;s no shop called &ldquo;{code}&rdquo;</>}
+        href="/shops"
+        action="See all shops"
+      >
+        Twelve shops on the street are part of Swarm. This isn&apos;t one of them.
+      </Missing>
     );
   }
 

@@ -242,7 +242,7 @@ export function MoneyView() {
               ))}
             </ul>
           ) : (
-            <Empty>No flash deals yet. One comes up on Saturday.</Empty>
+            <Empty>No flash deals yet. One comes up on Wednesday.</Empty>
           )}
         </div>
       </Card>

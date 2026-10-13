@@ -15,6 +15,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -72,6 +73,9 @@ class MessageBus:
         self.version = 0
         # Set by the running app (see `StreamRecorder`); tests and scripts leave it off.
         self.recorder: Recorder | None = None
+        # Which run of the recording positions belong to: new for each server start, and
+        # again on every reset. A browser holding a position from another epoch starts over.
+        self.epoch = secrets.token_hex(4)
         self._subscribers: set[asyncio.Queue[BusEvent]] = set()
 
     # -- subscribers ----------------------------------------------------------------------
@@ -98,6 +102,10 @@ class MessageBus:
 
     async def announce(self, event: str, data: dict[str, Any]) -> None:
         """Record (when recording is on), then send to everyone connected."""
+        if data.get("kind") == "reset":
+            # The recording starts again from 1: positions from before mean nothing now.
+            self.epoch = secrets.token_hex(4)
+            data = {**data, "epoch": self.epoch}
         seq: int | None = None
         if self.recorder is not None and data.get("kind") not in UNRECORDED_KINDS:
             try:
@@ -150,15 +158,19 @@ class MessageBus:
         missed: Callable[[], Awaitable[list[BusEvent]]] | None = None,
     ) -> AsyncIterator[str]:
         """The stream for one browser. `missed` loads what a reconnecting browser didn't
-        get; it runs after subscribing, so nothing can fall between the two."""
+        get; it runs after subscribing, so nothing can fall between the two. `caught_up`
+        marks the end of that replay: everything after it is happening now."""
         queue = self.subscribe()
         try:
-            yield BusEvent("hello", {"at": self.clock.now().isoformat()}).to_sse()
+            yield BusEvent(
+                "hello", {"at": self.clock.now().isoformat(), "epoch": self.epoch}
+            ).to_sse()
             caught_up_to = 0
             if missed is not None:
                 for event in await missed():
                     caught_up_to = max(caught_up_to, event.seq or 0)
                     yield event.to_sse()
+            yield BusEvent("caught_up", {"seq": caught_up_to}).to_sse()
             while True:
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=heartbeat)

@@ -30,19 +30,26 @@ MAX_CATCH_UP = 500
 async def stream(
     bus: Annotated[MessageBus, Depends(get_bus)],
     last_event_id: Annotated[str | None, Header()] = None,
+    after: Annotated[int | None, Query(ge=0)] = None,
+    epoch: Annotated[str | None, Query(max_length=32)] = None,
 ) -> StreamingResponse:
     """Agent messages and PayPal events as they happen (text/event-stream).
 
-    A browser that reconnects sends the ID of the last event it received; it first gets
-    everything recorded since, then carries on live.
+    A browser that reconnects says the last event it received: in the `Last-Event-ID` header
+    when the connection dropped, or as `after` when a hidden tab let go of its connection and
+    is back. It first gets everything recorded since, then `caught_up`, then carries on live.
+
+    Positions start again after a reset. `hello` carries the current `epoch`; a browser that
+    sends a different one gets no replay, and starts over when it reads the new one.
     """
+    # The header is the browser's own, so it is the more recent of the two.
+    position = int(last_event_id) if last_event_id and last_event_id.isdigit() else after
     missed = None
-    if last_event_id and last_event_id.isdigit():
-        after = int(last_event_id)
+    if position and epoch in (None, bus.epoch):
 
         async def missed() -> list[BusEvent]:
             async with get_sessionmaker()() as session:
-                rows = await recorded(session, after=after, limit=MAX_CATCH_UP)
+                rows = await recorded(session, after=position, limit=MAX_CATCH_UP)
             return [BusEvent(row.event, row.data, row.seq) for row in rows]
 
     return StreamingResponse(

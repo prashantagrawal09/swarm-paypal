@@ -24,7 +24,9 @@ export function NeighbourActivity() {
       />
       <div className="px-5 pb-5">
         {nothing ? (
-          <Empty>Swaps and deals happen on Friday and Saturday.</Empty>
+          <Empty>
+            A supplier flash deal goes out on Wednesday; neighbours swap on Friday and Saturday.
+          </Empty>
         ) : (
           <ul className="divide-line divide-y">
             {(swaps ?? []).map((swap) => {

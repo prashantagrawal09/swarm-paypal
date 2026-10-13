@@ -105,7 +105,15 @@ the stream. That position is sent as the event's SSE `id`.
   has been charged) are worked out from the events alone in `lib/world-state.ts`; each
   finished step's event carries the server's totals, which replace the running ones.
 - **Catching up.** A browser that reconnects sends `Last-Event-ID`; the stream first replays
-  what was recorded since, then carries on live, without duplicates.
+  what was recorded since, sends `caught_up`, then carries on live, without duplicates. The
+  browser takes the replayed part in without animation.
+- **Hidden tabs let go.** Over plain HTTP a browser allows six connections to one server
+  across all its tabs, so six tabs each holding a stream would leave none for anything else.
+  A tab nobody is looking at closes its stream and, when shown again, reconnects with
+  `?after=<position>` to get what it missed.
+- **Resets.** A reset empties the recording, so positions start again from 1. `hello` carries
+  an `epoch` that changes on every reset and server start; a browser holding a position from
+  another epoch gets no replay and starts over with a clean slate.
 - A recorder failure is logged and the event is still sent: the week matters more than its
   recording.
 
