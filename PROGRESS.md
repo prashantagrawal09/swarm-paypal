@@ -734,3 +734,20 @@ resetting it for everyone. Now every run is recorded and anyone can play it back
   `docs/demo-script.md` has the steps to show a refund by hand. I did not script one into
   the week: without a model key a claim has to be approved by a person, and a scripted
   approval of a claim nobody looked at would not be an honest demonstration.
+
+## Second deploy rehearsal
+
+After the changes above (a new migration, stream recording, compressed responses, three new
+endpoints), I ran Render's build and start commands again from a clean checkout into an
+empty database, in production mode with a demo key.
+
+**Works**
+- The new migration applies on an empty database; the API seeds itself and reports healthy.
+- A week run through the API ends on the documented numbers (S$2,338.85 saved, 94 PayPal
+  calls, books balanced), with 425 events recorded.
+- `/watch` on the production web build replays that week to its closing summary without a
+  demo key in the browser. Starting, stepping or resetting a week still answers 401 without
+  one.
+- The timeline is 31 KB compressed; a reconnect with `Last-Event-ID` gets exactly the
+  events it missed; the worked examples, the capability table and the decision records all
+  answer.
