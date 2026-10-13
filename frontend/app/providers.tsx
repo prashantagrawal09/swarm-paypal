@@ -1,5 +1,6 @@
 "use client";
 
+import { MotionConfig } from "motion/react";
 import { useEffect } from "react";
 import { SWRConfig } from "swr";
 
@@ -22,11 +23,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
         dedupingInterval: 800,
       }}
     >
-      <ServerStatusProvider>
-        <LiveProvider>
-          <InspectorProvider>{children}</InspectorProvider>
-        </LiveProvider>
-      </ServerStatusProvider>
+      {/* People who ask their system for less motion get fades, not movement. */}
+      <MotionConfig reducedMotion="user">
+        <ServerStatusProvider>
+          <LiveProvider>
+            <InspectorProvider>{children}</InspectorProvider>
+          </LiveProvider>
+        </ServerStatusProvider>
+      </MotionConfig>
     </SWRConfig>
   );
 }

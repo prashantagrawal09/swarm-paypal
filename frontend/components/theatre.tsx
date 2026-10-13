@@ -147,6 +147,23 @@ export function Theatre() {
   }, []);
 
   const [help, setHelp] = useState(false);
+  // The week waits while the shortcut list is open, and carries on when it closes.
+  const pausedForHelp = useRef(false);
+  const { playing, play, pause } = player;
+  const showHelp = useCallback(
+    (open: boolean) => {
+      if (open && playing) {
+        pausedForHelp.current = true;
+        pause();
+      } else if (!open && pausedForHelp.current) {
+        pausedForHelp.current = false;
+        play();
+      }
+      setHelp(open);
+    },
+    [playing, play, pause],
+  );
+
   const [finaleClosed, setFinaleClosed] = useState(false);
   const restart = useCallback(() => {
     setFinaleClosed(false);
@@ -159,8 +176,8 @@ export function Theatre() {
       if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const key = event.key.toLowerCase();
-      if (key === "?") setHelp((open) => !open);
-      else if (key === "escape" && help) setHelp(false);
+      if (key === "?") showHelp(!help);
+      else if (key === "escape" && help) showHelp(false);
       else if (key === "f") toggleFullscreen();
       else if (key === "escape" && !document.fullscreenElement) router.push("/live");
       else if (follow) return;
@@ -174,7 +191,7 @@ export function Theatre() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [follow, help, toggle, skip, setSpeed, restart, router, toggleFullscreen]);
+  }, [follow, help, showHelp, toggle, skip, setSpeed, restart, router, toggleFullscreen]);
 
   // While the week plays and nobody is touching anything, the controls step back, so a
   // screen recording shows the stage and nothing else. Any movement brings them back.
@@ -358,7 +375,7 @@ export function Theatre() {
               }}
               onRestart={restart}
               onFullscreen={toggleFullscreen}
-              onHelp={() => setHelp((open) => !open)}
+              onHelp={() => showHelp(!help)}
             />
             <Link
               href="/live"
@@ -446,7 +463,7 @@ export function Theatre() {
               {showFinale ? <Finale world={world} facts={facts} onReplay={restart} /> : null}
             </AnimatePresence>
             <AnimatePresence>
-              {help ? <ShortcutList onClose={() => setHelp(false)} /> : null}
+              {help ? <ShortcutList onClose={() => showHelp(false)} /> : null}
             </AnimatePresence>
           </div>
 

@@ -252,6 +252,10 @@ export function AgentFeed({
         className="feed min-h-0 flex-1 overflow-y-auto px-4 pb-4"
         aria-live="polite"
         aria-relevant="additions"
+        // Focusable, so the keyboard can scroll it.
+        tabIndex={0}
+        role="log"
+        aria-label="Agent conversation"
       >
         {shown.length === 0 ? (
           <div className="text-muted grid h-full min-h-40 place-items-center text-center text-sm">
@@ -413,7 +417,13 @@ export function PayPalFeed({ className, limit = 40 }: { className?: string; limi
   const shown = [...live, ...earlier].slice(0, limit);
 
   return (
-    <div className={cx("feed min-h-0 overflow-y-auto px-4 pb-4", className)} aria-live="polite">
+    <div
+      className={cx("feed min-h-0 overflow-y-auto px-4 pb-4", className)}
+      aria-live="polite"
+      tabIndex={0}
+      role="log"
+      aria-label="PayPal activity"
+    >
       {shown.length === 0 ? (
         <div className="text-muted grid h-full min-h-40 place-items-center text-center text-sm">
           Holds, charges, payouts and invoices appear here as they happen.

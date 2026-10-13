@@ -784,3 +784,33 @@ Started from a full-page audit of every page at desktop and phone width.
 - **A link preview image** (`app/opengraph-image.tsx`) and Open Graph / Twitter metadata, so
   a shared link shows the headline and the swarm instead of a bare URL. The site's address
   comes from `NEXT_PUBLIC_SITE_URL`, or `RENDER_EXTERNAL_URL` on Render.
+
+## Accessibility audit
+
+Ran axe-core (WCAG 2.1 A/AA and best practices) over 11 pages, 4 overlay states and 6
+phone-sized pages, each in light and dark: 42 checks.
+
+**Found and fixed**
+- **Text too faint to read** on the watch page: older lines in "What the agents are saying"
+  were faded to as little as 2.4:1 contrast. They now stay at full contrast; only the very
+  top edge fades as lines scroll out.
+- **The map and the money-flow diagram were announced as single pictures** while containing
+  things you can tab to. They are now groups; the decorative map on the home page is still
+  a picture.
+- **Scrolling lists couldn't be reached from the keyboard** (the two live feeds and the demo
+  panel's log). They can now be focused and scrolled.
+- The live board had no page heading; the order page skipped a heading level; a table
+  column had an empty header; the inspector panel's header and footer were read as the
+  page's own banner and footer.
+- People who ask their system for reduced motion now get fades instead of movement
+  everywhere (`MotionConfig reducedMotion="user"`), and the watch page pauses the week while
+  its shortcut list is open.
+
+**Built**
+- `make a11y` (`frontend/scripts/a11y.mjs`): the same audit, repeatable. It needs both
+  servers running and a week run, and uses the Chrome already on the machine. All 42 checks
+  pass.
+
+**Not covered**
+- This is an automated audit. It cannot judge whether the reading order makes sense or how
+  the pages sound in a screen reader; nobody has tested with one.

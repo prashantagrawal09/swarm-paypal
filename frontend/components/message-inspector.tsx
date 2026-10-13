@@ -130,7 +130,7 @@ function Drawer({ message, onClose }: { message: AgentMessage; onClose: () => vo
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <motion.aside
+      <motion.div
         role="dialog"
         aria-modal="true"
         aria-label="How this message came about"
@@ -140,7 +140,8 @@ function Drawer({ message, onClose }: { message: AgentMessage; onClose: () => vo
         exit={{ x: 32 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <header className="border-line flex items-start gap-3 border-b px-5 py-4">
+        {/* Plain divs: a header or footer here would read as the page's own banner. */}
+        <div className="border-line flex items-start gap-3 border-b px-5 py-4">
           <div className="min-w-0 flex-1">
             <div className="text-muted text-[11px] font-medium tracking-wide uppercase">
               {humanize(message.type)} · {dayTime(message.at)}
@@ -160,7 +161,7 @@ function Drawer({ message, onClose }: { message: AgentMessage; onClose: () => vo
           >
             <X className="h-4 w-4" />
           </button>
-        </header>
+        </div>
 
         <div className="feed min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
           <blockquote className="border-line-strong text-ink border-l-2 pl-3 text-sm leading-relaxed whitespace-pre-line">
@@ -173,7 +174,7 @@ function Drawer({ message, onClose }: { message: AgentMessage; onClose: () => vo
           <Facts message={message} names={names} />
         </div>
 
-        <footer className="border-line text-ink-2 border-t px-5 py-3.5 text-xs">
+        <div className="border-line text-ink-2 border-t px-5 py-3.5 text-xs">
           <p>
             Agents write the words. Code computes every amount and checks every action against the
             owner&apos;s rules before it happens.
@@ -187,8 +188,8 @@ function Drawer({ message, onClose }: { message: AgentMessage; onClose: () => vo
               Open this group order <ArrowRight className="h-3 w-3" aria-hidden />
             </Link>
           ) : null}
-        </footer>
-      </motion.aside>
+        </div>
+      </motion.div>
     </motion.div>
   );
 }

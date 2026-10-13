@@ -520,14 +520,11 @@ export function Chatter({
         <p className="text-muted mt-2 text-xs">Quiet for now.</p>
       ) : (
         <ul className="mt-2 flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_2.25rem)]">
-          {rows.map((message, index) => (
+          {rows.map((message) => (
             <motion.li
               key={message.id}
               initial={{ opacity: 0, y: 10 }}
-              animate={{
-                opacity: index === rows.length - 1 ? 1 : 0.4 + (index / rows.length) * 0.45,
-                y: 0,
-              }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25 }}
               className="text-xs"
             >

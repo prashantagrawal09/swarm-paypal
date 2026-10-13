@@ -267,7 +267,7 @@ export function QuotesGrid({ rows, height }: { rows?: QuoteRow[]; height?: numbe
     { field: "status", headerName: "Outcome", cellRenderer: QuoteStatusCell, minWidth: 110 },
     {
       field: "group_order_id",
-      headerName: "",
+      headerName: "Order",
       minWidth: 80,
       maxWidth: 90,
       sortable: false,

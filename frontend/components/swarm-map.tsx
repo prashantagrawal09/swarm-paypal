@@ -218,7 +218,8 @@ export function SwarmMap({
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="h-auto w-full select-none"
-        role="img"
+        // With pins you can tab to, it is a group of links; otherwise a picture.
+        role={interactive ? "group" : "img"}
         aria-label={`Map of Tiong Bahru: ${shops.length} shops, ${suppliers.length} suppliers and the Swarm coordinator, with messages and payments moving between them.`}
       >
         <defs>

@@ -53,7 +53,8 @@ export function MoneyFlowChart({ flow }: { flow: MoneyFlow }) {
           height={height}
           viewBox={`0 0 ${width} ${height}`}
           className="block overflow-visible"
-          role="img"
+          // Its nodes can be focused, so it is a group, not a single picture.
+          role="group"
           aria-label={`Money flow for the week: ${money(flow.charged_cents)} charged to ${flow.shops.length} shops; ${money(flow.suppliers_cents)} paid to suppliers, ${money(flow.fee_cents)} Swarm fee, ${money(flow.refunds_cents)} refunded, ${money(flow.neighbours_cents)} between neighbours.`}
           onPointerLeave={() => setFocus(null)}
         >

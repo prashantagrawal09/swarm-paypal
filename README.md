@@ -261,6 +261,7 @@ Render's free tier. Step by step: [docs/deploy.md](docs/deploy.md).
 
 ```bash
 make check                    # ruff, mypy, eslint, tsc, prettier, pytest and vitest
+make a11y                     # accessibility audit of every page (both servers running)
 ```
 
 ## Demo walkthrough

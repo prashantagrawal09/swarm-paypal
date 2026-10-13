@@ -717,7 +717,11 @@ function ActivityLog({ state }: { state?: DemoState }) {
   return (
     <Card>
       <CardHeader title="Panel log" subtitle="The last things pressed and run" />
-      <ol className="feed max-h-72 space-y-1.5 overflow-y-auto px-5 pb-4 text-xs">
+      <ol
+        className="feed max-h-72 space-y-1.5 overflow-y-auto px-5 pb-4 text-xs"
+        tabIndex={0}
+        aria-label="Panel log"
+      >
         {(state?.log ?? []).map((entry, index) => (
           <li key={`${entry.at}-${index}`} className="flex gap-2">
             <span className="tabular text-muted shrink-0">{dayTime(entry.at)}</span>

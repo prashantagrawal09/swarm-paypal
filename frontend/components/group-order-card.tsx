@@ -17,9 +17,12 @@ type View = "ladder" | "rounds";
 export function GroupOrderCard({
   group,
   compact = false,
+  heading: Heading = "h3",
 }: {
   group: GroupOrder;
   compact?: boolean;
+  /** The heading level that fits where the card sits (h2 straight under a page title). */
+  heading?: "h2" | "h3";
 }) {
   const [view, setView] = useState<View>("ladder");
   const best = [...group.ladder].sort(
@@ -48,9 +51,9 @@ export function GroupOrderCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-ink text-sm font-semibold">
+            <Heading className="text-ink text-sm font-semibold">
               {CATEGORY_LABEL[group.category] ?? group.category}
-            </h3>
+            </Heading>
             <Status value={group.status} />
           </div>
           <p className="text-ink-2 mt-0.5 line-clamp-2 text-xs" title={group.pooled_text}>

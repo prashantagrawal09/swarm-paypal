@@ -3,7 +3,7 @@
 PY := backend/.venv/bin
 .DEFAULT_GOAL := help
 
-.PHONY: help setup hooks db-up db-down migrate seed negotiate backend frontend test lint format check paypal-setup paypal-check smoke smoke-sim
+.PHONY: help setup hooks db-up db-down migrate seed negotiate backend frontend test lint format check paypal-setup paypal-check smoke smoke-sim a11y
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -52,6 +52,9 @@ format: ## Auto-format backend and frontend
 	cd frontend && npm run -s format
 
 check: lint test ## Everything CI runs
+
+a11y: ## Accessibility audit of every page (needs both servers running and a week run)
+	cd frontend && npm run -s a11y
 
 paypal-setup: ## Put your PayPal sandbox keys into .env, one question at a time (tests each)
 	cd backend && .venv/bin/python scripts/paypal_setup.py

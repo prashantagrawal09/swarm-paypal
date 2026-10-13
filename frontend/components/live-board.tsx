@@ -47,6 +47,7 @@ export function LiveBoard() {
       {/* Headline */}
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] lg:items-end">
         <div>
+          <h1 className="sr-only">Live board</h1>
           <div className="text-ink-2 flex items-center gap-2 text-xs font-medium">
             <span>Tiong Bahru</span>
             <span className="text-muted">·</span>

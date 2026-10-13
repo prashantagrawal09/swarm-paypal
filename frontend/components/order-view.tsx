@@ -145,7 +145,7 @@ export function OrderView({ id }: { id: string }) {
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
         <div className="space-y-6">
           {group ? (
-            <GroupOrderCard group={group} compact />
+            <GroupOrderCard group={group} compact heading="h2" />
           ) : (
             <Card className="h-64 animate-pulse" />
           )}
