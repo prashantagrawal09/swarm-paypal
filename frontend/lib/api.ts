@@ -181,6 +181,18 @@ export type Explain = {
     hold_cents: number;
     rows: { delivered: number; charged_cents: number; released_cents: number }[];
   };
+  /** A real quote decision from this week, once a negotiation has happened. */
+  decision: {
+    message_id: string;
+    text: string;
+    supplier: { code: string; name: string };
+    order_id: string | null;
+    round: number | null;
+    options: { label: string; landed_total_cents: number }[];
+    chosen: string;
+    chosen_by: "llm" | "fallback" | "rule";
+    checked: string[];
+  } | null;
 };
 
 export type LadderEntry = {

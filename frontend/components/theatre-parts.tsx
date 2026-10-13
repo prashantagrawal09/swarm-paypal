@@ -6,6 +6,7 @@ import {
   ArrowRight,
   BookCheck,
   CheckCircle2,
+  Keyboard,
   Leaf,
   Maximize2,
   Minimize2,
@@ -148,6 +149,7 @@ export function Controls({
   onSkip,
   onRestart,
   onFullscreen,
+  onHelp,
 }: {
   playing: boolean;
   speed: Speed;
@@ -159,6 +161,7 @@ export function Controls({
   onSkip: (direction: 1 | -1) => void;
   onRestart: () => void;
   onFullscreen: () => void;
+  onHelp: () => void;
 }) {
   return (
     <div className="flex items-center gap-0.5" role="group" aria-label="Playback">
@@ -203,6 +206,11 @@ export function Controls({
           </div>
         </>
       )}
+      <span className="hidden sm:contents">
+        <IconButton label="Keyboard shortcuts (?)" onClick={onHelp}>
+          <Keyboard className="h-4 w-4" aria-hidden />
+        </IconButton>
+      </span>
       <span className="hidden sm:contents">
         <IconButton
           label={fullscreen ? "Leave full screen (F)" : "Full screen (F)"}
@@ -708,6 +716,64 @@ export function Finale({
           </button>
         </div>
       </motion.div>
+    </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------
+// Keyboard shortcuts
+// ---------------------------------------------------------------------------------------
+
+const SHORTCUTS: [string[], string][] = [
+  [["Space"], "Play or pause"],
+  [["←", "→"], "Previous or next day"],
+  [["1", "2", "3"], "Speed: 1×, 2×, 4×"],
+  [["R"], "Start again"],
+  [["F"], "Full screen"],
+  [["?"], "Show or hide this list"],
+  [["Esc"], "Close"],
+];
+
+export function ShortcutList({ onClose }: { onClose: () => void }) {
+  return (
+    <motion.div
+      className="absolute inset-0 z-30 grid place-items-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-label="Keyboard shortcuts"
+        className="border-line-strong bg-surface w-full max-w-sm rounded-2xl border p-5 shadow-2xl"
+      >
+        <h2 className="text-ink text-sm font-semibold">Keyboard shortcuts</h2>
+        <dl className="mt-3 space-y-2 text-sm">
+          {SHORTCUTS.map(([keys, what]) => (
+            <div key={what} className="flex items-center justify-between gap-4">
+              <dt className="text-ink-2">{what}</dt>
+              <dd className="flex shrink-0 gap-1">
+                {keys.map((key) => (
+                  <kbd
+                    key={key}
+                    className="border-line-strong bg-surface-2 text-ink min-w-7 rounded-md border px-1.5 py-0.5 text-center font-sans text-xs font-medium"
+                  >
+                    {key}
+                  </kbd>
+                ))}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p className="text-muted mt-4 text-xs">
+          While the week plays, the controls fade after a moment so a recording stays clean. Move
+          the mouse to bring them back.
+        </p>
+      </div>
     </motion.div>
   );
 }

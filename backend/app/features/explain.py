@@ -7,11 +7,23 @@ same functions the week itself runs on, applied to the neighbourhood's usual mil
 
 from __future__ import annotations
 
+import uuid
+from datetime import date
 from typing import Any
 
 from sqlalchemy import select
 
-from app.db.models import Item, Shop, Supplier, SupplierItem
+from app.agents.base import DECISION_PREFIX
+from app.db.enums import Category
+from app.db.models import (
+    AgentMessage,
+    AuditLog,
+    GroupOrder,
+    Item,
+    Shop,
+    Supplier,
+    SupplierItem,
+)
 from app.features.context import Ctx
 from app.features.products import wording
 from app.money import pricing
@@ -19,6 +31,8 @@ from app.money import pricing
 PRODUCT = "milk-full-cream-1l"
 # The shop the examples start from (and whose delivery the second example follows).
 HERO = "cafe-mei"
+# The negotiation the decision example prefers: the one that includes the product above.
+EXAMPLE_CATEGORY = "dairy"
 
 
 async def worked_examples(ctx: Ctx) -> dict[str, Any] | None:
@@ -120,4 +134,81 @@ async def worked_examples(ctx: Ctx) -> dict[str, Any] | None:
             "hold_cents": hold,
             "rows": rows,
         },
+    }
+
+
+async def decision_example(ctx: Ctx) -> dict[str, Any] | None:
+    """A real decision from this week to show on the home page: the last-round quote with
+    the most options on the table. None until a negotiation has happened.
+
+    Only for the demo: a supplier's options are private to its owner (see the decision API).
+    """
+    if not ctx.runtime.settings.demo_mode:
+        return None
+    session = ctx.session
+    rows = [
+        row
+        for row in await session.scalars(
+            select(AuditLog)
+            .where(AuditLog.action == f"{DECISION_PREFIX}quote")
+            .order_by(AuditLog.seq.desc())
+            .limit(60)
+        )
+        if row.details.get("options") and row.details.get("message_id")
+    ]
+    if not rows:
+        return None
+
+    def richness(row: AuditLog) -> tuple[int, int]:
+        return int(row.details.get("round") or 0), len(row.details["options"])
+
+    best = max(richness(row) for row in rows)
+    candidates = [row for row in rows if richness(row) == best]
+    messages = {
+        str(m.id): m
+        for m in await session.scalars(
+            select(AgentMessage).where(
+                AgentMessage.id.in_([uuid.UUID(row.details["message_id"]) for row in candidates])
+            )
+        )
+    }
+    candidates = [row for row in candidates if row.details["message_id"] in messages]
+    if not candidates:
+        return None
+    # Of equally rich decisions, the one about the product the other examples use (milk).
+    record = max(
+        candidates,
+        key=lambda row: (
+            messages[row.details["message_id"]].conversation_id.endswith(f":{EXAMPLE_CATEGORY}"),
+            row.seq,
+        ),
+    )
+    message = messages[record.details["message_id"]]
+    supplier = await session.scalar(
+        select(Supplier).where(Supplier.code == record.actor.split(":", 1)[-1])
+    )
+    order_id = None
+    try:  # "negotiation:<week>:<category>"
+        _, week, category = message.conversation_id.split(":")
+        order_id = await session.scalar(
+            select(GroupOrder.id).where(
+                GroupOrder.week_start == date.fromisoformat(week),
+                GroupOrder.category == Category(category.upper()),
+            )
+        )
+    except ValueError:
+        pass
+    return {
+        "message_id": str(message.id),
+        "text": message.text,
+        "supplier": {
+            "code": supplier.code if supplier else record.actor,
+            "name": supplier.name if supplier else record.actor,
+        },
+        "order_id": str(order_id) if order_id else None,
+        "round": record.details.get("round"),
+        "options": record.details["options"],
+        "chosen": record.details.get("chosen"),
+        "chosen_by": record.details.get("chosen_by"),
+        "checked": record.details.get("checked", []),
     }

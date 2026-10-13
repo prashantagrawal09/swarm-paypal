@@ -771,3 +771,16 @@ Started from a full-page audit of every page at desktop and phone width.
   runs until 22:00 in Singapore. Messages now use Singapore time.
 - **A flash deal stayed "Open" for days after it ended.** The API now reports a deal past
   its time as ended.
+
+**Also built in this pass**
+- **A third idea on the home page: an agent can't make up a price.** It shows a real quote
+  decision from this week's negotiation: the options code priced (hover one to see what it
+  would have meant), who picked, and the checks the pick passed, with a link to the
+  conversation. `GET /api/explain` now returns it once a negotiation has happened; outside
+  demo mode it is left out, because a supplier's options are private.
+- **Watch page, for recording:** while the week plays, the controls and the cursor fade
+  after a few seconds without input and come back on any movement. `?` lists the keyboard
+  shortcuts.
+- **A link preview image** (`app/opengraph-image.tsx`) and Open Graph / Twitter metadata, so
+  a shared link shows the headline and the swarm instead of a bare URL. The site's address
+  comes from `NEXT_PUBLIC_SITE_URL`, or `RENDER_EXTERNAL_URL` on Render.

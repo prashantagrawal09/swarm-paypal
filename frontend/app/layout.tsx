@@ -12,10 +12,28 @@ import "./globals.css";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
+const DESCRIPTION =
+  "Small shops buy alone and pay retail. Swarm's AI agents pool their orders, negotiate with suppliers and settle everything through PayPal.";
+
 export const metadata: Metadata = {
+  // Where the site lives, so shared links carry the preview image. Render sets
+  // RENDER_EXTERNAL_URL for the web service; NEXT_PUBLIC_SITE_URL overrides it.
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? process.env.RENDER_EXTERNAL_URL ?? "http://localhost:3000",
+  ),
   title: { default: "Swarm · neighbourhood buying power", template: "%s · Swarm" },
-  description:
-    "Small shops buy alone and pay retail. Swarm's AI agents pool their orders, negotiate with suppliers and settle everything through PayPal.",
+  description: DESCRIPTION,
+  openGraph: {
+    title: "Swarm: small shops buy like a chain",
+    description: DESCRIPTION,
+    siteName: "Swarm",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Swarm: small shops buy like a chain",
+    description: DESCRIPTION,
+  },
 };
 
 export const viewport: Viewport = {

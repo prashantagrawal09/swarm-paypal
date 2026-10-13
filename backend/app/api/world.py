@@ -380,7 +380,8 @@ async def explain_examples(ctx: CtxDep) -> dict[str, Any]:
     examples = await shared(ctx, "explain", lambda: explain.worked_examples(ctx))
     if examples is None:
         raise HTTPException(status_code=404, detail="The demo world isn't seeded")
-    return examples
+    decision = await shared(ctx, "explain-decision", lambda: explain.decision_example(ctx))
+    return {**examples, "decision": decision}
 
 
 @router.get("/products")

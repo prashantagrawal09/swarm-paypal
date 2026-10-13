@@ -10,11 +10,13 @@
  * (GET /api/explain); this file only shows them.
  */
 
-import { CheckCircle2, Undo2, Wallet } from "lucide-react";
+import { ArrowRight, CheckCircle2, Undo2, Wallet } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { HoldBar } from "@/components/charts/hold-bar";
+import { OPTION_WORDS } from "@/components/message-inspector";
 import { AnimatedNumber } from "@/components/stats";
 import { Card, cx } from "@/components/ui";
 import type { Explain } from "@/lib/api";
@@ -26,7 +28,9 @@ export function Explainers() {
   if (!data) return null;
   return (
     <section className="mx-auto w-full max-w-7xl px-4 pt-16 sm:px-6">
-      <h2 className="text-ink text-2xl font-semibold tracking-tight">Two ideas. Try them.</h2>
+      <h2 className="text-ink text-2xl font-semibold tracking-tight">
+        {data.decision ? "Three ideas. Try them." : "Two ideas. Try them."}
+      </h2>
       <p className="text-ink-2 mt-2 max-w-2xl">
         Drag the sliders. The numbers come from the same pricing rules that run the week, using the
         street&apos;s usual {data.product.name} order.
@@ -34,6 +38,7 @@ export function Explainers() {
       <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Pooling data={data} />
         <ShortDelivery data={data} />
+        {data.decision ? <GuardedChoice decision={data.decision} /> : null}
       </div>
     </section>
   );
@@ -462,5 +467,134 @@ function Figure({
         <AnimatedNumber value={cents} format={money} />
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------
+// 3. An agent can't make up a price
+// ---------------------------------------------------------------------------------------
+
+/**
+ * A real decision from this week's negotiation: the options code priced, the one that was
+ * picked, and the rules the pick passed. Hover or tap an option to see what picking it would
+ * have meant; none of them can go below the owner's floor.
+ */
+function GuardedChoice({ decision }: { decision: NonNullable<Explain["decision"]> }) {
+  const options = [...decision.options].sort((a, b) => b.landed_total_cents - a.landed_total_cents);
+  const [focus, setFocus] = useState(decision.chosen);
+  const focused = options.find((option) => option.label === focus) ?? options[0];
+  const chosen = options.find((option) => option.label === decision.chosen);
+  const high = options[0].landed_total_cents;
+  const low = options[options.length - 1].landed_total_cents;
+  const span = Math.max(1, high - low);
+  const byModel = decision.chosen_by === "llm";
+
+  return (
+    <Card className="p-5 sm:p-6 lg:col-span-2">
+      <h3 className="text-ink text-lg font-semibold">An agent can&apos;t make up a price</h3>
+      <p className="text-ink-2 mt-1 max-w-3xl text-sm">
+        This is a real quote from this week&apos;s negotiation
+        {decision.round ? `, round ${decision.round}` : ""}. {decision.supplier.name}&apos;s agent
+        did not type a number. Code priced every option from the owner&apos;s price list and floor,
+        the {byModel ? "language model" : "built-in policy"} picked one, and code checked the pick
+        before it was sent.
+      </p>
+
+      <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <div>
+          <div className="text-ink-2 text-xs font-medium">
+            1. The options code priced (landed total for the whole order)
+          </div>
+          <ul className="mt-2 space-y-1.5">
+            {options.map((option) => {
+              const picked = option.label === decision.chosen;
+              const active = option.label === focused.label;
+              const width = 28 + ((option.landed_total_cents - low) / span) * 72;
+              return (
+                <li key={option.label}>
+                  <button
+                    type="button"
+                    onMouseEnter={() => setFocus(option.label)}
+                    onFocus={() => setFocus(option.label)}
+                    onClick={() => setFocus(option.label)}
+                    aria-pressed={active}
+                    className={cx(
+                      "group relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-lg border px-3 py-2 text-left text-sm transition",
+                      active ? "border-line-strong" : "border-line",
+                    )}
+                  >
+                    {/* How far down from the highest option this one sits. */}
+                    <span
+                      className={cx(
+                        "absolute inset-y-0 left-0 transition-[width] duration-300",
+                        picked ? "bg-honey-soft" : "bg-surface-2",
+                      )}
+                      style={{ width: `${width}%` }}
+                      aria-hidden
+                    />
+                    <span
+                      className={cx(
+                        "relative inline-flex items-center gap-1.5",
+                        picked ? "text-honey-ink font-semibold" : "text-ink",
+                      )}
+                    >
+                      {picked ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> : null}
+                      {OPTION_WORDS[option.label] ?? option.label}
+                      {picked ? <span className="sr-only"> (picked)</span> : null}
+                    </span>
+                    <span className="tabular text-ink relative font-medium">
+                      {money(option.landed_total_cents)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-muted mt-2 text-xs" aria-live="polite">
+            {focused.label === decision.chosen
+              ? `Picked: ${(OPTION_WORDS[focused.label] ?? focused.label).toLowerCase()}, ${money(focused.landed_total_cents)}.`
+              : chosen
+                ? `"${OPTION_WORDS[focused.label] ?? focused.label}" would have been ${money(Math.abs(focused.landed_total_cents - chosen.landed_total_cents))} ${focused.landed_total_cents > chosen.landed_total_cents ? "dearer" : "cheaper"} than the pick. It was allowed, just not chosen.`
+                : ""}
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <div className="text-ink-2 text-xs font-medium">
+              2. {byModel ? "The language model picked one" : "The built-in policy picked one"}
+            </div>
+            <blockquote className="border-line-strong text-ink mt-2 border-l-2 pl-3 text-sm leading-relaxed">
+              {decision.text}
+            </blockquote>
+            {byModel ? null : (
+              <p className="text-muted mt-1.5 text-xs">
+                No model key is set here, so the supplier&apos;s policy chose. With a key, the model
+                chooses from the same list.
+              </p>
+            )}
+          </div>
+          <div>
+            <div className="text-ink-2 text-xs font-medium">3. Code checked it before sending</div>
+            <ul className="mt-2 space-y-1 text-xs">
+              {decision.checked.map((rule) => (
+                <li key={rule} className="text-ink-2 flex items-start gap-1.5">
+                  <CheckCircle2 className="text-good-ink mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {rule}
+                </li>
+              ))}
+            </ul>
+          </div>
+          {decision.order_id ? (
+            <Link
+              href={`/orders/${decision.order_id}`}
+              className="text-ink inline-flex items-center gap-1 text-sm font-medium underline underline-offset-2"
+            >
+              See it in the conversation <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+          ) : null}
+        </div>
+      </div>
+    </Card>
   );
 }

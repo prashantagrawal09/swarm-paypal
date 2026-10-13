@@ -28,6 +28,7 @@ import {
   type FinaleFacts,
   MoneyTicker,
   NegotiationPanel,
+  ShortcutList,
   Tally,
   TitleCard,
 } from "@/components/theatre-parts";
@@ -53,6 +54,8 @@ import { shopsAt, suppliersAt } from "@/lib/world-state";
 /** How long a day's title stays up at normal speed: a little less than the pause it fills. */
 const TITLE_CARD_MS = 1700;
 const TITLE_CARD_MIN_MS = 800;
+/** How long without input before the controls fade while the week plays. */
+const IDLE_MS = 2800;
 const NO_STATS: Stats = {
   saved_cents: 0,
   negotiation_saved_cents: 0,
@@ -143,6 +146,7 @@ export function Theatre() {
     };
   }, []);
 
+  const [help, setHelp] = useState(false);
   const [finaleClosed, setFinaleClosed] = useState(false);
   const restart = useCallback(() => {
     setFinaleClosed(false);
@@ -155,7 +159,9 @@ export function Theatre() {
       if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const key = event.key.toLowerCase();
-      if (key === "f") toggleFullscreen();
+      if (key === "?") setHelp((open) => !open);
+      else if (key === "escape" && help) setHelp(false);
+      else if (key === "f") toggleFullscreen();
       else if (key === "escape" && !document.fullscreenElement) router.push("/live");
       else if (follow) return;
       else if (key === " ") {
@@ -168,7 +174,32 @@ export function Theatre() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [follow, toggle, skip, setSpeed, restart, router, toggleFullscreen]);
+  }, [follow, help, toggle, skip, setSpeed, restart, router, toggleFullscreen]);
+
+  // While the week plays and nobody is touching anything, the controls step back, so a
+  // screen recording shows the stage and nothing else. Any movement brings them back.
+  const [idle, setIdle] = useState(false);
+  const watching = player.playing && !atEnd && items.length > 0;
+  useEffect(() => {
+    if (!watching) return;
+    let timer = setTimeout(() => setIdle(true), IDLE_MS);
+    const wake = () => {
+      setIdle(false);
+      clearTimeout(timer);
+      timer = setTimeout(() => setIdle(true), IDLE_MS);
+    };
+    window.addEventListener("pointermove", wake);
+    window.addEventListener("pointerdown", wake);
+    window.addEventListener("keydown", wake);
+    return () => {
+      clearTimeout(timer);
+      setIdle(false);
+      window.removeEventListener("pointermove", wake);
+      window.removeEventListener("pointerdown", wake);
+      window.removeEventListener("keydown", wake);
+    };
+  }, [watching]);
+  const quiet = idle && watching && !help;
 
   // ---- What the stage shows ----------------------------------------------------------------
   const stageLive = useMemo<LiveState>(
@@ -255,11 +286,22 @@ export function Theatre() {
 
   return (
     <div className="dark">
-      <div className="theatre bg-page text-ink fixed inset-0 z-[45] flex flex-col overflow-hidden [--chrome:19rem] lg:![--chrome:16.5rem] [@media(min-height:760px)]:[--chrome:28rem]">
+      <div
+        className={cx(
+          "theatre bg-page text-ink fixed inset-0 z-[45] flex flex-col overflow-hidden [--chrome:19rem] lg:![--chrome:16.5rem] [@media(min-height:760px)]:[--chrome:28rem]",
+          quiet && "cursor-none",
+        )}
+      >
         <div className="theatre-glow" aria-hidden />
 
         {/* Top bar */}
-        <header className="border-line relative z-10 flex min-h-14 flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-1.5 sm:px-5">
+        <header
+          className={cx(
+            "border-line relative z-10 flex min-h-14 flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-1.5 transition-opacity duration-500 sm:px-5",
+            // Keyboard users keep the controls: focus inside the bar brings it back.
+            quiet && "opacity-0 focus-within:opacity-100",
+          )}
+        >
           <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Swarm home">
             <Logo className="h-6 w-6" />
             <span className="text-ink hidden text-sm font-semibold sm:inline">Swarm</span>
@@ -316,6 +358,7 @@ export function Theatre() {
               }}
               onRestart={restart}
               onFullscreen={toggleFullscreen}
+              onHelp={() => setHelp((open) => !open)}
             />
             <Link
               href="/live"
@@ -401,6 +444,9 @@ export function Theatre() {
             )}
             <AnimatePresence>
               {showFinale ? <Finale world={world} facts={facts} onReplay={restart} /> : null}
+            </AnimatePresence>
+            <AnimatePresence>
+              {help ? <ShortcutList onClose={() => setHelp(false)} /> : null}
             </AnimatePresence>
           </div>
 

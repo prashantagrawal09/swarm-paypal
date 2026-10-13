@@ -88,3 +88,31 @@ async def test_endpoint(db, world, runtime):
         body = (await api.get("/api/explain")).json()
     assert body["product"]["code"] == "milk-full-cream-1l"
     assert len(body["pooling"]["steps"]) == 12
+
+
+async def test_decision_example_is_a_real_decision_from_the_week(db, world, runtime, clock, bus):
+    from app.agents.coordinator import Coordinator
+    from app.db.enums import Category
+    from app.llm.client import OfflineLLM
+    from tests.conftest import DEMO_WEEK
+    from tests.helpers import prepare_week
+
+    ctx = Ctx(db, runtime)
+    assert await explain.decision_example(ctx) is None  # nothing has been negotiated yet
+
+    groups = await prepare_week(db, DEMO_WEEK, clock)
+    await Coordinator(llm=OfflineLLM(), bus=bus, clock=clock).negotiate(
+        db, groups[Category.DAIRY].id
+    )
+    example = await explain.decision_example(ctx)
+    assert example is not None
+    assert example["round"] == 3  # the last round, when the floor is on the table
+    labels = [option["label"] for option in example["options"]]
+    assert "floor" in labels and example["chosen"] in labels
+    assert example["order_id"] == str(groups[Category.DAIRY].id)
+    assert example["supplier"]["name"] and example["text"]
+    assert "No price is below the owner's floor" in example["checked"]
+
+    # A supplier's options are private outside the demo.
+    runtime.settings = runtime.settings.model_copy(update={"demo_mode": False})
+    assert await explain.decision_example(ctx) is None

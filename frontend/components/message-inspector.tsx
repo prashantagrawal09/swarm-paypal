@@ -225,7 +225,7 @@ function Step({
   );
 }
 
-const OPTION_WORDS: Record<string, string> = {
+export const OPTION_WORDS: Record<string, string> = {
   hold: "Hold the price",
   small: "A small step down",
   beat: "Just beat the best rival",
