@@ -11,8 +11,16 @@ without resetting anything.
    week** on the live board).
 2. Open `/watch`, press `F` for full screen, and record. **Space** pauses, **←** and **→**
    jump between days, **1** / **2** / **3** set the speed (a full week is about 70 seconds
-   at 1×), **R** starts again.
+   at 1×), **R** starts again. Clicking a day in the strip along the top jumps straight to
+   it, so a retake can start from Thursday.
 3. Talk over it with the "Say" column below; the day titles tell you where you are.
+
+To have a refund in the film, add the damage claim to Thursday before running the week (see
+**Showing a refund**): the recording then shows the claim holding S$15.50 back from the
+supplier's payout.
+
+Keep as many tabs open as you like while recording. A tab you are not looking at lets go of
+its live connection and catches up when you come back to it.
 
 Use the live board (next section) when you want to show the detail: the owner's phone, the
 price ladder, an invoice being rejected line by line.

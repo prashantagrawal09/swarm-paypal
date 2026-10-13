@@ -151,6 +151,13 @@ export function Landing() {
   const stats = data?.stats;
   // On a hosted demo the server may be asleep: say so instead of showing zeros.
   const waking = status === "waking" && !data;
+  // Nothing has happened yet this week and there is no earlier week to replay: say so,
+  // instead of a headline that reads as "S$0 saved".
+  const untouched =
+    Boolean(data) &&
+    !data?.running &&
+    (data?.steps.every((step) => step.status !== "done") ?? false) &&
+    (stats?.saved_cents ?? 0) === 0;
 
   // Once a week has been recorded, the hero map replays it on a loop (unless the week is
   // running right now, in which case the map is already live).
@@ -225,6 +232,8 @@ export function Landing() {
                   <div className="tabular text-ink mt-1 text-5xl font-semibold tracking-tight">
                     {waking ? (
                       <span className="text-muted">S$ ...</span>
+                    ) : untouched && !hero.active ? (
+                      "Monday, 8 am"
                     ) : (
                       <AnimatedNumber value={stats?.saved_cents ?? 0} format={moneyWhole} />
                     )}
@@ -232,7 +241,9 @@ export function Landing() {
                   <div className="text-ink-2 text-sm">
                     {waking
                       ? "This week's numbers appear when the server is up"
-                      : `saved by ${stats?.shops ?? 12} independent shops`}
+                      : untouched && !hero.active
+                        ? `${stats?.shops ?? 12} shops and ${suppliers?.length ?? 3} suppliers are waiting. Nothing has been ordered yet.`
+                        : `saved by ${stats?.shops ?? 12} independent shops`}
                   </div>
                 </div>
                 <span className="border-line text-ink-2 inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs">
@@ -247,11 +258,13 @@ export function Landing() {
                     ? "Running now"
                     : hero.active
                       ? "Replaying the week"
-                      : connected
-                        ? "Live"
-                        : waking
-                          ? "Waiting"
-                          : "Connecting"}
+                      : untouched
+                        ? "Not started"
+                        : connected
+                          ? "Live"
+                          : waking
+                            ? "Waiting"
+                            : "Connecting"}
                 </span>
               </div>
               <div className="px-2 pt-1" ref={heroCard}>

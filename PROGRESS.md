@@ -960,4 +960,8 @@ phone-sized pages, each in light and dark: 42 checks.
   the "won by negotiating" figure on the live board (S$134.29 in the demo week).
 - README screenshots for the Suppliers page and a claim waiting for a person; the capability
   table screenshot is refreshed.
+- The home page's card no longer reads "S$0 saved by 12 independent shops" before anything
+  has run: it says "Monday, 8 am", that twelve shops and three suppliers are waiting, and
+  "Not started".
+- Checked a production build from a clean checkout of the repository after these changes.
 
