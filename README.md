@@ -295,6 +295,9 @@ conversation, **How was this decided?** shows the options code priced, who chose
 - Weather outlooks come from a config file; production would read a forecast API.
 - The web phone on `/demo` lets anyone act as any owner, so it only works in demo mode. Real
   owners use Telegram with signed invites, and connect PayPal through signed links.
+- The web app has no login. Anyone can read the live stream and its recording, including
+  what owners and their agents say to each other. That suits a demo that lets you look inside
+  every agent; a real deployment would put each owner's view behind their own sign-in.
 - Free hosting sleeps when idle; the first request after a while takes about a minute.
 - Supplier payouts settle immediately in the sandbox. In production they would wait for
   payout status webhooks before the books mark a supplier as paid.

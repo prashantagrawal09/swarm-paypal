@@ -89,6 +89,26 @@ with money engine events (holds, captures, payouts, refunds, invoice checks), to
 - the **story** the narrator tells (`lib/story.ts` turns events into one plain sentence);
 - pulses, swap arcs and toasts.
 
+All of that bookkeeping is one pure step function, `ingest` in `frontend/lib/stream-state.ts`:
+state in, one stream item in, state out. The live connection feeds it items as they arrive.
+
+### Recording and replay
+
+Before anything is sent, the bus hands it to a recorder (`app/agents/recorder.py`), which
+writes it to `stream_events` through its own short transaction and returns its position in
+the stream. That position is sent as the event's SSE `id`.
+
+- **Replay.** `GET /api/timeline` returns a week of the recording. The watch page
+  (`frontend/components/theatre.tsx`) feeds it through the same `ingest` on a timer
+  (`lib/replay.ts`, `lib/use-player.ts`), so the map, the story and the feeds play back with
+  no extra code. The numbers a live page would ask the server for (who has money held, what
+  has been charged) are worked out from the events alone in `lib/world-state.ts`; each
+  finished step's event carries the server's totals, which replace the running ones.
+- **Catching up.** A browser that reconnects sends `Last-Event-ID`; the stream first replays
+  what was recorded since, then carries on live, without duplicates.
+- A recorder failure is logged and the event is still sent: the week matters more than its
+  recording.
+
 Shortly after any event it revalidates every cached query, so tiles, grids and charts always
 agree with the database. The demo week is fixed (`DEMO_WEEK`, a Monday), so the same numbers
 appear on any day.
@@ -239,7 +259,11 @@ sequenceDiagram
 ```
 
 - `app/agents/base.py`: identity, mandate, prompt and the `validate()` gate. `require()` refuses
-  and audits anything outside the agent's tools or mandate.
+  and audits anything outside the agent's tools or mandate, and reports which rules an allowed
+  action passed. `decided()` keeps a decision record in the audit log next to the message
+  that announced it: the options code built, who chose, the rules passed. The web app's
+  inspector reads it (`GET /api/agent-messages/{id}/decision`). The record never travels in
+  the message, so the other side of a negotiation cannot see a supplier's options.
 - `app/agents/supplier_agent.py`: code builds the legal options (hold, small, beat, deep, and
   floor in the final round), the model picks one and writes the reply, and a style-based
   policy decides when no model is available.
