@@ -149,6 +149,31 @@ describe("describeStory", () => {
     });
   });
 
+  it("says when a claim holds money back from a supplier, and when it is too late to", () => {
+    const open = (held: boolean): StoryItem => ({
+      id: "st-claim",
+      seenAt: 0,
+      kind: "message",
+      message: {
+        id: "m2",
+        seq: 2,
+        conversation_id: "invoice:g1",
+        from: "claims:swarm",
+        to: "coordinator:swarm",
+        type: "CLAIM_OPEN",
+        text: "Bakery Lim reports 2 trays of eggs damaged.",
+        payload: { amount_cents: 1550, supplier: "johorfarm", held_back: held },
+        at: "",
+      },
+    });
+    expect(describeStory(open(true), names, steps)).toMatchObject({
+      title: "A claim is open, so S$15.50 is held back from Johor Farm Fresh.",
+      tone: "warning",
+      step: "settlement",
+    });
+    expect(describeStory(open(false), names, steps)?.title).toBe("A claim is open for S$15.50.");
+  });
+
   it("ignores events it has nothing to say about", () => {
     expect(describeStory(event("demo_action"), names, steps)).toBeNull();
   });

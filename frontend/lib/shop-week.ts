@@ -3,11 +3,21 @@
  * its money. Pure: built from what the shop page has already loaded.
  */
 
-import type { PaymentRow, ShopDetail, ShopOrderLine, Step, SwapRow } from "@/lib/api";
+import type { ClaimRow, PaymentRow, ShopDetail, ShopOrderLine, Step, SwapRow } from "@/lib/api";
 import { money } from "@/lib/format";
 
 export type WeekEventKind =
-  "proposal" | "deal" | "hold" | "flash" | "delivery" | "refund" | "swap" | "report";
+  "proposal" | "deal" | "hold" | "flash" | "delivery" | "claim" | "refund" | "swap" | "report";
+
+/** How a claim reads after "reported 2 trays of eggs ...". */
+const PROBLEM: Record<string, string> = {
+  SHORT: "short",
+  DAMAGED: "damaged",
+  EXPIRED: "expired",
+  WRONG_ITEM: "as the wrong item",
+};
+const UNDECIDED = new Set(["PENDING", "ESCALATED_SUPPLIER", "ESCALATED_OPERATOR"]);
+const DAY_MS = 86_400_000;
 
 export type WeekEvent = {
   key: string;
@@ -24,6 +34,8 @@ export type WeekMoney = {
   /** The part of the holds that was never charged. */
   releasedCents: number;
   refundedCents: number;
+  /** Under a claim nobody has decided yet. */
+  claimedCents: number;
 };
 
 export type ShopWeek = { events: WeekEvent[]; money: WeekMoney };
@@ -35,6 +47,7 @@ export function shopWeek({
   orders,
   payments,
   swaps,
+  claims = [],
   steps,
   productName = (line) => line.item,
 }: {
@@ -42,6 +55,7 @@ export function shopWeek({
   orders: ShopOrderLine[];
   payments: PaymentRow[];
   swaps: SwapRow[];
+  claims?: ClaimRow[];
   steps: Step[];
   /** The everyday word for a line's product ("milk"), when the page knows it. */
   productName?: (line: ShopOrderLine) => string;
@@ -53,6 +67,12 @@ export function shopWeek({
     return step && step.status === "done" ? step.at : null;
   };
   const completed = payments.filter((p) => p.status === "COMPLETED");
+  // The week runs Monday to Sunday, Singapore time.
+  const weekStart = Date.parse(`${week}T00:00:00+08:00`);
+  const thisWeek = (at: string) => {
+    const time = Date.parse(at);
+    return time >= weekStart && time < weekStart + 7 * DAY_MS;
+  };
   const events: WeekEvent[] = [];
 
   // Monday: the proposal and the owner's answer.
@@ -117,6 +137,7 @@ export function shopWeek({
   }
 
   for (const payment of completed) {
+    if (!thisWeek(payment.at)) continue;
     if (payment.kind === "CAPTURE" && payment.related_type === "flash_deal") {
       events.push({
         key: `flash-${payment.id}`,
@@ -139,7 +160,10 @@ export function shopWeek({
     events.push({
       key: "delivery",
       kind: "delivery",
-      at: captures.length ? captures[0].at : stepAt("settlement"),
+      // The first charge of the week: anything reported about a delivery comes after it.
+      at: captures.length
+        ? captures.reduce((first, p) => (Date.parse(p.at) < Date.parse(first.at) ? p : first)).at
+        : stepAt("settlement"),
       title: short
         ? `${short.qty_delivered} of ${short.qty_requested} ${short.unit} ${productName(short)} arrived, so PayPal charged ${money(chargedCents)} and released ${money(releasedCents)}.`
         : `Everything arrived. PayPal charged ${money(chargedCents)}.`,
@@ -151,14 +175,37 @@ export function shopWeek({
     });
   }
 
+  // What the owner reported, and where it stands. A refund gets its own line after it.
+  const reported = claims.filter((claim) => thisWeek(claim.at));
+  for (const claim of reported) {
+    const what = claim.what ?? `${claim.qty} ${claim.qty === 1 ? "unit" : "units"}`;
+    const amount = money(claim.amount_cents);
+    events.push({
+      key: `claim-${claim.id}`,
+      kind: "claim",
+      at: claim.at,
+      title: `${shop.owner} reported ${what} ${PROBLEM[claim.type] ?? "as a problem"}.`,
+      detail: UNDECIDED.has(claim.decision)
+        ? `${claim.photo_url ? "The photo didn't settle it" : "No photo came with it"}, so a person at Swarm decides. ${amount} is at stake; nothing is refunded yet.`
+        : claim.decision === "REJECTED"
+          ? "Checked and not upheld, so nothing was refunded."
+          : claim.decision === "AUTO_REFUNDED"
+            ? "The photo was clear, so the claims agent refunded it on the spot."
+            : "Checked and upheld.",
+    });
+  }
+  const claimedCents = reported
+    .filter((claim) => UNDECIDED.has(claim.decision))
+    .reduce((sum, claim) => sum + claim.amount_cents, 0);
+
   for (const payment of completed) {
-    if (payment.kind === "REFUND") {
+    if (payment.kind === "REFUND" && thisWeek(payment.at)) {
       events.push({
         key: `refund-${payment.id}`,
         kind: "refund",
         at: payment.at,
-        title: `${money(payment.amount_cents)} refunded for a claim.`,
-        detail: "Back to the PayPal payment it came from.",
+        title: `PayPal refunded ${money(payment.amount_cents)} for a claim.`,
+        detail: "Back onto the PayPal payment it came from.",
       });
     }
   }
@@ -197,14 +244,15 @@ export function shopWeek({
 
   // In time order. Something without a time stays where the week's usual order put it,
   // straight after whatever came before.
-  let previous = "";
+  let previous = 0;
   const timed = events.map((event) => {
-    previous = event.at ?? previous;
+    const time = event.at ? Date.parse(event.at) : NaN;
+    previous = Number.isNaN(time) ? previous : time;
     return { event, when: previous };
   });
-  timed.sort((a, b) => a.when.localeCompare(b.when));
+  timed.sort((a, b) => a.when - b.when);
   return {
     events: timed.map((entry) => entry.event),
-    money: { heldCents, chargedCents, releasedCents, refundedCents },
+    money: { heldCents, chargedCents, releasedCents, refundedCents, claimedCents },
   };
 }

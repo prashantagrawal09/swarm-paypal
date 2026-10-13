@@ -10,7 +10,9 @@
    - supported but bigger or less certain: ask the supplier;
    - unclear evidence: the platform operator decides;
    - confidently contradicted by the photo: rejected.
-Without a model the claim always goes to a person; nothing is refunded automatically.
+Without a photo, or without a model to read it, the claim always goes to a person; nothing is
+refunded automatically. While a person is deciding, the amount at stake is what the owner
+claimed (never more than was delivered), so that much is held back from the supplier's payout.
 """
 
 from __future__ import annotations
@@ -54,17 +56,35 @@ class ClaimOutcome:
     reason: str
 
 
-def decide(claim: Claim, line: GroupOrderLine, assessment: ClaimAssessment) -> ClaimOutcome:
+NO_PHOTO = "No photo came with this claim, so a person will check."
+NOT_REVIEWED = "The photo couldn't be checked automatically, so a person will check."
+
+
+def decide(
+    claim: Claim, line: GroupOrderLine, assessment: ClaimAssessment, *, reviewed: bool = True
+) -> ClaimOutcome:
+    """`reviewed` is False when nothing looked at a photo (none sent, or no model to read it)."""
     delivered = line.qty_delivered if line.qty_delivered is not None else line.qty_requested
-    qty = max(0, min(assessment.qty_affected, claim.qty_affected or delivered, delivered))
-    refund = qty * (line.agreed_unit_price_cents or 0)
+    price = line.agreed_unit_price_cents or 0
+    claimed = max(0, min(claim.qty_affected or delivered, delivered))
+    qty = max(0, min(assessment.qty_affected, claimed))
+    refund = qty * price
+    # What a person rules on when the photo settles nothing: the owner's own count.
+    at_stake = claimed * price
     confidence = max(0.0, min(1.0, assessment.confidence))
     matches = assessment.issue_type == claim.type.value
+    if not reviewed:
+        return ClaimOutcome(
+            ClaimDecision.ESCALATED_OPERATOR,
+            at_stake,
+            claimed,
+            NOT_REVIEWED if claim.photo_url else NO_PHOTO,
+        )
     if assessment.issue_type == "UNCLEAR" or confidence < 0.5:
         return ClaimOutcome(
             ClaimDecision.ESCALATED_OPERATOR,
-            refund,
-            qty,
+            at_stake,
+            claimed,
             "The photo doesn't clearly show the problem; a person will check.",
         )
     if not assessment.claim_supported or assessment.issue_type == "NONE":
@@ -73,13 +93,16 @@ def decide(claim: Claim, line: GroupOrderLine, assessment: ClaimAssessment) -> C
                 ClaimDecision.REJECTED, 0, 0, "The photo doesn't show the problem described."
             )
         return ClaimOutcome(
-            ClaimDecision.ESCALATED_OPERATOR, refund, qty, "Mixed evidence; a person will check."
+            ClaimDecision.ESCALATED_OPERATOR,
+            at_stake,
+            claimed,
+            "Mixed evidence; a person will check.",
         )
     if qty == 0:
         return ClaimOutcome(
             ClaimDecision.ESCALATED_SUPPLIER,
-            0,
-            0,
+            at_stake,
+            claimed,
             "Problem confirmed but no units could be counted; asking the supplier.",
         )
     if confidence >= MIN_CONFIDENCE and matches and refund <= AUTO_REFUND_LIMIT_CENTS:
@@ -128,14 +151,15 @@ class ClaimsAgent(Agent):
     async def assess(
         self, claim: Claim, line: GroupOrderLine, photo: bytes | None, media_type: str | None
     ) -> tuple[ClaimAssessment, str]:
+        readable = photo if media_type in IMAGE_TYPES else None
         unclear = ClaimAssessment(
             issue_type="UNCLEAR",
             claim_supported=False,
             confidence=0.0,
             qty_affected=0,
-            evidence="No automatic review available.",
+            evidence="Nothing has looked at the photo yet." if photo else "No photo was sent.",
         )
-        if photo is None or media_type not in IMAGE_TYPES:
+        if readable is None:
             return unclear, "fallback"
         delivered = line.qty_delivered if line.qty_delivered is not None else line.qty_requested
         description = (
@@ -152,7 +176,7 @@ class ClaimsAgent(Agent):
                 "source": {
                     "type": "base64",
                     "media_type": media_type,
-                    "data": base64.standard_b64encode(photo).decode(),
+                    "data": base64.standard_b64encode(readable).decode(),
                 },
             },
             {"type": "text", "text": description},
@@ -186,7 +210,7 @@ class ClaimsAgent(Agent):
         await session.refresh(line, ["item"])
         await self.require(session, Action("assess_claim", {"claim": str(claim.id)}))
         assessment, source = await self.assess(claim, line, photo, media_type)
-        outcome = decide(claim, line, assessment)
+        outcome = decide(claim, line, assessment, reviewed=source != "fallback")
         claim.ai_assessment = {
             **assessment.model_dump(),
             "source": source,

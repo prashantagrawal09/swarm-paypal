@@ -18,6 +18,7 @@ import {
   Send,
   ShieldCheck,
   SkipForward,
+  PackageX,
   Siren,
   X,
   Zap,
@@ -35,6 +36,7 @@ import {
   type ClaimRow,
   type DemoState,
   mediaUrl,
+  type Mode,
   post,
   type Product,
   type ShopSummary,
@@ -287,8 +289,19 @@ function Injections({
     draft[kind]?.[key] ?? state?.scenario[kind]?.[key] ?? "";
   const set = (kind: string, key: string, v: unknown) =>
     setDraft((current) => ({ ...current, [kind]: { ...current[kind], [key]: v } }));
+  // Whether an optional surprise is in the week is the server's to say, never a local edit.
+  const params = (kind: string) =>
+    Object.fromEntries(Object.entries(draft[kind] ?? {}).filter(([key]) => key !== "scheduled"));
   const send = (kind: string, now: boolean, done: string) =>
-    act(`${kind}:${now}`, "/api/demo/inject", { kind, params: draft[kind] ?? {}, now }, done);
+    act(`${kind}:${now}`, "/api/demo/inject", { kind, params: params(kind), now }, done);
+  /** Puts an optional surprise into the week's script, or takes it out again. */
+  const schedule = (kind: string, on: boolean, done: string) =>
+    act(
+      `${kind}:false`,
+      "/api/demo/inject",
+      { kind, params: { ...params(kind), scheduled: on }, now: false },
+      done,
+    );
 
   const shopSelect = (kind: string) => (
     <select
@@ -344,6 +357,10 @@ function Injections({
     when: string;
     fields: React.ReactNode;
     now?: string;
+    /** Not in the week's script unless added: a switch instead of Save. */
+    optional?: { add: string; remove: string; added: string; removed: string };
+    /** What to say once it has been done now. */
+    done?: string;
   }[] = [
     {
       kind: "short_delivery",
@@ -484,17 +501,40 @@ function Injections({
         </>
       ),
     },
+    {
+      kind: "damage_claim",
+      title: "Damage claim",
+      icon: PackageX,
+      when: "Thursday, if added",
+      now: "Report it now",
+      optional: {
+        add: "Add to Thursday",
+        remove: "Remove from Thursday",
+        added:
+          "Damage claim added to Thursday. It is reported once the delivery is charged, so that much is held back from the supplier until you decide it below.",
+        removed: "Damage claim taken out of this week.",
+      },
+      done: "Claim filed. It came without a photo, so it is waiting below for a person: approve it to see PayPal refund the original payment.",
+      fields: (
+        <>
+          <Field label="Shop">{shopSelect("damage_claim")}</Field>
+          <Field label="Product">{productSelect("damage_claim")}</Field>
+          <Field label="Units damaged">{number("damage_claim", "qty", { min: 1, max: 20 })}</Field>
+        </>
+      ),
+    },
   ];
 
   return (
     <Card>
       <CardHeader
         title="Surprises this week"
-        subtitle="Each one is armed for its day. Change the details, then save; surplus and emergency can also happen right now."
+        subtitle="Each one is armed for its day. Change the details, then save; surplus, emergency and a damage claim can also happen right now."
       />
       <div className="border-line bg-line grid grid-cols-1 gap-px overflow-hidden border-t sm:grid-cols-2">
         {cards.map((card) => {
           const Icon = card.icon;
+          const scheduled = Boolean(card.optional && state?.scenario[card.kind]?.scheduled);
           return (
             <div key={card.kind} className="bg-surface flex flex-col gap-3 p-4">
               <div className="flex items-center gap-2">
@@ -505,18 +545,42 @@ function Injections({
                   <Icon className="h-3.5 w-3.5" />
                 </span>
                 <span className="text-ink text-sm font-medium">{card.title}</span>
-                <span className="text-muted ml-auto text-[11px]">{card.when}</span>
+                {scheduled ? (
+                  <span className="ml-auto">
+                    <StatusPill tone="good">On for Thursday</StatusPill>
+                  </span>
+                ) : (
+                  <span className="text-muted ml-auto text-[11px]">{card.when}</span>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">{card.fields}</div>
               <div className="mt-auto flex flex-wrap gap-2">
-                <Button
-                  className="h-8 py-0 text-xs"
-                  busy={busy === `${card.kind}:false`}
-                  disabled={locked}
-                  onClick={() => send(card.kind, false, `${card.title} armed for ${card.when}.`)}
-                >
-                  Save
-                </Button>
+                {card.optional ? (
+                  <Button
+                    className="h-8 py-0 text-xs"
+                    busy={busy === `${card.kind}:false`}
+                    disabled={locked}
+                    aria-pressed={scheduled}
+                    onClick={() =>
+                      schedule(
+                        card.kind,
+                        !scheduled,
+                        scheduled ? card.optional!.removed : card.optional!.added,
+                      )
+                    }
+                  >
+                    {scheduled ? card.optional.remove : card.optional.add}
+                  </Button>
+                ) : (
+                  <Button
+                    className="h-8 py-0 text-xs"
+                    busy={busy === `${card.kind}:false`}
+                    disabled={locked}
+                    onClick={() => send(card.kind, false, `${card.title} armed for ${card.when}.`)}
+                  >
+                    Save
+                  </Button>
+                )}
                 {card.now ? (
                   <Button
                     variant="honey"
@@ -527,7 +591,7 @@ function Injections({
                       send(
                         card.kind,
                         true,
-                        `${card.title}: done. Watch the board and the owner's phone.`,
+                        card.done ?? `${card.title}: done. Watch the board and the owner's phone.`,
                       )
                     }
                   >
@@ -539,15 +603,15 @@ function Injections({
             </div>
           );
         })}
-        <div className="bg-surface text-ink-2 hidden flex-col justify-center gap-2 p-4 text-xs sm:flex">
+        <div className="bg-surface text-ink-2 hidden flex-col justify-center gap-2 p-4 text-xs sm:col-span-2 sm:flex">
           <p className="text-ink text-sm font-medium">How these play out</p>
           <p>
             Short delivery and the overcharged invoice both play out on Thursday; the smaller charge
-            and the rejected invoice show on the live board.
-          </p>
-          <p>
-            Wednesday&apos;s flash deal is bought by shop agents only within each owner&apos;s
-            limit.
+            and the rejected invoice show on the live board. Wednesday&apos;s flash deal is bought
+            by shop agents only within each owner&apos;s limit. A damage claim is not in the script:
+            add it to Thursday and that much is held back from the supplier until you decide it
+            under Claims, or report one at any time after Thursday. Approve it and PayPal refunds
+            the original payment.
           </p>
         </div>
       </div>
@@ -559,44 +623,128 @@ function Injections({
 // Claims, environment, log
 // ---------------------------------------------------------------------------------------
 
+type ClaimVerdict = {
+  decision: string;
+  refund: { amount_cents: number; paypal_id: string | null; mode: Mode } | null;
+};
+
+/** What the claims agent made of the evidence, in one line. */
+function agentLine(claim: ClaimRow): string | null {
+  const a = claim.assessment as {
+    evidence?: string;
+    confidence?: number;
+    source?: string;
+    decision_reason?: string;
+  };
+  // Nothing read a photo: say why a person has it, and no made-up confidence.
+  if (a.source === "fallback") return a.decision_reason ?? a.evidence ?? null;
+  if (!a.evidence) return null;
+  return typeof a.confidence === "number"
+    ? `${a.evidence} (${Math.round(a.confidence * 100)}% sure)`
+    : a.evidence;
+}
+
 function ClaimsQueue({ onUnauthorized }: { onUnauthorized: () => void }) {
   const { data: claims, mutate } = useSWR<ClaimRow[]>("/api/claims?open_only=true");
   const [busy, setBusy] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<{
+    tone: "good" | "neutral" | "critical";
+    text: string;
+    paypalId?: string | null;
+    mode?: Mode;
+  } | null>(null);
 
-  async function decide(id: string, approve: boolean) {
-    setBusy(id);
+  async function decide(claim: ClaimRow, approve: boolean) {
+    setBusy(claim.id);
+    setOutcome(null);
+    const shop = claim.shop?.name ?? "the shop";
     try {
-      await post(`/api/demo/claims/${id}/decide`, {
+      const verdict = await post<ClaimVerdict>(`/api/demo/claims/${claim.id}/decide`, {
         approve,
         note: approve ? "Approved by operator" : "Rejected by operator",
       });
       await mutate();
+      setOutcome(
+        verdict.refund
+          ? {
+              tone: "good",
+              text: `PayPal refunded ${money(verdict.refund.amount_cents)} to ${shop}, back onto the payment it came from.`,
+              paypalId: verdict.refund.paypal_id,
+              mode: verdict.refund.mode,
+            }
+          : { tone: "neutral", text: `Claim rejected. ${shop} has been told; no money moved.` },
+      );
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) onUnauthorized();
+      else
+        setOutcome({
+          tone: "critical",
+          text: err instanceof ApiError ? err.message : "That didn't go through. Try again.",
+        });
     } finally {
       setBusy(null);
     }
   }
 
   return (
-    <Card>
+    <Card id="claims" className="scroll-mt-24">
       <CardHeader
         title="Claims waiting for a person"
         subtitle="The claims agent refunds clear cases itself and sends the rest here."
         icon={ShieldCheck}
       />
       <div className="px-5 pb-5">
+        {outcome ? (
+          <div
+            role="status"
+            className={cx(
+              "mb-3 flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm",
+              outcome.tone === "good"
+                ? "bg-good-soft text-good-ink"
+                : outcome.tone === "critical"
+                  ? "bg-critical-soft text-critical-ink"
+                  : "bg-surface-2 text-ink-2",
+            )}
+          >
+            {outcome.tone === "critical" ? (
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            ) : (
+              <Check className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            )}
+            <div className="min-w-0 flex-1">
+              <p>{outcome.text}</p>
+              {outcome.paypalId ? (
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                  <span>
+                    Refund <span className="font-mono">{outcome.paypalId}</span>
+                  </span>
+                  {outcome.mode ? <ModeBadge mode={outcome.mode} compact /> : null}
+                  <Link href="/money" className="font-medium underline underline-offset-2">
+                    See it on the Money page
+                  </Link>
+                </p>
+              ) : null}
+            </div>
+            <button
+              onClick={() => setOutcome(null)}
+              aria-label="Dismiss"
+              className="opacity-70 hover:opacity-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
         {!claims || claims.length === 0 ? (
-          <Empty>No open claims. An owner reporting damage without a clear photo lands here.</Empty>
+          outcome ? null : (
+            <Empty>
+              No open claims. An owner reporting damage without a clear photo lands here.
+            </Empty>
+          )
         ) : (
           <ul className="space-y-3">
             {claims.map((claim) => {
               const photo = mediaUrl(claim.photo_url);
-              const assessment = claim.assessment as {
-                evidence?: string;
-                confidence?: number;
-                claim_supported?: boolean;
-              };
+              const says = agentLine(claim);
               return (
                 <li key={claim.id} className="border-line flex gap-3 rounded-xl border p-3">
                   {photo ? (
@@ -613,34 +761,32 @@ function ClaimsQueue({ onUnauthorized }: { onUnauthorized: () => void }) {
                     </div>
                   )}
                   <div className="min-w-0 flex-1 text-sm">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                       <span className="text-ink font-medium">{claim.shop?.name ?? "Shop"}</span>
-                      <span className="text-ink-2">
-                        {humanize(claim.type)} · {claim.qty} · {money(claim.amount_cents)}
+                      <span className="tabular text-ink font-semibold">
+                        {money(claim.amount_cents)}
                       </span>
                     </div>
+                    <p className="text-ink-2 mt-0.5">
+                      {claim.what ?? `${claim.qty} units`}, {humanize(claim.type).toLowerCase()}
+                    </p>
                     {claim.description ? (
                       <p className="text-ink-2 mt-1">&ldquo;{claim.description}&rdquo;</p>
                     ) : null}
-                    {assessment?.evidence ? (
+                    {says ? (
                       <p className="text-muted mt-1 flex items-start gap-1.5 text-xs">
                         <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                        <span>
-                          Claims agent: {assessment.evidence}
-                          {typeof assessment.confidence === "number"
-                            ? ` (${Math.round(assessment.confidence * 100)}% sure)`
-                            : ""}
-                        </span>
+                        <span>Claims agent: {says}</span>
                       </p>
                     ) : claim.note ? (
                       <p className="text-muted mt-1 text-xs">{claim.note}</p>
                     ) : null}
-                    <div className="mt-2 flex gap-2">
+                    <div className="mt-2 flex flex-wrap gap-2">
                       <Button
                         className="h-8 py-0 text-xs"
                         variant="primary"
                         busy={busy === claim.id}
-                        onClick={() => decide(claim.id, true)}
+                        onClick={() => decide(claim, true)}
                       >
                         Refund {money(claim.amount_cents)}
                       </Button>
@@ -648,7 +794,7 @@ function ClaimsQueue({ onUnauthorized }: { onUnauthorized: () => void }) {
                         className="h-8 py-0 text-xs"
                         variant="danger"
                         disabled={busy === claim.id}
-                        onClick={() => decide(claim.id, false)}
+                        onClick={() => decide(claim, false)}
                       >
                         Reject
                       </Button>

@@ -573,8 +573,87 @@ async def settle(ctx: Ctx, invoice_id: uuid.UUID) -> Payment | None:
             from_agent=f"supplier:{supplier.code}",
             to_agent="coordinator:swarm",
             type="PAYMENT_RECORDED",
-            text=f"Thanks, received. {invoice.invoice_number} marked as paid.",
+            text=(
+                f"Thanks, received. {invoice.invoice_number} marked as paid."
+                if not withhold
+                else f"Thanks, received. {invoice.invoice_number} recorded as partly paid "
+                "until the claim is settled."
+            ),
         )
+    return payment
+
+
+async def release_withheld(
+    ctx: Ctx, group_id: uuid.UUID, *, refunded_cents: int = 0
+) -> Payment | None:
+    """Once a claim is decided, settle up with the supplier for what was held back for it.
+
+    A refunded claim leaves nothing more to pay (that money went back to the shop, and
+    `refunded_cents` says how much); a rejected one frees the whole amount. Whatever is still
+    under an open claim stays held.
+    """
+    group = await _group(ctx, group_id)
+    if group.status != GroupOrderStatus.PARTIALLY_SETTLED:
+        return None
+    owed = await ctx.engine.supplier_amount_owed(group)
+    if owed < 0:  # refunded more than was held back: nothing to release
+        return None
+    still_held = min(await open_claims_cents(ctx, group_id), owed)
+    payment = await ctx.engine.payout_supplier(
+        group_id, withhold_cents=still_held, reference="Held back for a claim, now released."
+    )
+    invoice = await ctx.session.scalar(
+        select(Invoice)
+        .where(Invoice.group_order_id == group_id, Invoice.paid_payment_id.is_not(None))
+        .order_by(Invoice.revision.desc())
+    )
+    supplier = group.awarded_supplier
+    if supplier is None:
+        return payment
+    if payment is None:
+        if refunded_cents:
+            await ctx.bus.publish(
+                ctx.session,
+                conversation_id=f"invoice:{group_id}",
+                from_agent="coordinator:swarm",
+                to_agent=f"supplier:{supplier.code}",
+                type="CLAIM_UPHELD",
+                text=(
+                    f"The claim was upheld: the {Money(refunded_cents)} held back went to the "
+                    "shop as a PayPal refund instead. Nothing more is owed on this order."
+                ),
+                payload={"refunded_cents": refunded_cents, "withheld_cents": still_held},
+            )
+        return None
+    released = owed - still_held
+    if invoice is not None and invoice.paypal_invoice_id:
+        await SupplierBilling(ctx, supplier).record_payment(
+            invoice.paypal_invoice_id,
+            Money(released),
+            key=f"invoice-paid:{invoice.id}:{payment.id}",
+            note=f"Released after a claim was settled ({Money(payment.amount_cents)} after the "
+            "Swarm fee).",
+            today=ctx.now().date(),
+        )
+        if not still_held:
+            invoice.paypal_status = "MARKED_AS_PAID"
+        await ctx.session.commit()
+    await ctx.bus.publish(
+        ctx.session,
+        conversation_id=f"invoice:{group_id}",
+        from_agent="coordinator:swarm",
+        to_agent=f"supplier:{supplier.code}",
+        type="PAID",
+        text=(
+            f"The claim was not upheld, so the {Money(released)} held back is yours: paid "
+            f"{Money(payment.amount_cents)} by PayPal Payout."
+        ),
+        payload={
+            "payment_id": str(payment.id),
+            "paypal_id": payment.paypal_id,
+            "withheld_cents": still_held,
+        },
+    )
     return payment
 
 

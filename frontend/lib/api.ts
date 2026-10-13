@@ -322,6 +322,12 @@ export type InvoiceRow = {
     total_cents: number;
   }[];
   paypal_status: string | null;
+  /** Still held back from the supplier while a claim is open. */
+  held_cents: number;
+  /** Refunded to a shop out of money the supplier had not been paid. */
+  credited_cents: number;
+  /** Refunded to a shop after the supplier had been paid for it. */
+  owed_back_cents: number;
   mode: Mode;
   issued_via: string | null;
   paid: boolean;
@@ -352,6 +358,9 @@ export type ClaimRow = {
   id: string;
   type: string;
   qty: number;
+  /** The product's name, and the owner's count in its own words ("2 trays of eggs"). */
+  item: string | null;
+  what: string | null;
   amount_cents: number;
   decision: string;
   description: string | null;

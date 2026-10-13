@@ -48,6 +48,18 @@ export function describeStory(item: StoryItem, names: Names, steps: Step[]): Cap
         return { title: message.text, tone: "good", step: "negotiation" };
       case "NO_AWARD":
         return { title: message.text, tone: "warning", step: "negotiation" };
+      case "CLAIM_OPEN": {
+        const amount = money(Number(message.payload.amount_cents ?? 0));
+        const supplier = name(names, message.payload.supplier);
+        return {
+          title: message.payload.held_back
+            ? `A claim is open, so ${amount} is held back from ${supplier}.`
+            : `A claim is open for ${amount}.`,
+          detail: message.text,
+          tone: "warning",
+          step: message.payload.held_back ? "settlement" : undefined,
+        };
+      }
       case "FLASH_DEAL":
         return {
           title: `${name(names, message.from.split(":")[1])} posts a flash deal to the shops that use it.`,

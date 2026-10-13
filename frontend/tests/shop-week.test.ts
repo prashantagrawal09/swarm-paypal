@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { PaymentRow, ShopDetail, ShopOrderLine, Step, SwapRow } from "@/lib/api";
+import type { ClaimRow, PaymentRow, ShopDetail, ShopOrderLine, Step, SwapRow } from "@/lib/api";
 import { shopWeek } from "@/lib/shop-week";
 
 const WEEK = "2026-10-12";
@@ -121,6 +121,7 @@ describe("a shop's week", () => {
       chargedCents: 13333 + 19185,
       releasedCents: 781,
       refundedCents: 0,
+      claimedCents: 0,
     });
   });
 
@@ -181,5 +182,70 @@ describe("a shop's week", () => {
     });
     expect(held.money).toMatchObject({ heldCents: 14114, chargedCents: 0, releasedCents: 0 });
     expect(held.events.map((event) => event.kind)).toEqual(["proposal", "deal", "hold"]);
+  });
+
+  const claim = (over: Partial<ClaimRow>): ClaimRow =>
+    ({
+      id: "c1",
+      type: "DAMAGED",
+      qty: 2,
+      item: "Eggs (tray of 30)",
+      what: "2 trays of eggs",
+      amount_cents: 1550,
+      decision: "ESCALATED_OPERATOR",
+      photo_url: null,
+      at: "2026-10-15T06:00:00Z",
+      ...over,
+    }) as ClaimRow;
+
+  it("says what the owner reported and that nothing is refunded while a person decides", () => {
+    const open = shopWeek({ shop, orders, payments, swaps, claims: [claim({})], steps });
+    const reported = open.events.find((event) => event.kind === "claim");
+    expect(reported?.title).toBe("Tan Mei Ling reported 2 trays of eggs damaged.");
+    expect(reported?.detail).toBe(
+      "No photo came with it, so a person at Swarm decides. S$15.50 is at stake; nothing is refunded yet.",
+    );
+    expect(open.money.claimedCents).toBe(1550);
+    expect(open.events.some((event) => event.kind === "refund")).toBe(false);
+    // Straight after the delivery it is about.
+    const kinds = open.events.map((event) => event.kind);
+    expect(kinds.indexOf("claim")).toBe(kinds.indexOf("delivery") + 1);
+  });
+
+  it("follows an upheld claim with PayPal's refund", () => {
+    const refund = pay({ kind: "REFUND", amount_cents: 1550, at: "2026-10-18T10:05:00Z" });
+    const upheld = shopWeek({
+      shop,
+      orders,
+      payments: [...payments, refund],
+      swaps,
+      claims: [claim({ decision: "REFUNDED" })],
+      steps,
+    });
+    const kinds = upheld.events.map((event) => event.kind);
+    expect(kinds.slice(-2)).toEqual(["report", "refund"]);
+    expect(upheld.events.find((event) => event.kind === "claim")?.detail).toBe(
+      "Checked and upheld.",
+    );
+    expect(upheld.events.at(-1)?.title).toBe("PayPal refunded S$15.50 for a claim.");
+    expect(upheld.money.claimedCents).toBe(0);
+  });
+
+  it("leaves another week's claims and refunds out", () => {
+    const old = shopWeek({
+      shop,
+      orders,
+      payments: [
+        ...payments,
+        pay({ kind: "REFUND", amount_cents: 900, at: "2026-10-08T03:00:00Z" }),
+      ],
+      swaps,
+      claims: [claim({ at: "2026-10-08T02:00:00Z" })],
+      steps,
+    });
+    expect(old.events.some((event) => event.kind === "claim" || event.kind === "refund")).toBe(
+      false,
+    );
+    expect(old.money.claimedCents).toBe(0);
   });
 });

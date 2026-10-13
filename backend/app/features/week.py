@@ -23,6 +23,7 @@ delivery, a wrong-price invoice, a flash deal, a surplus offer and an emergency.
 from __future__ import annotations
 
 import logging
+import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -43,6 +44,7 @@ from app.db.enums import (
 from app.db.models import ApprovalRequest, AuditLog, GroupOrder, Shop
 from app.features import (
     approvals,
+    claims,
     delivery,
     emergency_borrow,
     flash_deals,
@@ -83,6 +85,10 @@ DEFAULT_SCENARIO: dict[str, Any] = {
     },
     "surplus": {"shop": "cafe-mei", "product": "milk-full-cream-1l", "qty": 8, "days_left": 2},
     "emergency": {"shop": "kopi-corner", "product": "eggs-tray-30", "qty": 1},
+    # Not part of the scripted week unless scheduled from the demo panel. Scheduled, it is
+    # reported on Thursday after the delivery is charged and before the supplier is paid, so
+    # that much is held back from the payout; the panel can also file one at any time.
+    "damage_claim": {"shop": "bakery-lim", "product": "eggs-tray-30", "qty": 2, "scheduled": False},
 }
 
 
@@ -139,7 +145,8 @@ STEP_KEYS = tuple(step.key for step in STEPS)
 
 async def scenario(ctx: Ctx) -> dict[str, Any]:
     stored = await get_state(ctx.session, SCENARIO_KEY)
-    return stored if stored is not None else dict(DEFAULT_SCENARIO)
+    # Anything added to the defaults since this scenario was saved is filled in.
+    return {**DEFAULT_SCENARIO, **(stored or {})}
 
 
 async def save_scenario(ctx: Ctx, value: dict[str, Any]) -> None:
@@ -437,10 +444,14 @@ class WeekRunner:
         return summary
 
     async def _settlement(self) -> dict[str, Any]:
-        wrong = (await scenario(self.ctx)).get("wrong_price_invoice")
+        plan = await scenario(self.ctx)
+        wrong = plan.get("wrong_price_invoice")
+        damage = plan.get("damage_claim") or {}
         summary: dict[str, Any] = {}
         for group in await self._groups(GroupOrderStatus.HELD, GroupOrderStatus.OUT_FOR_DELIVERY):
             captured = await delivery.finalize(self.ctx, group.id)
+            if damage.get("scheduled"):
+                await self._scheduled_claim(group.id, damage)
             markup = None
             if wrong and wrong.get("category") == group.category.value:
                 markup = {wrong["product"]: int(wrong.get("markup_cents", 25))}
@@ -457,6 +468,24 @@ class WeekRunner:
                 ],
             }
         return summary
+
+    async def _scheduled_claim(self, group_id: uuid.UUID, damage: dict[str, Any]) -> None:
+        """Charged, not yet paid out: the moment an owner's damage report holds money back."""
+        group = await group_buy.load_group(self.ctx.session, group_id)
+        product = damage.get("product")
+        delivered = any(
+            so.shop.code == damage.get("shop")
+            and so.status == ShopOrderStatus.CAPTURED
+            and any(
+                line.item.product_code == product and (line.qty_delivered or 0) > 0
+                for line in so.lines
+            )
+            for so in group.shop_orders
+        )
+        if delivered:
+            await claims.report_damage(
+                self.ctx, str(damage["shop"]), str(product), int(damage.get("qty", 1))
+            )
 
     async def _surplus(self) -> dict[str, Any]:
         config = (await scenario(self.ctx)).get("surplus")

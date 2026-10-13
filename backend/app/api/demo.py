@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.api.deps import CtxDep, require_demo_key
+from app.db.models import Payment
 from app.demo import controls
 from app.features import claims
 
@@ -75,4 +76,19 @@ async def decide_claim(
     claim_id: uuid.UUID, body: ClaimDecisionIn, ctx: CtxDep, _: Guard
 ) -> dict[str, Any]:
     claim = await claims.operator_decision(ctx, claim_id, body.approve, body.note)
-    return {"id": str(claim.id), "decision": claim.decision.value}
+    refund = (
+        await ctx.session.get(Payment, claim.refund_payment_id) if claim.refund_payment_id else None
+    )
+    return {
+        "id": str(claim.id),
+        "decision": claim.decision.value,
+        "refund": (
+            {
+                "amount_cents": refund.amount_cents,
+                "paypal_id": refund.paypal_id,
+                "mode": refund.paypal_mode.value,
+            }
+            if refund
+            else None
+        ),
+    }

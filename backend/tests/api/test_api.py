@@ -222,3 +222,118 @@ async def test_timeline_is_the_recorded_week_and_reset_clears_it(
         assert (await api.get("/api/timeline")).json()["events"] == []
     finally:
         await engine.dispose()
+
+
+async def test_a_damage_claim_from_the_panel_waits_for_a_person_then_refunds(client):
+    api, _ = client
+    claim_now = {"kind": "damage_claim", "params": {}, "now": True}
+
+    # Nothing has been delivered yet: the rule says why, instead of a server error.
+    early = await api.post("/api/demo/inject", json=claim_now)
+    assert early.status_code == 409
+    assert "Run Thursday's settlement first" in early.json()["detail"]
+
+    for _step in range(5):  # Monday to Thursday's settlement
+        await api.post("/api/demo/advance")
+    filed = (await api.post("/api/demo/inject", json=claim_now)).json()
+    assert filed["scenario"] == {
+        "shop": "bakery-lim",
+        "product": "eggs-tray-30",
+        "qty": 2,
+        "scheduled": False,  # reporting one now doesn't add one to the week
+    }
+    # No photo came with it, so nobody is refunded until a person has looked.
+    assert filed["claim"]["decision"] == "ESCALATED_OPERATOR"
+    waiting = (await api.get("/api/claims", params={"open_only": True})).json()
+    assert [c["id"] for c in waiting] == [filed["claim"]["id"]]
+    row = waiting[0]
+    assert row["shop"]["code"] == "bakery-lim" and row["qty"] == 2
+    # The queue says what is being asked for, in words and in money, and why a person has it.
+    assert row["what"] == "2 trays of eggs" and row["amount_cents"] == 2 * 775
+    assert row["assessment"]["decision_reason"].startswith("No photo came with this claim")
+    before = (await api.get("/api/overview")).json()["stats"]
+    assert before["refunds_cents"] == 0
+
+    decided = await api.post(
+        f"/api/demo/claims/{filed['claim']['id']}/decide", json={"approve": True}
+    )
+    assert decided.json()["decision"] == "REFUNDED"
+    refund = decided.json()["refund"]
+    assert refund["amount_cents"] == 1550 and refund["mode"] == "SIMULATED" and refund["paypal_id"]
+    after = (await api.get("/api/overview")).json()["stats"]
+    assert after["refunds_cents"] == 2 * 775  # two trays of eggs at the agreed price
+    assert after["books_balanced"] is True
+    usage = {row["key"]: row for row in (await api.get("/api/paypal-usage")).json()}
+    assert usage["refund"]["simulated"] == 1 and usage["refund"]["amount_cents"] == 1550
+
+
+async def test_a_claim_scheduled_from_the_panel_holds_money_back_on_thursday(client):
+    api, _ = client
+    armed = await api.post(
+        "/api/demo/inject", json={"kind": "damage_claim", "params": {"scheduled": True}}
+    )
+    assert armed.json()["scenario"]["scheduled"] is True and "claim" not in armed.json()
+    assert (await api.get("/api/demo/state")).json()["scenario"]["damage_claim"]["scheduled"]
+
+    for _step in range(5):  # Monday to Thursday's settlement
+        await api.post("/api/demo/advance")
+    waiting = (await api.get("/api/claims", params={"open_only": True})).json()
+    assert [(c["shop"]["code"], c["what"], c["amount_cents"]) for c in waiting] == [
+        ("bakery-lim", "2 trays of eggs", 1550)
+    ]
+    flow = (await api.get("/api/money-flow")).json()
+    assert flow["owed_cents"] == 1550 and flow["refunds_cents"] == 0  # held, not yet moved
+
+    async def dairy_invoice() -> dict:
+        rows = (await api.get("/api/suppliers/johorfarm/invoices")).json()
+        return next(r for r in rows if r["paid"] and r["number"].endswith("DAI-R2"))
+
+    def claim_effects(row: dict) -> tuple[int, int, int]:
+        return row["held_cents"], row["credited_cents"], row["owed_back_cents"]
+
+    assert claim_effects(await dairy_invoice()) == (1550, 0, 0)
+
+    await api.post(f"/api/demo/claims/{waiting[0]['id']}/decide", json={"approve": True})
+    flow = (await api.get("/api/money-flow")).json()
+    assert flow["owed_cents"] == 0 and flow["refunds_cents"] == 1550
+    assert (await api.get("/api/overview")).json()["stats"]["books_balanced"] is True
+    assert claim_effects(await dairy_invoice()) == (0, 1550, 0)
+
+    # A second claim on the same order, upheld after the supplier has been paid: that part is
+    # owed back, and it is not mixed up with what was held.
+    late = await api.post(
+        "/api/demo/inject",
+        json={
+            "kind": "damage_claim",
+            "params": {"shop": "cafe-mei", "product": "milk-full-cream-1l", "qty": 3},
+            "now": True,
+        },
+    )
+    assert late.json()["claim"]["amount_cents"] == 3 * 186
+    assert claim_effects(await dairy_invoice()) == (0, 1550, 0)  # nothing left to hold
+    await api.post(f"/api/demo/claims/{late.json()['claim']['id']}/decide", json={"approve": True})
+    assert claim_effects(await dairy_invoice()) == (0, 1550, 558)
+    assert (await api.get("/api/money-flow")).json()["owed_cents"] == -558
+    assert (await api.get("/api/overview")).json()["stats"]["books_balanced"] is True
+
+    # Reset puts the week back to its script: nothing scheduled.
+    await api.post("/api/demo/reset")
+    assert (await api.get("/api/demo/state")).json()["scenario"]["damage_claim"] == {
+        "shop": "bakery-lim",
+        "product": "eggs-tray-30",
+        "qty": 2,
+        "scheduled": False,
+    }
+
+
+async def test_saved_scenarios_pick_up_surprises_added_later(client, db):
+    from app.db.app_state import set_state
+    from app.features.week import SCENARIO_KEY
+
+    api, _ = client
+    await set_state(db, SCENARIO_KEY, {"surplus": None, "emergency": {"shop": "teh-time"}})
+    await db.commit()
+    scenario = (await api.get("/api/demo/state")).json()["scenario"]
+    assert scenario["damage_claim"]["shop"] == "bakery-lim"  # filled in from the defaults
+    assert scenario["surplus"] is None  # switched off on purpose: stays off
+    assert scenario["emergency"] == {"shop": "teh-time"}

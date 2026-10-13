@@ -8,8 +8,11 @@ import {
   CheckCircle2,
   FileText,
   Gauge,
+  Hourglass,
+  type LucideIcon,
   Swords,
   Truck,
+  Undo2,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
@@ -313,6 +316,24 @@ export function InvoiceCard({ invoice }: { invoice: InvoiceRow }) {
           ) : null}
         </ul>
       ) : null}
+      {invoice.held_cents > 0 ? (
+        <ClaimNote icon={Hourglass}>
+          {money(invoice.held_cents)} is held back until a person decides an open claim. The rest
+          has been paid.
+        </ClaimNote>
+      ) : null}
+      {invoice.credited_cents > 0 ? (
+        <ClaimNote icon={Undo2}>
+          {money(invoice.credited_cents)} was held back for a claim and went back to the shop
+          instead.
+        </ClaimNote>
+      ) : null}
+      {invoice.owed_back_cents > 0 ? (
+        <ClaimNote icon={Undo2}>
+          {money(invoice.owed_back_cents)} was refunded to a shop for a claim after this invoice was
+          paid, so the supplier owes that back.
+        </ClaimNote>
+      ) : null}
       <div className="text-muted mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
         <span>{dayTime(invoice.at)}</span>
         {invoice.paypal_invoice_id ? (
@@ -335,5 +356,15 @@ export function InvoiceCard({ invoice }: { invoice: InvoiceRow }) {
         </Link>
       </div>
     </li>
+  );
+}
+
+/** What a claim did to an invoice's payment. */
+function ClaimNote({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
+  return (
+    <p className="text-ink-2 mt-2 flex items-start gap-1.5 text-sm">
+      <Icon className="text-warning-ink mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <span>{children}</span>
+    </p>
   );
 }

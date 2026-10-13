@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.agents.claims_agent import ClaimAssessment, ClaimsAgent, decide
+from app.agents.claims_agent import NO_PHOTO, NOT_REVIEWED, ClaimAssessment, ClaimsAgent, decide
 from app.db.enums import Category, ClaimDecision, ClaimType, PaymentKind
 from app.db.models import Claim, GroupOrderLine, Payment
 from app.features import group_buy
@@ -64,6 +64,77 @@ def test_code_decides_from_the_assessment(assessed, claimed, price, decision, re
     assert (outcome.decision, outcome.refund_cents) == (decision, refund)
 
 
+NOTHING_SEEN = assessment(
+    issue_type="UNCLEAR", claim_supported=False, confidence=0.0, qty_affected=0
+)
+
+
+def test_an_unreviewed_claim_puts_the_owners_count_at_stake():
+    outcome = decide(claim(qty=3), line(800), NOTHING_SEEN, reviewed=False)
+    assert outcome.decision == ClaimDecision.ESCALATED_OPERATOR
+    assert (outcome.qty, outcome.refund_cents, outcome.reason) == (3, 2400, NO_PHOTO)
+
+
+def test_an_unreviewed_claim_never_puts_more_at_stake_than_was_delivered():
+    outcome = decide(claim(qty=40), line(800, delivered=6), NOTHING_SEEN, reviewed=False)
+    assert (outcome.qty, outcome.refund_cents) == (6, 4800)
+
+
+def test_a_photo_nothing_could_read_is_described_as_unchecked():
+    with_photo = claim(qty=1)
+    with_photo.photo_url = "/api/media/abc"
+    outcome = decide(with_photo, line(800), NOTHING_SEEN, reviewed=False)
+    assert (outcome.refund_cents, outcome.reason) == (800, NOT_REVIEWED)
+
+
+def test_when_the_photo_is_unclear_a_person_rules_on_what_the_owner_claimed():
+    # The model made out one damaged unit of the three claimed, but wasn't sure of anything.
+    unsure = assessment(issue_type="UNCLEAR", confidence=0.3, qty_affected=1)
+    outcome = decide(claim(qty=3), line(800), unsure)
+    assert (outcome.decision, outcome.refund_cents) == (ClaimDecision.ESCALATED_OPERATOR, 2400)
+
+
+def test_a_confirmed_problem_nobody_could_count_goes_to_the_supplier_at_the_owners_count():
+    uncounted = assessment(qty_affected=0)
+    outcome = decide(claim(qty=3), line(800), uncounted)
+    assert (outcome.decision, outcome.refund_cents) == (ClaimDecision.ESCALATED_SUPPLIER, 2400)
+
+
+def test_every_claim_left_open_has_money_at_stake():
+    """An open claim's amount is what is held back from the supplier, so it is never zero."""
+    open_decisions = {ClaimDecision.ESCALATED_OPERATOR, ClaimDecision.ESCALATED_SUPPLIER}
+    seen = set()
+    for issue in ("SHORT", "DAMAGED", "EXPIRED", "WRONG_ITEM", "NONE", "UNCLEAR"):
+        for supported in (True, False):
+            for confidence in (0.0, 0.3, 0.5, 0.7, 0.8, 0.95):
+                for counted in (0, 1, 3, 30):
+                    for reviewed in (True, False):
+                        outcome = decide(
+                            claim(qty=3),
+                            line(800),
+                            assessment(
+                                issue_type=issue,
+                                claim_supported=supported,
+                                confidence=confidence,
+                                qty_affected=counted,
+                            ),
+                            reviewed=reviewed,
+                        )
+                        seen.add(outcome.decision)
+                        if outcome.decision in open_decisions:
+                            assert 0 < outcome.refund_cents <= 3 * 800
+                        elif outcome.decision == ClaimDecision.REJECTED:
+                            assert outcome.refund_cents == 0
+                        else:  # refunded on the spot: within the limit, never above the claim
+                            assert 0 < outcome.refund_cents <= min(3 * 800, 5000)
+    assert seen == {*open_decisions, ClaimDecision.REJECTED, ClaimDecision.AUTO_REFUNDED}
+
+
+def test_a_supported_claim_is_refunded_for_what_the_photo_shows_not_what_was_claimed():
+    outcome = decide(claim(qty=3), line(800), assessment(qty_affected=1))
+    assert (outcome.decision, outcome.refund_cents) == (ClaimDecision.AUTO_REFUNDED, 800)
+
+
 @pytest.mark.db
 async def test_confident_small_claim_is_refunded_through_paypal(db, world, clock, engine, bus):
     group = await awarded(db, DEMO_WEEK, clock, Category.PRODUCE)
@@ -119,3 +190,7 @@ async def test_no_photo_means_a_person_decides(db, world, clock, engine, bus):
     )
     assert result.decision == ClaimDecision.ESCALATED_OPERATOR
     assert result.refund_payment_id is None
+    # Nothing is refunded, but what the owner claimed is now at stake until a person decides.
+    assert result.amount_cents == so.lines[0].agreed_unit_price_cents
+    assert result.ai_assessment["decision_reason"] == NO_PHOTO
+    assert result.ai_assessment["evidence"] == "No photo was sent."

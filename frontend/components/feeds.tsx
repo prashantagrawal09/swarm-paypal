@@ -103,6 +103,8 @@ const TYPE_LABEL: Record<string, string> = {
   EMERGENCY_REQUEST: "Emergency",
   FLASH_DEAL: "Flash deal",
   CLAIM: "Claim",
+  CLAIM_OPEN: "Claim open",
+  CLAIM_UPHELD: "Claim upheld",
   CLAIM_DECISION: "Claim decision",
   OWNER_REPLY: "Owner",
 };

@@ -229,6 +229,7 @@ export function ShopView({ code }: { code: string }) {
               orders={orders}
               payments={payments}
               swaps={swaps}
+              claims={claims}
               steps={state?.steps ?? []}
               productName={productName}
             />

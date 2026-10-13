@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.agents.claims_agent import ClaimAssessment
 from app.db.enums import (
@@ -14,10 +14,20 @@ from app.db.enums import (
     ClaimDecision,
     ClaimType,
     FlashDealStatus,
+    GroupOrderStatus,
     ShopOrderStatus,
     SwapStatus,
 )
-from app.db.models import ApprovalRequest, GroupOrderLine, Shop, ShopOrder
+from app.db.models import (
+    AgentMessage,
+    ApprovalRequest,
+    Claim,
+    GroupOrder,
+    GroupOrderLine,
+    Invoice,
+    Shop,
+    ShopOrder,
+)
 from app.features import (
     approvals,
     claims,
@@ -26,10 +36,11 @@ from app.features import (
     emergency_borrow,
     flash_deals,
     group_buy,
+    invoice_checker,
     surplus_swap,
 )
 from app.features.surplus_swap import surplus_unit_price
-from app.features.week import WeekRunner
+from app.features.week import WeekRunner, save_scenario, scenario
 from app.llm.client import ScriptedLLM
 from app.money import ledger, rules
 from tests.conftest import DEMO_WEEK
@@ -175,6 +186,140 @@ async def test_unclear_claim_goes_to_supplier_then_operator(db, world, ctx, runt
     assert disputed.decision == ClaimDecision.ESCALATED_OPERATOR
     resolved = await claims.operator_decision(ctx, disputed.id, approve=True, note="Checked")
     assert resolved.decision == ClaimDecision.REFUNDED
+    await books_ok(db)
+
+
+async def test_a_claim_without_a_photo_is_held_back_from_the_suppliers_payout(db, world, ctx):
+    """Filed after the delivery is charged and before the supplier is paid: until a person
+    rules, the supplier's payout is short by exactly what the owner claimed."""
+    runner = WeekRunner(ctx, DEMO_WEEK)
+    for key in ("forecasts", "negotiation", "holds", "delivery"):
+        await runner.run(key)
+    out = (GroupOrderStatus.HELD, GroupOrderStatus.OUT_FOR_DELIVERY)
+    for group_id in list(await db.scalars(select(GroupOrder.id).where(GroupOrder.status.in_(out)))):
+        await delivery.finalize(ctx, group_id)
+
+    lines = await claims.claimable_lines(ctx, "bakery-lim")
+    eggs = next(line for line in lines if line.item.product_code == "eggs-tray-30")
+    claim = await claims.file_claim(ctx, "bakery-lim", eggs.id, ClaimType.DAMAGED, 2, "cracked")
+    at_stake = 2 * eggs.agreed_unit_price_cents
+    assert claim.decision == ClaimDecision.ESCALATED_OPERATOR
+    assert claim.amount_cents == at_stake and claim.refund_payment_id is None
+
+    group_id = (await db.get(ShopOrder, claim.shop_order_id)).group_order_id
+    assert await invoice_checker.open_claims_cents(ctx, group_id) == at_stake
+    await invoice_checker.run_cycle(ctx, group_id)
+    group = await group_buy.load_group(db, group_id)
+    charged = sum(so.captured_amount_cents for so in group.shop_orders)
+    paid = sum(payout["gross_cents"] for payout in group.summary["payouts"])
+    assert charged - paid == at_stake
+
+    resolved = await claims.operator_decision(ctx, claim.id, approve=True)
+    assert resolved.decision == ClaimDecision.REFUNDED and resolved.amount_cents == at_stake
+    assert await invoice_checker.open_claims_cents(ctx, group_id) == 0
+    await books_ok(db)
+
+
+async def _schedule_damage_claim(ctx):
+    plan = await scenario(ctx)
+    await save_scenario(ctx, {**plan, "damage_claim": {**plan["damage_claim"], "scheduled": True}})
+
+
+async def _egg_claim(db) -> tuple[Claim, GroupOrder]:
+    claim = await db.scalar(select(Claim))
+    shop_order = await db.get(ShopOrder, claim.shop_order_id)
+    return claim, await group_buy.load_group(db, shop_order.group_order_id)
+
+
+def _paid_gross(group: GroupOrder) -> list[int]:
+    return [payout["gross_cents"] for payout in group.summary.get("payouts", [])]
+
+
+async def test_the_scripted_week_files_no_claims_unless_one_is_scheduled(db, world, ctx):
+    await _through_settlement(ctx)
+    assert await db.scalar(select(func.count()).select_from(Claim)) == 0
+
+
+async def test_a_scheduled_claim_is_held_back_then_refunded_out_of_the_held_money(db, world, ctx):
+    await _schedule_damage_claim(ctx)
+    await _through_settlement(ctx)
+    claim, group = await _egg_claim(db)
+    assert claim.decision == ClaimDecision.ESCALATED_OPERATOR and claim.amount_cents == 2 * 775
+
+    # The supplier was paid for everything except the goods in dispute.
+    charged = sum(so.captured_amount_cents for so in group.shop_orders)
+    assert group.status == GroupOrderStatus.PARTIALLY_SETTLED
+    assert _paid_gross(group) == [charged - 1550]
+    invoice = await db.scalar(select(Invoice).where(Invoice.paid_payment_id.is_not(None)))
+    told = await db.scalar(select(AgentMessage).where(AgentMessage.type == "CLAIM_OPEN"))
+    assert told.payload["held_back"] is True and "Hold S$15.50 back" in told.text
+    paid = await db.scalar(
+        select(AgentMessage).where(
+            AgentMessage.type == "PAID", AgentMessage.conversation_id == f"invoice:{group.id}"
+        )
+    )
+    assert "holding S$15.50 until open claims are settled" in paid.text
+    assert invoice is not None
+
+    resolved = await claims.operator_decision(ctx, claim.id, approve=True)
+    assert resolved.decision == ClaimDecision.REFUNDED and resolved.amount_cents == 1550
+    group = await group_buy.load_group(db, group.id)
+    # The refund came out of the held money: nothing more is paid, nothing is owed either way.
+    assert group.status == GroupOrderStatus.SETTLED
+    assert _paid_gross(group) == [charged - 1550]
+    assert await ctx.engine.supplier_amount_owed(group) == 0
+    upheld = await db.scalar(select(AgentMessage).where(AgentMessage.type == "CLAIM_UPHELD"))
+    assert (
+        upheld.to_agent == "supplier:johorfarm" and "S$15.50 held back went to the" in upheld.text
+    )
+    await books_ok(db)
+
+    # The rest of the week runs as usual with that order closed.
+    runner = WeekRunner(ctx, DEMO_WEEK)
+    for key in ("surplus", "emergency", "report"):
+        await runner.run(key)
+    await books_ok(db)
+
+
+async def test_a_rejected_claim_releases_the_held_money_to_the_supplier(db, world, ctx):
+    await _schedule_damage_claim(ctx)
+    await _through_settlement(ctx)
+    claim, group = await _egg_claim(db)
+    charged = sum(so.captured_amount_cents for so in group.shop_orders)
+    invoices = list(await db.scalars(select(Invoice).where(Invoice.group_order_id == group.id)))
+    assert [i.paypal_status for i in invoices if i.paid_payment_id] == ["PARTIALLY_PAID"]
+
+    rejected = await claims.operator_decision(ctx, claim.id, approve=False, note="Looked fine")
+    assert rejected.decision == ClaimDecision.REJECTED and rejected.refund_payment_id is None
+    group = await group_buy.load_group(db, group.id)
+    assert group.status == GroupOrderStatus.SETTLED
+    assert _paid_gross(group) == [charged - 1550, 1550]
+    assert await ctx.engine.supplier_amount_owed(group) == 0
+    for invoice in invoices:
+        await db.refresh(invoice)
+    assert [i.paypal_status for i in invoices if i.paid_payment_id] == ["MARKED_AS_PAID"]
+    released = await db.scalar(
+        select(AgentMessage)
+        .where(AgentMessage.type == "PAID", AgentMessage.conversation_id == f"invoice:{group.id}")
+        .order_by(AgentMessage.seq.desc())
+    )
+    assert "held back is yours" in released.text
+    await books_ok(db)
+
+    # Deciding it again changes nothing: no second release.
+    await claims.operator_decision(ctx, claim.id, approve=True)
+    assert _paid_gross(await group_buy.load_group(db, group.id)) == [charged - 1550, 1550]
+
+
+async def test_a_claim_upheld_after_the_supplier_was_paid_leaves_the_supplier_owing(db, world, ctx):
+    await _through_settlement(ctx)
+    claim = await claims.report_damage(ctx, "bakery-lim", "eggs-tray-30", 2)
+    told = await db.scalar(select(AgentMessage).where(AgentMessage.type == "CLAIM_OPEN"))
+    assert told.payload["held_back"] is False and "already been paid" in told.text
+    await claims.operator_decision(ctx, claim.id, approve=True)
+    _, group = await _egg_claim(db)
+    assert group.status == GroupOrderStatus.SETTLED
+    assert await ctx.engine.supplier_amount_owed(group) == -1550
     await books_ok(db)
 
 

@@ -115,7 +115,7 @@ flowchart LR
 | Partial capture with `final_capture` | Thursday delivery | Shops pay only for what arrived; the rest of the hold is released. |
 | Void | Cancelled orders | Every hold is released if a group order is cancelled. |
 | Reauthorize | Late deliveries | Holds older than the 3-day honor period are refreshed before capture. |
-| Refund | Claims | Damaged or expired goods are refunded from the original capture. |
+| Refund | Claims | Damaged or expired goods are refunded from the original capture. While a claim is open, that much is held back from the supplier's payout. |
 | Payouts | Supplier settlement, swap sellers | The platform pays suppliers (minus a 2% fee) and shops that sold surplus. |
 | Invoicing | Supplier agents (via PayPal Agent Toolkit) | Suppliers bill the platform; Swarm checks every line before paying. |
 | Webhooks | `/webhooks/paypal` | Signature-verified, de-duplicated payment events keep the ledger in sync. |
@@ -159,7 +159,7 @@ flowchart LR
 | Shop agent (one per shop) | write the Monday "same as usual?" message, explain awards and substitutions, turn owner messages into an intent | quantities (forecast = 4-week average), whether a brand substitute is allowed (owner preferences + identical specs), the spending limit, every amount |
 | Supplier agent (one per supplier) | pick one pricing option per round and write the reply, in the supplier's style | the options themselves: never below the secret floor, never above its last quote, within stock |
 | Coordinator | write requests for quotes, counter-offers and the award announcement | pooling, rounds, what each supplier is told (best competing price only), the winner (lowest landed cost among reliable suppliers) |
-| Claims agent | read the owner's photo (vision) and say what it shows, with a confidence | the refund: units x agreed price; automatic only when confident, matching and under S$50 |
+| Claims agent | read the owner's photo (vision) and say what it shows, with a confidence | the refund: units x agreed price; automatic only when confident, matching and under S$50. With no photo, or a photo nothing could read, a person decides and the owner's own count is what is at stake |
 
 Safety rules, enforced in code:
 - Every agent action passes a `validate()` gate first; anything outside the agent's tools or
@@ -305,6 +305,10 @@ has a **Weekly statement** an owner can print or save as a PDF. In short:
 - Free hosting sleeps when idle; the first request after a while takes about a minute.
 - Supplier payouts settle immediately in the sandbox. In production they would wait for
   payout status webhooks before the books mark a supplier as paid.
+- A claim opened before the supplier is paid holds that money back, and the refund comes out
+  of it. A claim upheld after the supplier was paid in full leaves the supplier owing Swarm
+  that amount: the ledger and the Money page show it, but Swarm does not yet take it off the
+  supplier's next payout by itself.
 
 ## Roadmap
 

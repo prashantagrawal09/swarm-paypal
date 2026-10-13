@@ -3,14 +3,17 @@
 /** The live board: the week's headline, the neighbourhood map, the deals, and both feeds. */
 
 import {
+  ArrowRight,
   BookCheck,
   BookX,
   CircleDollarSign,
+  Hourglass,
   Landmark,
   Leaf,
   MessagesSquare,
   Wallet,
 } from "lucide-react";
+import Link from "next/link";
 import useSWR from "swr";
 
 import { AgentFeed, PayPalFeed } from "@/components/feeds";
@@ -22,7 +25,7 @@ import { SwarmMap } from "@/components/swarm-map";
 import { AnimatedNumber, HeroFigure, StatTile } from "@/components/stats";
 import { Card, CardHeader, Empty, StatusPill } from "@/components/ui";
 import { WeekStepper } from "@/components/week-stepper";
-import type { GroupOrder, Overview, ShopSummary, SupplierSummary } from "@/lib/api";
+import type { ClaimRow, GroupOrder, Overview, ShopSummary, SupplierSummary } from "@/lib/api";
 import { kg, money, moneyWhole, shortDate } from "@/lib/format";
 
 export function LiveBoard() {
@@ -30,6 +33,7 @@ export function LiveBoard() {
   const { data: shops } = useSWR<ShopSummary[]>("/api/shops");
   const { data: suppliers } = useSWR<SupplierSummary[]>("/api/suppliers");
   const { data: groups } = useSWR<GroupOrder[]>("/api/group-orders");
+  const { data: waiting } = useSWR<ClaimRow[]>("/api/claims?open_only=true");
 
   if (error && !overview) {
     return (
@@ -140,6 +144,7 @@ export function LiveBoard() {
             <div className="px-4 py-5 sm:px-6">
               <WeekStepper steps={overview.steps} running={overview.running} />
             </div>
+            {waiting?.length ? <WaitingOnAPerson claims={waiting} /> : null}
           </>
         ) : (
           <div className="h-40" />
@@ -211,6 +216,34 @@ export function LiveBoard() {
           <NeighbourActivity />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Claims the agents could not settle: the one thing on this board a person has to do. */
+function WaitingOnAPerson({ claims }: { claims: ClaimRow[] }) {
+  const total = claims.reduce((sum, claim) => sum + claim.amount_cents, 0);
+  const first = claims[0];
+  return (
+    <div className="border-line bg-warning-soft/60 flex flex-wrap items-center gap-x-3 gap-y-2 border-t px-4 py-3 sm:px-6">
+      <Hourglass className="text-warning-ink h-4 w-4 shrink-0" aria-hidden />
+      <p className="text-ink min-w-0 flex-1 text-sm">
+        <span className="font-medium">
+          {claims.length === 1 ? "A claim is" : `${claims.length} claims are`} waiting for a person.
+        </span>{" "}
+        <span className="text-ink-2">
+          {first.shop?.name ?? "A shop"} reported {first.what ?? `${first.qty} units`}{" "}
+          {first.type.toLowerCase().replaceAll("_", " ")}
+          {claims.length > 1 ? `, and ${claims.length - 1} more` : ""}. {money(total)} is at stake
+          and nothing is refunded until someone decides.
+        </span>
+      </p>
+      <Link
+        href="/demo#claims"
+        className="text-ink inline-flex items-center gap-1 text-sm font-medium underline underline-offset-2"
+      >
+        Decide it <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+      </Link>
     </div>
   );
 }

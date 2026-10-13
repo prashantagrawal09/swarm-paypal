@@ -13,9 +13,11 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.db.enums import ClaimDecision, ClaimType, ShopOrderStatus
+from app.db.enums import ClaimDecision, ClaimType, GroupOrderStatus, ShopOrderStatus
 from app.db.models import Claim, GroupOrder, GroupOrderLine, MediaBlob, Shop, ShopOrder
+from app.features import invoice_checker
 from app.features.context import Ctx
+from app.features.products import describe
 from app.money import rules
 from app.money.amount import Money
 
@@ -86,7 +88,85 @@ async def file_claim(
     claim = await ctx.claims_agent().process(ctx.session, ctx.engine, claim.id, photo, media_type)
     if claim.decision == ClaimDecision.ESCALATED_SUPPLIER:
         claim = await supplier_review(ctx, claim.id)
+    if claim.decision in invoice_checker.OPEN_CLAIMS and claim.amount_cents > 0:
+        await _tell_coordinator(ctx, claim, shop, line)
     return claim
+
+
+async def _tell_coordinator(ctx: Ctx, claim: Claim, shop: Shop, line: GroupOrderLine) -> None:
+    """An open claim puts money at stake: say so where the other agents can see it."""
+    group = await ctx.session.scalar(
+        select(GroupOrder)
+        .join(ShopOrder, ShopOrder.group_order_id == GroupOrder.id)
+        .where(ShopOrder.id == claim.shop_order_id)
+        .options(selectinload(GroupOrder.awarded_supplier))
+    )
+    supplier = group.awarded_supplier if group else None
+    if group is None or supplier is None:
+        return
+    await ctx.session.refresh(line, ["item"])
+    unpaid = group.status not in (GroupOrderStatus.SETTLED, GroupOrderStatus.PARTIALLY_SETTLED)
+    what = describe(line.item.product_code, claim.qty_affected)
+    amount = Money(claim.amount_cents)
+    await ctx.bus.publish(
+        ctx.session,
+        # With the order's invoice and payout, which is what it changes.
+        conversation_id=f"invoice:{group.id}",
+        from_agent="claims:swarm",
+        to_agent="coordinator:swarm",
+        type="CLAIM_OPEN",
+        text=(
+            f"{shop.name} reports {what} {claim.type.value.lower().replace('_', ' ')}. I can't "
+            f"settle it myself, so a person will decide. "
+            + (
+                f"Hold {amount} back from {supplier.name}'s payout until then."
+                if unpaid
+                else f"{amount} is at stake; {supplier.name} has already been paid for this order."
+            )
+        ),
+        payload={
+            "claim_id": str(claim.id),
+            "amount_cents": claim.amount_cents,
+            "supplier": supplier.code,
+            "held_back": unpaid,
+        },
+    )
+
+
+async def report_damage(
+    ctx: Ctx, shop_code: str, product: str, qty: int, *, note: str = ""
+) -> Claim | None:
+    """An owner says some of `product` from their latest charged delivery arrived damaged, and
+    sends no photo, so a person decides. None when no such delivery has been charged yet."""
+    lines = await claimable_lines(ctx, shop_code)
+    line = next((item for item in lines if item.item.product_code == product), None)
+    if line is None:
+        return None
+    qty = max(1, min(qty, line.qty_delivered or 0))
+    said = f"{describe(product, qty)} arrived damaged."
+    # The owner's side of the chat, so their phone shows what the agent is answering.
+    await ctx.bus.publish(
+        ctx.session,
+        conversation_id=f"owner:{shop_code}",
+        from_agent=f"owner:{shop_code}",
+        to_agent=f"shop:{shop_code}",
+        type="OWNER_REPLY",
+        text=said[0].upper() + said[1:],
+        payload={"simulated_owner": True},
+    )
+    description = f"{said} {note}".strip()
+    return await file_claim(ctx, shop_code, line.id, ClaimType.DAMAGED, qty, description)
+
+
+async def _settle_up(ctx: Ctx, claim: Claim) -> None:
+    """A decided claim no longer holds anything back from the supplier's payout."""
+    shop_order = await ctx.session.get(ShopOrder, claim.shop_order_id)
+    if shop_order is not None:
+        await invoice_checker.release_withheld(
+            ctx,
+            shop_order.group_order_id,
+            refunded_cents=claim.amount_cents if claim.refund_payment_id else 0,
+        )
 
 
 async def supplier_review(ctx: Ctx, claim_id: uuid.UUID) -> Claim:
@@ -164,6 +244,7 @@ async def operator_decision(ctx: Ctx, claim_id: uuid.UUID, approve: bool, note: 
     claim.decision = ClaimDecision.REJECTED
     claim.resolution_note = note or "Rejected by the operator"
     await ctx.session.commit()
+    await _settle_up(ctx, claim)
     owner = await ctx.session.get(Shop, claim.shop_id)
     if owner is not None:
         await ctx.say_to_owner(
@@ -185,6 +266,7 @@ async def _refund(ctx: Ctx, claim: Claim, decision: ClaimDecision, note: str) ->
     claim.decision = decision
     claim.resolution_note = note
     await ctx.session.commit()
+    await _settle_up(ctx, claim)
     owner = await ctx.session.get(Shop, claim.shop_id)
     if owner is not None:
         await ctx.say_to_owner(

@@ -20,18 +20,26 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.clock import SwarmClock, at_local, local_time, week_day, week_start
 from app.db.app_state import set_state
 from app.db.enums import PayPalModeEnum
-from app.db.models import AuditLog, Shop, Supplier, TelegramChat
+from app.db.models import AuditLog, Claim, Shop, Supplier, TelegramChat
 from app.db.session import get_sessionmaker
-from app.features import emergency_borrow, surplus_swap
+from app.features import claims, emergency_borrow, surplus_swap
 from app.features.context import Ctx
 from app.features.week import DEFAULT_SCENARIO, STEPS, WeekRunner, save_scenario, scenario
 from app.llm.client import AnthropicLLM
+from app.money import rules
 from app.runtime import Runtime
 
 logger = logging.getLogger(__name__)
 
 RUN_WEEK_PACE_SECONDS = 0.45
-INJECTIONS = {"short_delivery", "wrong_price_invoice", "surplus", "emergency", "flash_deal"}
+INJECTIONS = {
+    "short_delivery",
+    "wrong_price_invoice",
+    "surplus",
+    "emergency",
+    "flash_deal",
+    "damage_claim",
+}
 
 
 async def log(ctx: Ctx, action: str, details: dict[str, Any]) -> None:
@@ -203,8 +211,33 @@ async def inject(ctx: Ctx, kind: str, params: dict[str, Any], now: bool = False)
             "status": swap.status.value,
             "seconds_to_sorted": swap.details.get("seconds_to_sorted"),
         }
+    if now and kind == "damage_claim":
+        claim = await file_damage_claim(ctx, merged["shop"], merged["product"], int(merged["qty"]))
+        result["claim"] = {
+            "id": str(claim.id),
+            "decision": claim.decision.value,
+            "amount_cents": claim.amount_cents,
+        }
     await log(ctx, f"inject:{kind}", {"params": merged, "now": now})
     return result
+
+
+async def file_damage_claim(ctx: Ctx, shop_code: str, product: str, qty: int) -> Claim:
+    """An owner reports damaged goods from their latest charged delivery of `product`.
+
+    No photo comes with it, so the claims agent cannot judge it and a person decides: it
+    appears in the panel's queue, and approving it refunds through PayPal.
+    """
+    claim = await claims.report_damage(
+        ctx, shop_code, product, qty, note="Reported from the demo panel, without a photo."
+    )
+    if claim is None:
+        raise rules.RuleViolation(
+            "NOTHING_TO_CLAIM",
+            "That shop hasn't been charged for a delivery of that product yet. "
+            "Run Thursday's settlement first.",
+        )
+    return claim
 
 
 @dataclass

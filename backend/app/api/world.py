@@ -41,7 +41,7 @@ from app.demo import controls
 from app.features import demand, explain, group_buy, money_flow, paypal_usage, savings
 from app.features.context import Ctx
 from app.features.invoice_checker import OPEN_CLAIMS
-from app.features.products import wording
+from app.features.products import describe, wording
 from app.money import ledger, pricing
 
 router = APIRouter(prefix="/api", tags=["world"])
@@ -290,19 +290,35 @@ async def shop_payments(code: str, ctx: CtxDep) -> list[dict[str, Any]]:
 @router.get("/shops/{code}/claims")
 async def shop_claims(code: str, ctx: CtxDep) -> list[dict[str, Any]]:
     shop = await _shop_or_404(ctx, code)
-    return [
-        claim_row(c)
-        for c in await ctx.session.scalars(
-            select(Claim).where(Claim.shop_id == shop.id).order_by(Claim.created_at.desc())
+    rows = await ctx.session.scalars(
+        select(Claim).where(Claim.shop_id == shop.id).order_by(Claim.created_at.desc())
+    )
+    return await claim_rows(ctx, list(rows))
+
+
+async def claim_rows(ctx: Ctx, claims: list[Claim]) -> list[dict[str, Any]]:
+    """Claims, each with the product it is about."""
+    line_ids = [claim.group_order_line_id for claim in claims if claim.group_order_line_id]
+    products: dict[Any, tuple[str, str]] = {}
+    if line_ids:
+        found = await ctx.session.execute(
+            select(GroupOrderLine.id, Item.name, Item.product_code)
+            .join(Item, Item.id == GroupOrderLine.item_id)
+            .where(GroupOrderLine.id.in_(line_ids))
         )
-    ]
+        products = {line_id: (name, product) for line_id, name, product in found}
+    return [claim_row(claim, products.get(claim.group_order_line_id)) for claim in claims]
 
 
-def claim_row(claim: Claim) -> dict[str, Any]:
+def claim_row(claim: Claim, product: tuple[str, str] | None = None) -> dict[str, Any]:
+    name, code = product or (None, None)
     return {
         "id": str(claim.id),
         "type": claim.type.value,
         "qty": claim.qty_affected,
+        "item": name,
+        # "2 trays of eggs": the owner's count, in the product's own words.
+        "what": describe(code, claim.qty_affected) if code else None,
         "amount_cents": claim.amount_cents,
         "decision": claim.decision.value,
         "description": claim.description,
@@ -535,6 +551,60 @@ def invoice_row(invoice: Invoice, supplier: Supplier | None = None) -> dict[str,
     }
 
 
+async def invoice_rows(
+    ctx: Ctx, invoices: list[Invoice], suppliers: dict[Any, Supplier]
+) -> list[dict[str, Any]]:
+    """Invoices, each with what claims did to its payment.
+
+    `held_cents`: kept back while a claim is open. `credited_cents`: refunded to a shop out of
+    money the supplier had not been paid. `owed_back_cents`: refunded to a shop after the
+    supplier had been paid for it.
+    """
+    paid_groups = {i.group_order_id for i in invoices if i.paid_payment_id}
+    effects: dict[Any, dict[str, int]] = {}
+    if paid_groups:
+        open_claims = await ctx.session.execute(
+            select(ShopOrder.group_order_id, func.sum(Claim.amount_cents))
+            .join(Claim, Claim.shop_order_id == ShopOrder.id)
+            .where(ShopOrder.group_order_id.in_(paid_groups), Claim.decision.in_(OPEN_CLAIMS))
+            .group_by(ShopOrder.group_order_id)
+        )
+        claimed = {group_id: int(total or 0) for group_id, total in open_claims}
+        charges = await ctx.session.execute(
+            select(
+                ShopOrder.group_order_id,
+                func.sum(ShopOrder.captured_amount_cents),
+                func.sum(ShopOrder.refunded_amount_cents),
+            )
+            .where(ShopOrder.group_order_id.in_(paid_groups))
+            .group_by(ShopOrder.group_order_id)
+        )
+        found = await ctx.session.execute(
+            select(GroupOrder.id, GroupOrder.summary).where(GroupOrder.id.in_(paid_groups))
+        )
+        summaries: dict[Any, dict[str, Any]] = {group_id: summary for group_id, summary in found}
+        for group_id, captured, refunded in charges:
+            payouts = (summaries.get(group_id) or {}).get("payouts", [])
+            paid = sum(int(payout.get("gross_cents", 0)) for payout in payouts)
+            owed = int(captured or 0) - int(refunded or 0) - paid
+            owed_back = max(0, -owed)
+            effects[group_id] = {
+                "held_cents": min(claimed.get(group_id, 0), max(0, owed)),
+                "credited_cents": max(0, int(refunded or 0) - owed_back),
+                "owed_back_cents": owed_back,
+            }
+    nothing = {"held_cents": 0, "credited_cents": 0, "owed_back_cents": 0}
+    return [
+        {
+            **invoice_row(invoice, suppliers.get(invoice.supplier_id)),
+            **(
+                effects.get(invoice.group_order_id, nothing) if invoice.paid_payment_id else nothing
+            ),
+        }
+        for invoice in invoices
+    ]
+
+
 @router.get("/suppliers/{code}/invoices")
 async def supplier_invoices(code: str, ctx: CtxDep) -> list[dict[str, Any]]:
     supplier = await _supplier_or_404(ctx, code)
@@ -543,7 +613,7 @@ async def supplier_invoices(code: str, ctx: CtxDep) -> list[dict[str, Any]]:
         .where(Invoice.supplier_id == supplier.id)
         .order_by(Invoice.created_at.desc())
     )
-    return [invoice_row(i, supplier) for i in rows]
+    return await invoice_rows(ctx, list(rows), {supplier.id: supplier})
 
 
 @router.get("/invoices")
@@ -552,7 +622,7 @@ async def invoices(ctx: CtxDep, limit: int = 20) -> list[dict[str, Any]]:
     rows = await ctx.session.scalars(
         select(Invoice).order_by(Invoice.created_at.desc()).limit(limit)
     )
-    return [invoice_row(i, suppliers_by_id.get(i.supplier_id)) for i in rows]
+    return await invoice_rows(ctx, list(rows), suppliers_by_id)
 
 
 @router.get("/suppliers/{code}/payouts")
@@ -682,12 +752,10 @@ async def group_row(ctx: Ctx, group: GroupOrder, detail: bool = False) -> dict[s
             for so in group.shop_orders
         ]
         _, suppliers_by_id = await _lookups(ctx)
-        row["invoices"] = [
-            invoice_row(i, suppliers_by_id.get(i.supplier_id))
-            for i in await ctx.session.scalars(
-                select(Invoice).where(Invoice.group_order_id == group.id).order_by(Invoice.revision)
-            )
-        ]
+        found = await ctx.session.scalars(
+            select(Invoice).where(Invoice.group_order_id == group.id).order_by(Invoice.revision)
+        )
+        row["invoices"] = await invoice_rows(ctx, list(found), suppliers_by_id)
     return row
 
 
@@ -803,10 +871,9 @@ async def claim_list(ctx: CtxDep, open_only: bool = False) -> list[dict[str, Any
     if open_only:
         query = query.where(Claim.decision.in_(OPEN_CLAIMS))
     shops_by_id, _ = await _lookups(ctx)
+    claims = list(await ctx.session.scalars(query))
     rows = []
-    for claim in await ctx.session.scalars(query):
+    for claim, row in zip(claims, await claim_rows(ctx, claims), strict=True):
         shop = shops_by_id.get(claim.shop_id)
-        rows.append(
-            {**claim_row(claim), "shop": {"code": shop.code, "name": shop.name} if shop else None}
-        )
+        rows.append({**row, "shop": {"code": shop.code, "name": shop.name} if shop else None})
     return rows

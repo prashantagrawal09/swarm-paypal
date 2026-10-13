@@ -84,16 +84,35 @@ already priced, and code checks the pick again before anything is sent."
 
 ## Showing a refund
 
-The scripted week has no damage claim, so it never issues a refund. To show one (after
-Thursday's settlement):
+The scripted week has no damage claim, so it never issues a refund. Three ways to show one:
 
-1. Demo panel → **Be the owner** → pick **Bakery Lim** → attach any photo with the message
-   `2 trays of eggs arrived cracked`.
-2. With `ANTHROPIC_API_KEY` set, the claims agent looks at the photo and refunds a clear case
-   by itself (up to S$50). Without a key, or if the photo is unclear, the claim appears under
-   **Claims waiting for a person**: press **Approve**.
-3. PayPal refunds S$15.50 (two trays at the agreed S$7.75) to the original payment, the
-   owner is told, and **Money → PayPal, capability by capability** shows the refund call.
+**Inside the week (the best one for a video).** Before running the week, demo panel →
+**Surprises this week** → **Damage claim** → **Add to Thursday**. During Thursday's
+settlement Bakery Lim's owner reports 2 trays of eggs damaged, with no photo:
+
+1. The claims agent can't judge it, so it tells the coordinator to hold S$15.50 (two trays at
+   the agreed S$7.75) back from Johor Farm Fresh. The coordinator's payout message says
+   "holding S$15.50 until open claims are settled", and the dairy order shows **Part settled**.
+2. The live board shows **A claim is waiting for a person** → **Decide it**.
+3. Under **Claims waiting for a person**, press **Refund S$15.50**. PayPal refunds the
+   original payment out of the held money, the supplier is told it was upheld, the order
+   becomes **Settled**, and the books still balance. Press **Reject** instead and the S$15.50
+   is paid to the supplier by a second payout.
+
+Say: "Swarm never pays a supplier for goods that are in dispute, and never refunds on an
+agent's say-so when there is no evidence. A person decides; PayPal moves the money."
+
+**Any time after Thursday.** Same card → **Report it now**, then **Refund S$15.50**. The
+supplier has already been paid in full by then, so the Money page says plainly that the
+supplier owes the S$15.50 back.
+
+**With a photo.** Demo panel → **Be the owner** → pick **Bakery Lim** → attach any photo with
+the message `2 trays of eggs arrived cracked`. With `ANTHROPIC_API_KEY` set, the claims agent
+looks at the photo and refunds a clear case by itself (up to S$50). Without a key, or if the
+photo is unclear, the claim waits under **Claims waiting for a person**.
+
+Afterwards **Money → PayPal, capability by capability** shows the refund call, and
+**Shops → Bakery Lim** shows the report and the refund in the week's steps.
 
 ## Surprises (demo panel → Surprises this week)
 
@@ -106,6 +125,7 @@ Each is armed for its day and can be changed before running:
 | Supplier flash deal | Johor Farm Fresh lettuce, 30 kg, 35% off (clamped to the supplier's floor) | Two shops' agents buy it within their owners' rules |
 | Surplus stock | Café Mei, 8 L milk, 2 days left | **Post it now** offers it straight away |
 | Emergency borrow | Kopi Corner, 1 tray of eggs | **Ask the neighbours now** runs it straight away |
+| Damage claim | Bakery Lim, 2 trays of eggs; off unless added | **Add to Thursday** holds that much back from the supplier until a person decides; **Report it now** files one on the spot |
 
 ## If something goes wrong
 

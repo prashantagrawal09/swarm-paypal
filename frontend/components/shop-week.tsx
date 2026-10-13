@@ -10,6 +10,7 @@ import {
   Handshake,
   type LucideIcon,
   PackageCheck,
+  PackageX,
   Repeat2,
   Route,
   Sunrise,
@@ -20,7 +21,7 @@ import {
 
 import { HoldBar } from "@/components/charts/hold-bar";
 import { Card, CardHeader, cx } from "@/components/ui";
-import type { PaymentRow, ShopDetail, ShopOrderLine, Step, SwapRow } from "@/lib/api";
+import type { ClaimRow, PaymentRow, ShopDetail, ShopOrderLine, Step, SwapRow } from "@/lib/api";
 import { dayTime, money } from "@/lib/format";
 import { shopWeek, type WeekEventKind } from "@/lib/shop-week";
 
@@ -30,6 +31,7 @@ const LOOK: Record<WeekEventKind, { icon: LucideIcon; chip: string }> = {
   hold: { icon: Wallet, chip: "bg-honey-soft text-honey-ink" },
   flash: { icon: Zap, chip: "bg-honey-soft text-honey-ink" },
   delivery: { icon: PackageCheck, chip: "bg-good-soft text-good-ink" },
+  claim: { icon: PackageX, chip: "bg-warning-soft text-warning-ink" },
   refund: { icon: Undo2, chip: "bg-warning-soft text-warning-ink" },
   swap: { icon: Repeat2, chip: "bg-surface-2 text-ink-2" },
   report: { icon: CalendarCheck, chip: "bg-good-soft text-good-ink" },
@@ -40,6 +42,7 @@ export function ShopWeekCard({
   orders,
   payments,
   swaps,
+  claims,
   steps,
   productName,
 }: {
@@ -47,6 +50,7 @@ export function ShopWeekCard({
   orders: ShopOrderLine[];
   payments: PaymentRow[];
   swaps: SwapRow[];
+  claims?: ClaimRow[];
   steps: Step[];
   /** Product code -> everyday name ("milk"). */
   productName: (product: string) => string;
@@ -56,6 +60,7 @@ export function ShopWeekCard({
     orders,
     payments,
     swaps,
+    claims,
     steps,
     productName: (line) => productName(line.product),
   });
@@ -158,6 +163,9 @@ export function ShopWeekCard({
                     : "Held, not taken. It becomes a charge only for what is delivered."}
                   {totals.refundedCents > 0
                     ? ` ${money(totals.refundedCents)} was refunded afterwards for a claim.`
+                    : ""}
+                  {totals.claimedCents > 0
+                    ? ` ${money(totals.claimedCents)} of it is under a claim that a person is deciding.`
                     : ""}
                 </p>
               </>

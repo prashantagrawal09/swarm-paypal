@@ -21,14 +21,18 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
 export function Card({
   children,
   className,
+  id,
   as: Tag = "section",
 }: {
   children?: React.ReactNode;
   className?: string;
+  /** For a link that lands on this card. */
+  id?: string;
   as?: "section" | "div" | "article";
 }) {
   return (
     <Tag
+      id={id}
       className={cx("border-line bg-surface rounded-2xl border shadow-[var(--shadow)]", className)}
     >
       {children}

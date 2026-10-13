@@ -25,6 +25,7 @@ from app.api.world import router as world_router
 from app.config import get_settings
 from app.db.models import Shop
 from app.db.session import get_engine, get_sessionmaker
+from app.money.rules import RuleViolation
 from app.paypal.webhooks import router as paypal_webhooks_router
 from app.runtime import get_runtime, start_runtime
 from app.scheduler import start_scheduler
@@ -96,6 +97,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.exception_handler(RuleViolation)
+    async def rule_violation(_: Request, exc: RuleViolation) -> JSONResponse:
+        """A rule said no (nothing to claim yet, over a limit...): tell the caller why, in
+        the rule's own words, instead of a bare server error."""
+        return JSONResponse(status_code=409, content={"detail": exc.message, "code": exc.code})
 
     @app.middleware("http")
     async def request_context(

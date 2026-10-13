@@ -184,6 +184,12 @@ export function MoneyFlowChart({ flow }: { flow: MoneyFlow }) {
           ? `${focused.label}: ${money(focused.value)}, ${((focused.value / (layout?.total || 1)) * 100).toFixed(1)}% of what was charged.`
           : "Hover or focus a name to follow its money. Ribbon thickness is the amount."}
       </p>
+      {flow.owed_cents < 0 ? (
+        <p className="text-ink-2 mt-2 text-xs">
+          {money(-flow.owed_cents)} was refunded to a shop after its supplier had already been paid
+          in full, so the supplier owes that back to Swarm. The ledger records it as owed.
+        </p>
+      ) : null}
       <figcaption className="sr-only">
         Charged by shop: {flow.shops.map((s) => `${s.name} ${money(s.charged_cents)}`).join(", ")}.
         Paid to suppliers:{" "}

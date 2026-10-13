@@ -872,3 +872,39 @@ phone-sized pages, each in light and dark: 42 checks.
 **Decisions**
 - The watch page and the home page share the replay staging (`frontend/lib/stage.ts`), so
   there is one way of turning a recording into what the map and captions show.
+
+## A refund you can show, and the money held back for it
+
+**Built**
+- **Damage claim card** on the demo panel. **Add to Thursday** puts an owner's damage report
+  into the week: it arrives after the delivery is charged and before the supplier is paid.
+  **Report it now** files one at any time. Either way it comes without a photo, so the claims
+  agent cannot judge it and a person decides under **Claims waiting for a person**.
+- The queue says what is being asked for ("2 trays of eggs, damaged"), how much (S$15.50) and
+  why a person has it. After **Refund**, it shows what PayPal did, with the refund ID.
+- The live board shows **A claim is waiting for a person** with a link to decide it. The shop
+  page's week tells it in order (charged, reported, refunded), the owner's phone shows their
+  own report, and the supplier's invoice says what was held back and where it went.
+
+**Fixed (money)**
+- A claim with no photo, or with a photo nothing could read, used to carry S$0.00: the queue
+  offered "Refund S$0.00" and nothing was held back from the supplier. Every open claim now
+  carries what the owner claimed (never more than was delivered), and that is what is held.
+- Money held back for a claim was never settled once the claim was decided. Now an upheld
+  claim closes the order (the refund came out of the held money) and a rejected one pays the
+  held amount to the supplier with a second payout, recorded on the PayPal invoice.
+
+**Works**
+- Scheduled claim, default data: Johor Farm Fresh is paid S$1,737.00 with S$15.50 held; after
+  the refund, 95 PayPal calls, nothing owed either way, books balanced.
+- 299 backend and 76 frontend tests pass. New ones cover: every way `decide` can leave a
+  claim open has money at stake; held, refunded and rejected paths end with the supplier owed
+  exactly nothing; the scripted week files no claim unless one is added.
+
+**Decisions**
+- The scripted week stays as it was (S$2,338.85 saved, 94 PayPal calls). The claim is opt-in,
+  and **Reset** switches it off again.
+- A claim upheld after the supplier was paid in full leaves the supplier owing Swarm the
+  amount. The Money page says so; taking it off the next payout is not built (README,
+  Limitations).
+
