@@ -107,8 +107,10 @@ account is labelled REAL or Simulated wherever it appears.
   only chooses from a menu of prices that code built from the supplier's private floor.
 - **Splitting a delivery fee fairly.** Twelve shops share one delivery. The split is by
   weight and distance, in whole cents, and has to add up exactly.
-- **Making a week watchable.** The week runs on a controllable clock, so a judge can watch
-  it in about 75 seconds or step through it.
+- **Making a week watchable.** The week runs on a controllable clock, and everything the
+  agents say and PayPal does is recorded in order. The watch page plays that recording back
+  with the same code that draws the live board, so a judge can watch a week in about a
+  minute without resetting it for anyone else.
 
 ## What I'm proud of
 
@@ -117,6 +119,10 @@ account is labelled REAL or Simulated wherever it appears.
 - The money-flow diagram: every cent the shops were charged, through PayPal, to suppliers,
   neighbours, refunds and the fee. It always adds up, and a test proves it.
 - Owners need about a minute a week, on a phone, with buttons.
+- You can replay the whole week in a minute, as many people at once as like, because every
+  message and payment is recorded as it happens.
+- "The model can't set a price" is something you can check: each quote shows the options
+  code priced, who picked one, and the rules the pick passed.
 
 ## What I learned
 
