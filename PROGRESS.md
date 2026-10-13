@@ -951,3 +951,13 @@ phone-sized pages, each in light and dark: 42 checks.
 - Recorded a week with the claim added, jumped to Thursday's settlement on the watch page and
   watched the claim, the short payout and its caption play. 301 backend and 77 frontend tests.
 
+## Suppliers page: the week's scoreboard
+
+**Built**
+- **This week, order by order** on the Suppliers page: one row per group order, one column
+  per supplier, with each supplier's final landed price, who won, how far behind the others
+  finished, and what the negotiation took off the opening price. The last column adds up to
+  the "won by negotiating" figure on the live board (S$134.29 in the demo week).
+- README screenshots for the Suppliers page and a claim waiting for a person; the capability
+  table screenshot is refreshed.
+

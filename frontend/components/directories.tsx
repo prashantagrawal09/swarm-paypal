@@ -2,14 +2,23 @@
 
 /** The shop and supplier directories. */
 
-import { ChevronRight, Gauge, Truck } from "lucide-react";
+import { ChevronRight, Gauge, Swords, Truck } from "lucide-react";
 import Link from "next/link";
 import useSWR from "swr";
 
-import { Card, Empty, Meter, ModeBadge, Status, StatusPill } from "@/components/ui";
-import type { ShopSummary, SupplierSummary } from "@/lib/api";
-import { CATEGORY_EMOJI, initials, money, moneyWhole, slotColor, titleCase } from "@/lib/format";
+import { Card, CardHeader, cx, Empty, Meter, ModeBadge, Status, StatusPill } from "@/components/ui";
+import type { GroupOrder, ShopSummary, SupplierSummary } from "@/lib/api";
+import {
+  CATEGORY_EMOJI,
+  CATEGORY_LABEL,
+  initials,
+  money,
+  moneyWhole,
+  slotColor,
+  titleCase,
+} from "@/lib/format";
 import { useLive } from "@/lib/live";
+import { outcomeFor } from "@/lib/negotiation";
 import { useNow } from "@/lib/use-now";
 
 export function ShopDirectory() {
@@ -146,6 +155,7 @@ export function ShopDirectory() {
 
 export function SupplierDirectory() {
   const { data: suppliers } = useSWR<SupplierSummary[]>("/api/suppliers");
+  const { data: groups } = useSWR<GroupOrder[]>("/api/group-orders");
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
       <h1 className="text-ink text-2xl font-semibold tracking-tight">Suppliers</h1>
@@ -203,6 +213,136 @@ export function SupplierDirectory() {
           </li>
         ))}
       </ul>
+      {suppliers && groups ? <Contests suppliers={suppliers} groups={groups} /> : null}
     </div>
+  );
+}
+
+/** The week's group orders, one per row: what each supplier's last quote was and who won. */
+function Contests({ suppliers, groups }: { suppliers: SupplierSummary[]; groups: GroupOrder[] }) {
+  return (
+    <Card className="mt-6">
+      <CardHeader
+        title="This week, order by order"
+        subtitle="Each supplier's final landed price for the whole street's order, delivery included. The lowest price from a reliable supplier wins."
+        icon={Swords}
+      />
+      {groups.length === 0 ? (
+        <div className="px-5 pb-5">
+          <Empty>
+            Nothing to compete for yet. The coordinator asks for quotes on Tuesday, once the
+            shops&apos; orders are pooled.
+          </Empty>
+        </div>
+      ) : (
+        <div
+          className="overflow-x-auto px-5 pb-5"
+          // Focusable, so the keyboard can scroll it sideways on a narrow screen.
+          tabIndex={0}
+          role="region"
+          aria-label="This week's quotes by supplier"
+        >
+          <table className="w-full min-w-[620px] border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr>
+                <th scope="col" className="text-muted pb-2 text-left text-xs font-medium">
+                  Group order
+                </th>
+                {suppliers.map((supplier) => (
+                  <th
+                    key={supplier.code}
+                    scope="col"
+                    className="text-ink-2 pb-2 pl-4 text-right text-xs font-medium"
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ background: slotColor(supplier.code) }}
+                        aria-hidden
+                      />
+                      {supplier.name}
+                    </span>
+                  </th>
+                ))}
+                <th scope="col" className="text-muted pb-2 pl-4 text-right text-xs font-medium">
+                  Won by negotiating
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((group) => {
+                const negotiated =
+                  group.opening_landed_cents && group.final_landed_cents
+                    ? group.opening_landed_cents - group.final_landed_cents
+                    : 0;
+                return (
+                  <tr key={group.id}>
+                    <th scope="row" className="border-line border-t py-3 text-left font-normal">
+                      <Link
+                        href={`/orders/${group.id}`}
+                        className="text-ink font-medium underline-offset-2 hover:underline"
+                      >
+                        <span aria-hidden>{CATEGORY_EMOJI[group.category] ?? "📦"} </span>
+                        {CATEGORY_LABEL[group.category] ?? group.category}
+                      </Link>
+                      <div className="text-muted text-xs">
+                        {group.shops} shops · {group.rounds}{" "}
+                        {group.rounds === 1 ? "round" : "rounds"}
+                      </div>
+                    </th>
+                    {suppliers.map((supplier) => {
+                      const outcome = outcomeFor(group, supplier.code);
+                      return (
+                        <td
+                          key={supplier.code}
+                          className="border-line border-t py-3 pl-4 text-right align-top"
+                        >
+                          {outcome === null ? (
+                            <span className="text-muted text-xs">Didn&apos;t quote</span>
+                          ) : (
+                            <>
+                              <div
+                                className={cx(
+                                  "tabular",
+                                  outcome.result === "won"
+                                    ? "text-ink font-semibold"
+                                    : "text-ink-2",
+                                )}
+                              >
+                                {money(outcome.final)}
+                              </div>
+                              <div className="mt-0.5 text-xs">
+                                {outcome.result === "won" ? (
+                                  <StatusPill tone="good">Won</StatusPill>
+                                ) : outcome.result === "open" ? (
+                                  <span className="text-muted">still quoting</span>
+                                ) : (
+                                  <span className="text-muted tabular">
+                                    {outcome.behindCents !== null
+                                      ? `${money(Math.max(0, outcome.behindCents))} more`
+                                      : "not chosen"}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="border-line tabular border-t py-3 pl-4 text-right align-top">
+                      {negotiated > 0 ? (
+                        <span className="text-good-ink font-medium">{money(negotiated)}</span>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
   );
 }
