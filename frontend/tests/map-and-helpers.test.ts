@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { type GroupOrder, keyFromHash, type PaymentRow } from "@/lib/api";
 import { moneyFlight, nodeOf } from "@/lib/flights";
 import { BAND, H, PAD, PIN, W, curve, project, relax } from "@/lib/map-geometry";
-import { lanes } from "@/lib/negotiation";
+import { lanes, outcomeFor } from "@/lib/negotiation";
 import { paymentEvent } from "@/lib/payment-events";
 import { matches } from "@/lib/search";
 import { isLocalUrl, wakeProgress } from "@/lib/server-status";
@@ -233,5 +233,45 @@ describe("waking a sleeping server", () => {
     }
     expect(wakeProgress(5000)).toBeGreaterThan(0.15); // visibly moving within seconds
     expect(wakeProgress(600_000)).toBeLessThan(1);
+  });
+});
+
+describe("a supplier's showing in a negotiation", () => {
+  const quote = (supplier: string, round: number, landed_cents: number) => ({
+    supplier,
+    supplier_name: supplier,
+    round,
+    landed_cents,
+    status: "SUBMITTED",
+  });
+  const group = {
+    supplier: { code: "johorfarm", name: "Johor Farm Fresh" },
+    quotes: [
+      quote("freshdairy", 1, 196683),
+      quote("johorfarm", 1, 189079),
+      quote("freshdairy", 3, 185708),
+      quote("johorfarm", 3, 184597),
+      quote("freshdairy", 2, 187907),
+    ],
+  } as unknown as GroupOrder;
+
+  it("says who won, and how far behind the loser finished", () => {
+    expect(outcomeFor(group, "johorfarm")).toEqual({
+      result: "won",
+      opening: 189079,
+      final: 184597,
+      behindCents: null,
+    });
+    expect(outcomeFor(group, "freshdairy")).toEqual({
+      result: "lost",
+      opening: 196683,
+      final: 185708,
+      behindCents: 1111,
+    });
+  });
+
+  it("is null for a supplier that never quoted, and open before the award", () => {
+    expect(outcomeFor(group, "packpro")).toBeNull();
+    expect(outcomeFor({ ...group, supplier: null }, "freshdairy")?.result).toBe("open");
   });
 });

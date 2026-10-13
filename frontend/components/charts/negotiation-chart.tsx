@@ -16,7 +16,14 @@ import { useWidth } from "@/lib/use-width";
 const H = 190;
 const PAD = { top: 16, right: 92, bottom: 26, left: 62 };
 
-export function NegotiationChart({ group }: { group: GroupOrder }) {
+export function NegotiationChart({
+  group,
+  emphasis,
+}: {
+  group: GroupOrder;
+  /** A supplier code to draw in front; the others step back (still in their own colours). */
+  emphasis?: string;
+}) {
   const [hoverRound, setHoverRound] = useState<number | null>(null);
   const [frame, W] = useWidth<HTMLElement>(0);
   const bySupplier = new Map<
@@ -128,42 +135,51 @@ export function NegotiationChart({ group }: { group: GroupOrder }) {
               stroke="var(--axis)"
             />
           ) : null}
-          {series.map(([code, s]) => {
-            const points = [...s.points].sort((a, b) => a.round - b.round);
-            const d = points.map((p, i) => `${i ? "L" : "M"}${x(p.round)},${y(p.cents)}`).join(" ");
-            const last = points[points.length - 1];
-            return (
-              <g key={code}>
-                <path
-                  d={d}
-                  fill="none"
-                  stroke={slotColor(code)}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                {points.map((p) => (
-                  <circle
-                    key={p.round}
-                    cx={x(p.round)}
-                    cy={y(p.cents)}
-                    r={4}
-                    fill={slotColor(code)}
-                    stroke="var(--surface)"
-                    strokeWidth={2}
-                  />
-                ))}
-                <text
-                  x={x(last.round) + 10}
-                  y={labelY[code]}
-                  dy="0.32em"
-                  className="tabular fill-[var(--ink-2)] text-[11px]"
-                >
-                  {money(last.cents)}
-                </text>
-              </g>
-            );
-          })}
+          {[...series]
+            // The emphasised supplier is drawn last, so it sits on top.
+            .sort(([a], [b]) => Number(a === emphasis) - Number(b === emphasis))
+            .map(([code, s]) => {
+              const points = [...s.points].sort((a, b) => a.round - b.round);
+              const d = points
+                .map((p, i) => `${i ? "L" : "M"}${x(p.round)},${y(p.cents)}`)
+                .join(" ");
+              const last = points[points.length - 1];
+              const quiet = emphasis !== undefined && code !== emphasis;
+              return (
+                <g key={code}>
+                  {/* Only the marks step back; the label stays readable. */}
+                  <g opacity={quiet ? 0.5 : 1}>
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke={slotColor(code)}
+                      strokeWidth={quiet ? 1.5 : 2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    {points.map((p) => (
+                      <circle
+                        key={p.round}
+                        cx={x(p.round)}
+                        cy={y(p.cents)}
+                        r={quiet ? 3 : 4}
+                        fill={slotColor(code)}
+                        stroke="var(--surface)"
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </g>
+                  <text
+                    x={x(last.round) + 10}
+                    y={labelY[code]}
+                    dy="0.32em"
+                    className="tabular fill-[var(--ink-2)] text-[11px]"
+                  >
+                    {money(last.cents)}
+                  </text>
+                </g>
+              );
+            })}
         </svg>
       ) : (
         <div style={{ height: H }} aria-hidden />

@@ -833,3 +833,10 @@ phone-sized pages, each in light and dark: 42 checks.
   weeks beside each number (grey bars) with this week's order (dark bar), so "based on your
   last four weeks, a little less for the rain" is something you can see. The forecast API
   returns those weeks.
+- **Supplier page: how it competed this week.** For each group order the supplier quoted
+  for, its landed price round by round against the others (drawn in front, rivals stepped
+  back), with whether it won and by how much it lost.
+- **The inspector opens from the watch page.** "How was this decided?" under a quote or
+  award in the watch page's conversation pauses the week, opens the panel in the stage's
+  dark theme, and resumes when it closes.
+- `make a11y` still passes all 42 checks after these additions.

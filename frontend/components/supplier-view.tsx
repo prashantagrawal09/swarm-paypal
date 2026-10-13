@@ -8,18 +8,21 @@ import {
   CheckCircle2,
   FileText,
   Gauge,
+  Swords,
   Truck,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import useSWR from "swr";
 
+import { NegotiationChart } from "@/components/charts/negotiation-chart";
 import { shortId } from "@/components/feeds";
 import { PaymentsGrid, QuotesGrid } from "@/components/grids";
 import { StatTile } from "@/components/stats";
 import { Card, CardHeader, cx, Empty, ModeBadge, Mono, StatusPill } from "@/components/ui";
 import {
   ApiError,
+  type GroupOrder,
   type InvoiceRow,
   type PaymentRow,
   type QuoteRow,
@@ -27,6 +30,7 @@ import {
   type SupplierSummary,
 } from "@/lib/api";
 import { CATEGORY_LABEL, dayTime, money, slotColor, titleCase } from "@/lib/format";
+import { outcomeFor } from "@/lib/negotiation";
 
 export function SupplierView({ code }: { code: string }) {
   const { data: supplier, error } = useSWR<SupplierDetail>(`/api/suppliers/${code}`);
@@ -34,6 +38,12 @@ export function SupplierView({ code }: { code: string }) {
   const { data: quotes } = useSWR<QuoteRow[]>(`/api/suppliers/${code}/quotes`);
   const { data: invoices } = useSWR<InvoiceRow[]>(`/api/suppliers/${code}/invoices`);
   const { data: payouts } = useSWR<PaymentRow[]>(`/api/suppliers/${code}/payouts`);
+  const { data: groups } = useSWR<GroupOrder[]>("/api/group-orders");
+  // The group orders this supplier quoted for, with how each ended for it.
+  const competed = (groups ?? []).flatMap((group) => {
+    const outcome = outcomeFor(group, code);
+    return outcome ? [{ group, outcome }] : [];
+  });
   const summary = summaries?.find((s) => s.code === code);
 
   if (error instanceof ApiError && error.status === 404) {
@@ -162,6 +172,53 @@ export function SupplierView({ code }: { code: string }) {
           {supplier && supplier.catalog.length === 0 ? <Empty>No items listed.</Empty> : null}
         </div>
       </Card>
+
+      {/* How it competed */}
+      {competed.length ? (
+        <Card className="mt-6">
+          <CardHeader
+            title="How it competed this week"
+            subtitle="Its landed price round by round, against the other suppliers quoting for the same order"
+            icon={Swords}
+          />
+          <ul className="grid grid-cols-1 gap-x-8 gap-y-6 px-5 pb-5 lg:grid-cols-2">
+            {competed.map(({ group, outcome }) => (
+              <li key={group.id} className="min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Link
+                    href={`/orders/${group.id}`}
+                    className="text-ink text-sm font-medium underline-offset-2 hover:underline"
+                  >
+                    {CATEGORY_LABEL[group.category] ?? group.category}
+                  </Link>
+                  {outcome.result === "won" ? (
+                    <StatusPill tone="good">Won at {money(outcome.final)}</StatusPill>
+                  ) : outcome.result === "lost" ? (
+                    <StatusPill tone="neutral">
+                      Not chosen
+                      {outcome.behindCents !== null
+                        ? `, ${money(Math.max(0, outcome.behindCents))} above the winner`
+                        : ""}
+                    </StatusPill>
+                  ) : (
+                    <StatusPill tone="busy">Negotiating</StatusPill>
+                  )}
+                </div>
+                <p className="text-ink-2 mt-0.5 text-xs">
+                  Opened at {money(outcome.opening)}
+                  {outcome.final < outcome.opening
+                    ? `, came down ${money(outcome.opening - outcome.final)}`
+                    : ", didn't move"}
+                  .
+                </p>
+                <div className="mt-2">
+                  <NegotiationChart group={group} emphasis={code} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       {/* Invoices */}
       <Card className="mt-6">
