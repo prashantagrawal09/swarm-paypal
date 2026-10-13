@@ -84,8 +84,8 @@ food out of the bin. It takes 94 PayPal calls, and the books balance to the cent
 | ![Inspector](docs/screenshots/inspector.png) | ![PayPal capabilities with the calls behind them](docs/screenshots/paypal-capabilities.png) |
 | **Invoice check (supplier page)** | **Dark mode** |
 | ![Invoices](docs/screenshots/supplier-invoices.png) | ![Dark](docs/screenshots/live-board-dark.png) |
-| **Phone** | |
-| ![Phone](docs/screenshots/mobile-live.png) | |
+| **Weekly statement (as printed)** | **Phone** |
+| ![A shop's weekly statement](docs/screenshots/statement.png) | ![Phone](docs/screenshots/mobile-live.png) |
 
 _The submission video goes here._
 
