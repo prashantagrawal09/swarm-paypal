@@ -965,3 +965,21 @@ phone-sized pages, each in light and dark: 42 checks.
   "Not started".
 - Checked a production build from a clean checkout of the repository after these changes.
 
+## Phones
+
+**Built**
+- **Tables become lists on a phone.** On a narrow screen a data grid showed two or three of
+  its columns and hid the rest off to the right (quantities, prices, totals, status). Below
+  640px wide, every grid (orders, PayPal activity, swaps, claims, quotes, the shops in a
+  group order) is now a list: what the row is and its amount on top, the details under it,
+  then status, PayPal mode and ID. Long lists show 25 rows at a time. Wider screens keep the
+  grid, with sorting and CSV download.
+- Stat tiles wrap their small print onto a second line instead of cutting it off ("0 real
+  sandbox · 94 simu…").
+- A card's header action (the Money page's All / Real sandbox / Simulated switch) moves under
+  the title when both don't fit.
+
+**Works**
+- Checked every page at 390px wide in light and dark: nothing scrolls sideways except inside
+  a scroll box. `make a11y` passes, phone states included.
+

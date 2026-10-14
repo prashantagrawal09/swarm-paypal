@@ -7,7 +7,7 @@ import Link from "next/link";
 
 import { DataGrid } from "@/components/data-grid";
 import { shortId } from "@/components/feeds";
-import { ModeBadge, Mono, Status } from "@/components/ui";
+import { cx, ModeBadge, Mono, Status } from "@/components/ui";
 import type { ClaimRow, PaymentRow, QuoteRow, ShopOrderLine, SwapRow } from "@/lib/api";
 import { CATEGORY_LABEL, dayTime, humanize, kg, money, shortDate } from "@/lib/format";
 
@@ -106,6 +106,28 @@ export function PaymentsGrid({
       height={height}
       empty="No PayPal activity yet."
       exportName={exportName}
+      phone={(row) => ({
+        title: (
+          <>
+            {PAYMENT_KIND[row.kind] ?? humanize(row.kind)}
+            {showParties && (row.shop || row.supplier) ? (
+              <span className="text-ink-2 font-normal">
+                {" "}
+                · {row.shop?.name ?? row.supplier?.name}
+              </span>
+            ) : null}
+          </>
+        ),
+        amount: money(row.amount_cents),
+        meta: (
+          <>
+            <span className="tabular">{dayTime(row.at)}</span>
+            <Status value={row.status} />
+            <ModeBadge mode={row.mode} compact />
+            {row.paypal_id ? <Mono>{shortId(row.paypal_id)}</Mono> : null}
+          </>
+        ),
+      })}
     />
   );
 }
@@ -169,6 +191,32 @@ export function OrdersGrid({ rows, height }: { rows?: ShopOrderLine[]; height?: 
       height={height}
       empty="No orders yet. The agent proposes the week's order on Monday."
       exportName="swarm-orders"
+      phone={(row) => {
+        const short = row.qty_delivered !== null && row.qty_delivered < row.qty_requested;
+        return {
+          title: row.item,
+          amount: money(row.line_total_cents),
+          detail: `${row.brand}${row.supplier ? ` · ${row.supplier}` : ""} · week of ${shortDate(`${row.week}T00:00:00+08:00`)}`,
+          meta: (
+            <>
+              <span className={cx("tabular", short && "text-critical-ink font-medium")}>
+                {row.qty_delivered === null
+                  ? `${row.qty_requested} ordered`
+                  : `${row.qty_delivered} of ${row.qty_requested} arrived`}
+              </span>
+              {row.unit_price_cents !== null ? (
+                <span className="tabular">
+                  {money(row.unit_price_cents)} each
+                  {row.alone_unit_price_cents ? (
+                    <span className="line-through"> {money(row.alone_unit_price_cents)}</span>
+                  ) : null}
+                </span>
+              ) : null}
+              <Status value={row.order_status} />
+            </>
+          ),
+        };
+      }}
     />
   );
 }
@@ -209,6 +257,18 @@ export function SwapsGrid({ rows, height }: { rows?: SwapRow[]; height?: number 
       columns={columns}
       height={height}
       empty="No swaps with the neighbours yet."
+      phone={(row) => ({
+        title: row.kind === "EMERGENCY" ? "Emergency borrow" : "Surplus sale",
+        amount: money(row.price_cents),
+        detail: `${row.qty} ${row.unit} ${row.product_name}: ${row.seller?.name ?? "-"} to ${row.buyer?.name ?? "open to neighbours"}`,
+        meta: (
+          <>
+            <span className="tabular">{dayTime(row.at)}</span>
+            {row.food_saved_grams ? <span>{kg(row.food_saved_grams)} not wasted</span> : null}
+            <Status value={row.status} />
+          </>
+        ),
+      })}
     />
   );
 }
@@ -239,6 +299,17 @@ export function ClaimsGrid({ rows, height }: { rows?: ClaimRow[]; height?: numbe
       columns={columns}
       height={height}
       empty="No claims. Everything arrived as ordered."
+      phone={(row) => ({
+        title: `${row.what ?? `${row.qty} units`}, ${humanize(row.type).toLowerCase()}`,
+        amount: money(row.amount_cents),
+        detail: row.note ?? row.description ?? undefined,
+        meta: (
+          <>
+            <span className="tabular">{dayTime(row.at)}</span>
+            <Status value={row.decision} />
+          </>
+        ),
+      })}
     />
   );
 }
@@ -301,6 +372,22 @@ export function QuotesGrid({ rows, height }: { rows?: QuoteRow[]; height?: numbe
       height={height}
       empty="No quotes yet. Suppliers quote on Tuesday."
       exportName="swarm-quotes"
+      phone={(row) => ({
+        title: `${CATEGORY_LABEL[row.category] ?? row.category}, round ${row.round}`,
+        amount: money(row.landed_total_cents),
+        detail: `${money(row.items_total_cents)} of goods + ${money(row.delivery_fee_cents)} delivery · week of ${shortDate(`${row.week}T00:00:00+08:00`)}`,
+        meta: (
+          <>
+            <Status value={row.status} word={row.status === "AWARDED" ? "Won" : undefined} />
+            <Link
+              href={`/orders/${row.group_order_id}`}
+              className="text-ink-2 font-medium underline"
+            >
+              Open the order
+            </Link>
+          </>
+        ),
+      })}
     />
   );
 }

@@ -131,7 +131,7 @@ export function MoneyView() {
                   aria-selected={mode === value}
                   onClick={() => setMode(value)}
                   className={cx(
-                    "rounded-md px-2.5 py-1 font-medium",
+                    "rounded-md px-2.5 py-1 font-medium whitespace-nowrap",
                     mode === value ? "bg-surface text-ink shadow-sm" : "text-ink-2",
                   )}
                 >

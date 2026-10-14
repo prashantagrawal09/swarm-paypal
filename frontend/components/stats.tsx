@@ -74,7 +74,8 @@ export function StatTile({
         {accent}
       </div>
       <div className="text-ink mt-1 truncate text-xl font-semibold tracking-tight">{value}</div>
-      {detail ? <div className="text-muted mt-0.5 truncate text-xs">{detail}</div> : null}
+      {/* Two short lines rather than one cut off: on a phone the tiles are narrow. */}
+      {detail ? <div className="text-muted mt-0.5 line-clamp-2 text-xs">{detail}</div> : null}
     </div>
   );
 }

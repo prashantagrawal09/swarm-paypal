@@ -52,15 +52,16 @@ export function CardHeader({
   icon?: LucideIcon;
 }) {
   return (
-    <header className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
-      <div className="min-w-0">
+    // Where the title and its action don't both fit (a phone), the action moves underneath.
+    <header className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-5 pt-4 pb-3">
+      <div className="min-w-0 flex-1 basis-56">
         <h2 className="text-ink flex items-center gap-2 text-sm font-semibold tracking-tight">
           {Icon ? <Icon className="text-muted h-4 w-4" aria-hidden /> : null}
           {title}
         </h2>
         {subtitle ? <p className="text-ink-2 mt-0.5 text-xs">{subtitle}</p> : null}
       </div>
-      {action}
+      {action ? <div className="shrink-0">{action}</div> : null}
     </header>
   );
 }

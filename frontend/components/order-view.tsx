@@ -208,6 +208,32 @@ export function OrderView({ id }: { id: string }) {
                 rows={group ? rows : undefined}
                 columns={columns}
                 height={Math.min(520, 120 + rows.length * 44)}
+                phone={(row) => ({
+                  title: (
+                    <Link href={`/shop/${row.shop.code}`} className="hover:underline">
+                      {row.shop.name}
+                    </Link>
+                  ),
+                  amount: money(row.captured_cents),
+                  detail: (
+                    <>
+                      {row.lines_text}
+                      {row.short_text ? (
+                        <span className="text-critical-ink"> · short: {row.short_text}</span>
+                      ) : null}
+                    </>
+                  ),
+                  meta: (
+                    <>
+                      <span className="tabular">held {money(row.hold_cents)}</span>
+                      {row.refunded_cents ? (
+                        <span className="tabular">refunded {money(row.refunded_cents)}</span>
+                      ) : null}
+                      <Status value={row.status} />
+                      <ModeBadge mode={row.shop.mode} compact />
+                    </>
+                  ),
+                })}
               />
             </div>
           </Card>
