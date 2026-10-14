@@ -22,8 +22,9 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
-import { Button, ButtonLink, Card, ModeBadge, Warning } from "@/components/ui";
+import { Button, ButtonLink, Card, ModeBadge, Skeleton, Warning } from "@/components/ui";
 import { ApiError, post, type ShopDetail } from "@/lib/api";
+import { moneyWhole } from "@/lib/format";
 
 type Params = { t?: string; sim_order?: string; token?: string; cancelled?: string };
 type Phase =
@@ -115,7 +116,7 @@ export function ConnectFlow({ code, params }: { code: string; params: Params }) 
           <div className="text-ink-2 text-xs">Connect PayPal for</div>
           <div className="mt-0.5 flex items-center gap-2">
             <h1 className="text-ink text-lg font-semibold">
-              {shop?.name ?? (shopError ? code : "...")}
+              {shop?.name ?? (shopError ? code : <Skeleton className="h-5 w-32" />)}
             </h1>
             {shop ? <ModeBadge mode={shop.mode} compact /> : null}
           </div>
@@ -142,7 +143,7 @@ export function ConnectFlow({ code, params }: { code: string; params: Params }) 
                   },
                   {
                     icon: Hand,
-                    text: "Each week the agent places a hold for your share of the group order, within your weekly limit.",
+                    text: `Each week the agent places a hold for your share of the group order, within your weekly limit${shop ? ` of ${moneyWhole(shop.limit_cents)}` : ""}. Above it, the agent asks you first.`,
                   },
                   {
                     icon: ShieldCheck,
