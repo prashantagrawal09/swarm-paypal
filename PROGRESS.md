@@ -1039,3 +1039,24 @@ phone-sized pages, each in light and dark: 42 checks.
 - "Money is held, never taken, until the delivery arrives": flash deals are charged at once
   (there is no delivery to wait for). Now it says a group order is held until delivery.
 
+## The owner's phone: "less" means less
+
+**Fixed**
+- Typing "2 crates of milk less next week" (the phone's own example) got the reply "I'll
+  plan for more next week". Three faults:
+  - the direction was ignored: "less" changed the order the same way "more" did;
+  - a number was taken as the new total, so "4 L less milk" would have set the week to 4 L;
+  - when the order was already placed, the reply promised to "plan for more next week",
+    and nothing was recorded.
+- Now the parser (or the model, when a key is set) only reports what the owner said: the
+  product, the number, the unit word and whether they meant a new total, more or less. Code
+  does the sum (`adjusted` in `app/owners/service.py`). A unit the product isn't ordered in
+  ("crates" of milk) gets a question back instead of a guess. A change after the order is
+  placed says it can't change now and to say so on Monday.
+- "Done: 34 L milk this week (was 38 L)." The old quantity now has its unit.
+- The phone's example reply is now "4 L less milk".
+
+**Works**
+- 311 backend tests pass, including the parser on seven phrasings ("need more 12oz cups"
+  doesn't read 12 as a quantity), the arithmetic, and both conversations end to end.
+

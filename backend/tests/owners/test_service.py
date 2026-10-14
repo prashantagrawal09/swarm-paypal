@@ -7,7 +7,15 @@ from sqlalchemy import select
 
 from app.agents.claims_agent import ClaimAssessment
 from app.db.enums import ApprovalKind, ClaimDecision, ForecastStatus, ShopOrderStatus, SwapStatus
-from app.db.models import AgentMessage, ApprovalRequest, Claim, DemandForecast, ShopOrder, SwapOffer
+from app.db.models import (
+    AgentMessage,
+    ApprovalRequest,
+    Claim,
+    DemandForecast,
+    Item,
+    ShopOrder,
+    SwapOffer,
+)
 from app.features.week import WeekRunner
 from app.llm.client import ScriptedLLM
 from app.owners.service import OwnerService, parse_changes
@@ -73,6 +81,56 @@ async def test_skip_and_free_text_intents(db, world, ctx):
     )
     assert approval.status.value == "REJECTED"
     assert milk is not None
+
+
+def test_quantity_arithmetic():
+    from app.owners.service import adjusted
+
+    assert adjusted(38, 4, "less") == 34
+    assert adjusted(38, None, "less") == 28  # a quarter less when no number is given
+    assert adjusted(3, 9, "less") == 0  # never below nothing
+    assert adjusted(38, 4, "more") == 42
+    assert adjusted(38, None, "more") == 48
+    assert adjusted(38, 30, "set") == 30
+    assert adjusted(38, None, None) == 48
+
+
+async def test_less_means_less_and_units_are_never_guessed(db, world, ctx):
+    shop = (await shops_by_code(db))["cafe-mei"]
+    await ctx.shop_agent(shop).weekly_proposal(db, DEMO_WEEK)
+    service = OwnerService(ctx)
+
+    async def milk() -> int:
+        row = await db.scalar(
+            select(DemandForecast)
+            .join(Item, Item.id == DemandForecast.item_id)
+            .where(DemandForecast.shop_id == shop.id, Item.product_code == "milk-full-cream-1l")
+            .execution_options(populate_existing=True)
+        )
+        return row.confirmed_qty if row.confirmed_qty is not None else row.predicted_qty
+
+    before = await milk()
+    await service.handle_text("cafe-mei", "4 L less milk")
+    assert await milk() == before - 4
+    assert (await owner_messages(db, "cafe-mei"))[-1].text == (
+        f"Done: {before - 4} L milk this week (was {before} L)."
+    )
+
+    # A crate isn't a unit milk is ordered in: ask, change nothing.
+    await service.handle_text("cafe-mei", "2 crates of milk less")
+    assert await milk() == before - 4
+    reply = (await owner_messages(db, "cafe-mei"))[-1].text
+    assert "can't tell how much 2 crates is" in reply and "Tell me in L" in reply
+
+
+async def test_a_change_after_the_order_is_placed_promises_nothing(db, world, ctx):
+    runner = WeekRunner(ctx, DEMO_WEEK)
+    for key in ("forecasts", "negotiation"):
+        await runner.run(key)
+    await OwnerService(ctx).handle_text("cafe-mei", "4 L less milk")
+    reply = (await owner_messages(db, "cafe-mei"))[-1].text
+    assert "already ordered" in reply and "next week" in reply
+    assert "plan for more" not in reply
 
 
 async def test_delivery_short_by_text_then_emergency_then_photo_claim(db, world, ctx, runtime):

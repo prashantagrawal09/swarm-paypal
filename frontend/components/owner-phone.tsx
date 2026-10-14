@@ -272,7 +272,7 @@ export function OwnerPhone({
               <input
                 value={text}
                 onChange={(event) => setText(event.target.value)}
-                placeholder='Reply, e.g. "2 crates of milk less"'
+                placeholder='Reply, e.g. "4 L less milk"'
                 maxLength={1000}
                 className="border-line bg-page text-ink placeholder:text-muted focus:border-line-strong h-9 min-w-0 flex-1 rounded-full border px-3.5 text-[13px] outline-none"
                 aria-label="Message"

@@ -48,7 +48,7 @@ from app.features import (
 )
 from app.features.context import Ctx
 from app.features.neighbours import uses
-from app.features.products import describe, wording
+from app.features.products import counted_in, describe, wording
 from app.money import rules
 from app.money.engine import NeedsOwnerApproval
 from app.paypal.errors import PayPalError
@@ -82,6 +82,20 @@ HELP = (
     '• "out of eggs, need 1 tray now"\n• "report" for your savings'
 )
 FRIENDLY_ERRORS = (rules.RuleViolation, NeedsOwnerApproval, LookupError, PayPalError, ValueError)
+
+
+MAX_WEEKLY_QTY = 999
+
+
+def adjusted(current: int, qty: int | None, change: str | None) -> int:
+    """This week's new quantity. `set` makes `qty` the total; `more` and `less` add or take
+    away `qty`, or a quarter of the current amount (at least one) when no number was given."""
+    if change == "set" and qty is not None:
+        return min(MAX_WEEKLY_QTY, qty)
+    step = qty if qty is not None else max(1, round(current * 0.25))
+    if change == "less":
+        return max(0, current - step)
+    return min(MAX_WEEKLY_QTY, current + step)
 
 
 def parse_changes(text: str) -> dict[str, int]:
@@ -269,7 +283,9 @@ class OwnerService:
         if intent.intent == "skip_week":
             await approvals.respond_weekly(ctx, shop.code, "skip")
         elif intent.intent == "adjust_needs" and intent.product_code:
-            await self._adjust_needs(shop, intent.product_code, intent.qty)
+            await self._adjust_needs(
+                shop, intent.product_code, intent.qty, intent.change, intent.unit
+            )
         elif intent.intent == "report_surplus" and intent.product_code:
             qty = intent.qty or max(1, uses(shop, intent.product_code) // 4)
             expires = local_time(ctx.now()).date() + timedelta(days=2)
@@ -284,8 +300,26 @@ class OwnerService:
         else:
             await self._say(shop, intent.note or HELP, kind="HELP")
 
-    async def _adjust_needs(self, shop: Shop, product: str, qty: int | None) -> None:
+    async def _adjust_needs(
+        self,
+        shop: Shop,
+        product: str,
+        qty: int | None,
+        change: str | None = None,
+        unit: str | None = None,
+    ) -> None:
+        """Change this week's planned quantity. The owner's words say how; code does the sum."""
         ctx = self.ctx
+        w = wording(product)
+        if qty is not None and unit and not counted_in(product, unit):
+            # "2 crates of milk": a crate isn't a unit milk is ordered in, so don't guess.
+            await self._say(
+                shop,
+                f"I order {w.name} in {w.units}, so I can't tell how much {qty} {unit} is. "
+                f'Tell me in {w.units}, like "{describe(product, 4)} less".',
+                kind="INFO",
+            )
+            return
         week = week_start(ctx.now())
         row = await ctx.session.scalar(
             select(DemandForecast)
@@ -305,20 +339,21 @@ class OwnerService:
         if row is None or locked:
             await self._say(
                 shop,
-                f"This week's {wording(product).name} is already ordered. "
-                "I'll plan for more next week.",
+                f"This week's {w.name} is already ordered, so it can't change now. Tell me "
+                "on Monday, when I send you next week's order.",
                 kind="INFO",
             )
             return
         current = row.confirmed_qty if row.confirmed_qty is not None else row.predicted_qty
-        new_qty = qty if qty is not None else round(current * 1.25) + 1
+        new_qty = adjusted(current, qty, change)
         row.confirmed_qty = new_qty
         if row.status == ForecastStatus.PROPOSED:
             row.predicted_qty = new_qty
         await ctx.session.commit()
         await self._say(
             shop,
-            f"Done: {describe(product, new_qty)} this week (was {current}).",
+            f"Done: {describe(product, new_qty)} this week "
+            f"(was {current} {w.unit if current == 1 else w.units}).",
             kind="NEEDS_UPDATED",
         )
 

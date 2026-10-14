@@ -89,7 +89,7 @@ the rules the choice passed before it was sent.
 
 **Stack.** Python, FastAPI, PostgreSQL and SQLAlchemy on the back; Next.js, TypeScript,
 Tailwind and AG Grid on the front, with live updates over Server-Sent Events. Telegram for
-the owners. Hosted on Render. 301 backend tests (including four simulated weeks that must
+the owners. Hosted on Render. 311 backend tests (including four simulated weeks that must
 keep the ledger balanced) and 77 frontend tests.
 
 **Honest about what is real.** Four shops, the three suppliers and the platform use the

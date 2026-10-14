@@ -32,6 +32,47 @@ def wording(product: str) -> Wording:
     return WORDING.get(product, Wording(product, "unit", "units"))
 
 
+# The words an owner might use for a unit, by the unit a product is counted in.
+UNIT_WORDS = {
+    "L": {"l", "litre", "litres", "liter", "liters", "ltr"},
+    "kg": {"kg", "kgs", "kilo", "kilos", "kilogram", "kilograms"},
+    "tray": {"tray", "trays"},
+    "block": {"block", "blocks"},
+    "bottle": {"bottle", "bottles"},
+    "sleeve": {"sleeve", "sleeves"},
+    "pack": {"pack", "packs", "packet", "packets"},
+}
+# Every unit word Swarm knows, plus containers no product is counted in.
+ANY_UNIT = set().union(*UNIT_WORDS.values()) | {
+    "crate",
+    "crates",
+    "case",
+    "cases",
+    "carton",
+    "cartons",
+    "bag",
+    "bags",
+    "box",
+    "boxes",
+    "dozen",
+    "tub",
+    "tubs",
+    "tin",
+    "tins",
+    "can",
+    "cans",
+    "jar",
+    "jars",
+    "sack",
+    "sacks",
+}
+
+
+def counted_in(product: str, word: str) -> bool:
+    """Whether `word` ("litres", "trays") is a unit this product is counted in."""
+    return word.lower() in UNIT_WORDS.get(wording(product).unit, {wording(product).unit.lower()})
+
+
 def describe(product: str, qty: int) -> str:
     w = wording(product)
     return f"{qty} {w.unit if qty == 1 else w.units}{w.joiner}{w.name}"

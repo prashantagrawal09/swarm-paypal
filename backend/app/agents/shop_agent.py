@@ -28,7 +28,7 @@ from app.db.models import ApprovalRequest, DemandForecast, GroupOrder, Item, Sho
 from app.features import demand, group_buy
 from app.features.actions import WEEKLY_NEEDS, action
 from app.features.demand import ProductForecast
-from app.features.products import describe_all, wording
+from app.features.products import ANY_UNIT, describe_all, wording
 from app.llm.client import LLM
 from app.money.amount import Money
 
@@ -47,6 +47,11 @@ class OwnerIntent(BaseModel):
     intent: Intent
     product_code: str | None = None
     qty: int | None = None
+    # For adjust_needs: "set" makes qty the week's total; "more" and "less" add or take
+    # away qty (or a sensible step when no number was given).
+    change: Literal["set", "more", "less"] | None = None
+    # The unit word the owner used with the number ("crates"), when there was one.
+    unit: str | None = None
     note: str = ""
 
 
@@ -280,7 +285,9 @@ class ShopAgent(Agent):
         content = (
             "Classify the owner's message into one intent. Products: "
             + ", ".join(KEYWORDS)
-            + ".\n"
+            + ". For adjust_needs, say whether the owner wants a new total (set) or more or "
+            "less than planned, give the number they wrote as qty, and the unit word they "
+            "used with it (for example crates or L), if any.\n"
             + wrap_untrusted([(self.owner_channel, "TEXT", text)], tag="owner_message")
         )
         intent, _ = await self.ask(
@@ -296,8 +303,14 @@ class ShopAgent(Agent):
         qty = intent.qty if intent.qty is not None and 0 < intent.qty <= 500 else None
         if intent.intent in ("adjust_needs", "report_surplus", "emergency_request") and not product:
             return OwnerIntent(intent="other", note="I couldn't tell which product you meant.")
+        unit = (intent.unit or "").strip().lower()[:20] or None
         return OwnerIntent(
-            intent=intent.intent, product_code=product, qty=qty, note=intent.note[:200]
+            intent=intent.intent,
+            product_code=product,
+            qty=qty,
+            change=intent.change,
+            unit=unit,
+            note=intent.note[:200],
         )
 
     # -- after the award ----------------------------------------------------------------
@@ -346,8 +359,14 @@ def keyword_intent(text: str) -> OwnerIntent:
     product = next(
         (code for code, words in KEYWORDS.items() if any(word in lowered for word in words)), None
     )
-    match = re.search(r"\b(\d{1,3})\b", lowered)
-    qty = int(match.group(1)) if match else None
+    qty: int | None = None
+    unit: str | None = None
+    for match in re.finditer(r"\b(\d{1,3})\s*([a-z]+)?", lowered):
+        if match.group(2) == "oz":  # "12oz cups" names the cup; it isn't a quantity
+            continue
+        qty = int(match.group(1))
+        unit = match.group(2) if match.group(2) in ANY_UNIT else None
+        break
     if any(word in lowered for word in ("skip", "closed", "no order", "holiday this week")):
         return OwnerIntent(intent="skip_week")
     if any(word in lowered for word in ("out of", "ran out", "urgent", "need now", "emergency")):
@@ -356,10 +375,14 @@ def keyword_intent(text: str) -> OwnerIntent:
         word in lowered for word in ("expiring", "expire", "surplus", "too much", "extra stock")
     ):
         return OwnerIntent(intent="report_surplus", product_code=product, qty=qty)
-    if product and any(
-        word in lowered for word in ("need", "more", "extra", "add", "less", "fewer")
-    ):
-        return OwnerIntent(intent="adjust_needs", product_code=product, qty=qty)
+    words = set(re.findall(r"[a-z]+", lowered))
+    fewer = words & {"less", "fewer", "reduce", "cut", "lower", "minus"}
+    extra = words & {"more", "extra", "add", "another", "plus", "additional"}
+    if product and (fewer or extra or "need" in words):
+        change = "less" if fewer else "more" if extra or qty is None else "set"
+        return OwnerIntent(
+            intent="adjust_needs", product_code=product, qty=qty, change=change, unit=unit
+        )
     if lowered.strip().endswith("?"):
         return OwnerIntent(intent="question")
     return OwnerIntent(intent="other")

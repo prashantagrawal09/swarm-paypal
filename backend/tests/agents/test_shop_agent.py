@@ -82,6 +82,24 @@ def test_keyword_fallback_understands_common_messages(text, intent, product, qty
     assert (parsed.intent, parsed.product_code, parsed.qty) == (intent, product, qty)
 
 
+@pytest.mark.parametrize(
+    ("text", "qty", "change", "unit"),
+    [
+        ("4 L less milk", 4, "less", "l"),
+        ("2 crates of milk less next week", 2, "less", "crates"),
+        ("need 30 L milk this week", 30, "set", "l"),
+        ("need extra oil this week", None, "more", None),
+        ("add 2 trays of eggs", 2, "more", "trays"),
+        ("fewer napkins please", None, "less", None),
+        ("need more 12oz cups", None, "more", None),
+    ],
+)
+def test_quantity_changes_keep_their_direction_and_unit(text, qty, change, unit):
+    parsed = keyword_intent(text)
+    assert parsed.intent == "adjust_needs"
+    assert (parsed.qty, parsed.change, parsed.unit) == (qty, change, unit)
+
+
 async def test_model_intents_are_checked_against_the_catalog(db, world, clock, bus):
     llm = ScriptedLLM(
         {
