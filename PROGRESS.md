@@ -1005,3 +1005,20 @@ phone-sized pages, each in light and dark: 42 checks.
   exempt (the caret shows focus); everything else keeps the ring, including the map pins and
   chart nodes that rely on it.
 
+## While a page loads
+
+**Fixed**
+- **Pages no longer state zeros before their data arrives.** On a slow connection, or while
+  the free server wakes up, a shop page said "S$0.00 saved this week", a supplier page said
+  "No invoices yet", the Money page said "0 payments recorded", and the live board's feed
+  said nobody had spoken yet. Figures, lists and feeds now hold their place with grey
+  placeholders until they load (`Skeleton`, `LoadingRows`, a `loading` option on the stat
+  tiles and the big figures; the live connection says when its first history has arrived).
+  The owner's phone no longer shows the shop's code ("for cafe-mei") while loading.
+- The supplier page's empty invoice list said suppliers invoice on Friday; they invoice on
+  Thursday.
+
+**Works**
+- Checked with every API response held back for six seconds: no page shows a figure or a
+  "nothing here" message it doesn't have yet. `make a11y` passes.
+

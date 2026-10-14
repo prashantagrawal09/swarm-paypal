@@ -12,7 +12,7 @@ import { PaymentsGrid } from "@/components/grids";
 import { PayPalUsageCard } from "@/components/paypal-usage";
 import { StatTile } from "@/components/stats";
 import { InvoiceCard } from "@/components/supplier-view";
-import { Card, CardHeader, cx, Empty, Status } from "@/components/ui";
+import { Card, CardHeader, cx, LoadingRows, Empty, Status } from "@/components/ui";
 import type { FlashDeal, InvoiceRow, Ledger, Mode, MoneyFlow, PaymentRow } from "@/lib/api";
 import { dayTime, money } from "@/lib/format";
 
@@ -63,6 +63,7 @@ export function MoneyView() {
       <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <StatTile
           label="Ledger"
+          loading={!ledger}
           value={
             balanced === null ? (
               "-"
@@ -80,14 +81,20 @@ export function MoneyView() {
           detail="debits equal credits, and the PayPal balance matches"
           accent={<Scale className="text-muted h-3.5 w-3.5" aria-hidden />}
         />
-        <StatTile label="Ledger entries" value={(ledger?.entries ?? 0).toLocaleString("en-SG")} />
+        <StatTile
+          label="Ledger entries"
+          loading={!ledger}
+          value={(ledger?.entries ?? 0).toLocaleString("en-SG")}
+        />
         <StatTile
           label="Payments recorded"
+          loading={!payments}
           value={(payments?.length ?? 0).toLocaleString("en-SG")}
           detail={mode ? `${mode.toLowerCase()} only` : "latest 300"}
         />
         <StatTile
           label="Failed calls"
+          loading={!payments}
           value={(payments?.filter((p) => p.status === "FAILED").length ?? 0).toString()}
           detail="retried safely with the same request ID"
         />
@@ -193,7 +200,9 @@ export function MoneyView() {
             subtitle="PayPal Invoicing, checked by the coordinator"
           />
           <div className="feed max-h-[560px] overflow-y-auto px-5 pb-5">
-            {invoices?.length ? (
+            {!invoices ? (
+              <LoadingRows />
+            ) : invoices.length ? (
               <ul className="space-y-3">
                 {invoices.map((invoice) => (
                   <InvoiceCard key={invoice.id} invoice={invoice} />
@@ -213,7 +222,9 @@ export function MoneyView() {
           icon={Zap}
         />
         <div className="px-5 pb-5">
-          {deals?.length ? (
+          {!deals ? (
+            <LoadingRows rows={1} />
+          ) : deals.length ? (
             <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {deals.map((deal) => (
                 <li key={deal.id} className="border-line rounded-xl border p-3 text-sm">

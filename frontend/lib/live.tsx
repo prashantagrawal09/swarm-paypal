@@ -49,6 +49,8 @@ export type LiveState = Pick<
   connected: boolean;
   /** False until the stream has connected once (so the UI can say "connecting", not "offline"). */
   started: boolean;
+  /** False until the recent conversation has been fetched (or failed to be). */
+  seeded: boolean;
 };
 
 /**
@@ -58,6 +60,7 @@ export type LiveState = Pick<
 export const LiveContext = createContext<LiveState>({
   connected: false,
   started: false,
+  seeded: false,
   messages: [],
   events: [],
   activity: {},
@@ -94,6 +97,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
   const { mutate } = useSWRConfig();
   const [connected, setConnected] = useState(false);
   const [started, setStarted] = useState(false);
+  const [seeded, setSeeded] = useState(false);
   const [stream, dispatch] = useReducer(reduce, EMPTY_STREAM);
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listeners = useRef(new Set<Listener>());
@@ -130,7 +134,10 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
         .then((messages) => {
           if (!cancelled) dispatch({ type: "seed", messages });
         })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => {
+          if (!cancelled) setSeeded(true);
+        });
 
     const receive = (name: StreamItem["event"]) => (raw: Event) => {
       const message = raw as MessageEvent<string>;
@@ -234,6 +241,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
     () => ({
       connected,
       started,
+      seeded,
       messages: stream.messages,
       events: stream.events,
       activity: stream.activity,
@@ -242,7 +250,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
       timeline: stream.timeline,
       lastAward: stream.lastAward,
     }),
-    [connected, started, stream],
+    [connected, started, seeded, stream],
   );
   return (
     <TapContext.Provider value={tap}>

@@ -13,7 +13,16 @@ import { GroupOrderCard } from "@/components/group-order-card";
 import { NegotiationChart } from "@/components/charts/negotiation-chart";
 import { PriceLadder } from "@/components/charts/price-ladder";
 import { InvoiceCard } from "@/components/supplier-view";
-import { Card, CardHeader, Empty, Missing, ModeBadge, Mono, Status } from "@/components/ui";
+import {
+  Card,
+  CardHeader,
+  LoadingRows,
+  Missing,
+  ModeBadge,
+  Mono,
+  Empty,
+  Status,
+} from "@/components/ui";
 import { ApiError, type GroupOrderDetail } from "@/lib/api";
 import { CATEGORY_LABEL, money, shortDate } from "@/lib/format";
 
@@ -240,7 +249,9 @@ export function OrderView({ id }: { id: string }) {
           <Card>
             <CardHeader title="Invoices" subtitle="Checked line by line before any payout" />
             <div className="px-5 pb-5">
-              {group?.invoices.length ? (
+              {!group ? (
+                <LoadingRows rows={1} />
+              ) : group.invoices.length ? (
                 <ul className="space-y-3">
                   {group.invoices.map((invoice) => (
                     <InvoiceCard key={invoice.id} invoice={invoice} />

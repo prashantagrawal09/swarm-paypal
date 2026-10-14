@@ -334,3 +334,30 @@ export function Missing({
     </div>
   );
 }
+
+/**
+ * Where a number or a line will be once it has loaded. Better than a zero, which reads as a
+ * fact ("S$0.00 saved") while the real figure is still on its way.
+ */
+export function Skeleton({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cx(
+        "bg-surface-2 inline-block rounded-md align-middle motion-safe:animate-pulse",
+        className,
+      )}
+    />
+  );
+}
+
+/** A list that is still loading: a couple of grey rows where its items will be. */
+export function LoadingRows({ rows = 2, className }: { rows?: number; className?: string }) {
+  return (
+    <div className={cx("space-y-3", className)} aria-busy="true">
+      {Array.from({ length: rows }, (_, index) => (
+        <Skeleton key={index} className="block h-16 w-full rounded-xl" />
+      ))}
+    </div>
+  );
+}

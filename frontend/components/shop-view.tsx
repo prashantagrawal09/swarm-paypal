@@ -28,10 +28,12 @@ import {
   Card,
   CardHeader,
   cx,
-  Empty,
+  LoadingRows,
   Meter,
   Missing,
   ModeBadge,
+  Empty,
+  Skeleton,
   Status,
   StatusPill,
 } from "@/components/ui";
@@ -95,7 +97,7 @@ export function ShopView({ code }: { code: string }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-ink text-2xl font-semibold tracking-tight">
-              {shop?.name ?? "..."}
+              {shop?.name ?? <Skeleton className="h-6 w-40" />}
             </h1>
             {shop ? <ModeBadge mode={shop.mode} /> : null}
           </div>
@@ -140,6 +142,7 @@ export function ShopView({ code }: { code: string }) {
               <div>
                 <HeroFigure
                   label="Saved this week"
+                  loading={!report}
                   value={report?.total_saved_cents ?? 0}
                   format={money}
                   detail={
@@ -149,12 +152,14 @@ export function ShopView({ code }: { code: string }) {
                 <div className="mt-5">
                   <div className="text-ink-2 flex items-baseline justify-between text-xs">
                     <span>Committed this week</span>
-                    <span className="tabular">
-                      <span className="text-ink font-medium">
-                        {money(shop?.committed_cents ?? 0)}
-                      </span>{" "}
-                      of {moneyWhole(shop?.limit_cents ?? 0)} limit
-                    </span>
+                    {shop ? (
+                      <span className="tabular">
+                        <span className="text-ink font-medium">{money(shop.committed_cents)}</span>{" "}
+                        of {moneyWhole(shop.limit_cents)} limit
+                      </span>
+                    ) : (
+                      <Skeleton className="h-3 w-32" />
+                    )}
                   </div>
                   <div className="mt-1.5">
                     <Meter
@@ -172,7 +177,9 @@ export function ShopView({ code }: { code: string }) {
                 <div className="text-ink-2 mb-3 text-xs font-medium">
                   Buying alone vs. buying with Swarm
                 </div>
-                {report && report.groups.length ? (
+                {!report ? (
+                  <LoadingRows rows={1} />
+                ) : report.groups.length ? (
                   <Dumbbell
                     rows={report.groups.map((g) => ({
                       category: g.category,
@@ -189,11 +196,13 @@ export function ShopView({ code }: { code: string }) {
             <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <StatTile
                 label="Group buying"
+                loading={!report}
                 value={money(report?.group_saved_cents ?? 0)}
                 detail="vs. buying alone"
               />
               <StatTile
                 label="Neighbours"
+                loading={!report}
                 value={money(
                   (report?.swap_income_cents ?? 0) +
                     (report?.help_income_cents ?? 0) +
@@ -208,11 +217,13 @@ export function ShopView({ code }: { code: string }) {
               />
               <StatTile
                 label="Flash deals"
+                loading={!report}
                 value={money(report?.flash_saved_cents ?? 0)}
                 accent={<Zap className="text-muted h-3.5 w-3.5" aria-hidden />}
               />
               <StatTile
                 label="Food not wasted"
+                loading={!report}
                 value={kg(report?.food_saved_grams ?? 0)}
                 detail={
                   report?.refunds_cents ? `${money(report.refunds_cents)} refunded` : undefined

@@ -9,7 +9,7 @@ import { Camera, CheckCheck, ChevronDown, Loader2, SendHorizontal } from "lucide
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
-import { cx } from "@/components/ui";
+import { cx, Skeleton } from "@/components/ui";
 import { type AgentMessage, ApiError, post, postForm, type ShopSummary } from "@/lib/api";
 import { initials, time } from "@/lib/format";
 import { useLive } from "@/lib/live";
@@ -106,7 +106,7 @@ export function OwnerPhone({
               className="bg-honey grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold text-[#1c1400]"
               aria-hidden
             >
-              {current ? initials(current.name).toUpperCase() : "S"}
+              {current ? initials(current.name).toUpperCase() : null}
             </span>
             <div className="min-w-0 flex-1">
               <div className="text-ink truncate text-sm font-semibold">Swarm agent</div>
@@ -130,7 +130,9 @@ export function OwnerPhone({
                   />
                 </label>
               ) : (
-                <div className="text-ink-2 truncate text-xs">for {current?.owner ?? shop}</div>
+                <div className="text-ink-2 truncate text-xs">
+                  {current ? `for ${current.owner}` : <Skeleton className="h-3 w-28" />}
+                </div>
               )}
             </div>
           </div>

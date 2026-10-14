@@ -68,6 +68,7 @@ export function LiveBoard() {
           <div className="mt-3">
             <HeroFigure
               label="Saved by neighbourhood shops this week"
+              loading={!stats}
               value={stats?.saved_cents ?? 0}
               format={moneyWhole}
               detail={
@@ -89,6 +90,7 @@ export function LiveBoard() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <StatTile
             label="PayPal API calls"
+            loading={!stats}
             value={<AnimatedNumber value={calls} format={(v) => v.toLocaleString("en-SG")} />}
             detail={
               stats
@@ -99,28 +101,33 @@ export function LiveBoard() {
           />
           <StatTile
             label="Held right now"
+            loading={!stats}
             value={money(stats?.holds_outstanding_cents ?? 0)}
             detail="authorized, not yet charged"
             accent={<Wallet className="text-muted h-3.5 w-3.5" aria-hidden />}
           />
           <StatTile
             label="Charged for deliveries"
+            loading={!stats}
             value={money(stats?.captured_cents ?? 0)}
             detail={stats ? `${money(stats.refunds_cents)} refunded` : undefined}
           />
           <StatTile
             label="Paid to suppliers"
+            loading={!stats}
             value={money(stats?.payouts_cents ?? 0)}
             detail="by PayPal Payouts"
             accent={<Landmark className="text-muted h-3.5 w-3.5" aria-hidden />}
           />
           <StatTile
             label="Swarm fee"
+            loading={!stats}
             value={money(stats?.fees_cents ?? 0)}
             detail="2% of supplier payouts"
           />
           <StatTile
             label="Books"
+            loading={!stats}
             value={
               stats ? (
                 stats.books_balanced ? (

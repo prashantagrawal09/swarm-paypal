@@ -26,7 +26,7 @@ import { AnimatePresence, motion } from "motion/react";
 import useSWR from "swr";
 
 import { hasExplanation, useInspect } from "@/components/message-inspector";
-import { cx, ModeBadge, Mono } from "@/components/ui";
+import { cx, LoadingRows, ModeBadge, Mono } from "@/components/ui";
 import { type AgentMessage, fetcher, type PaymentRow } from "@/lib/api";
 import { agentKind, agentName, initials, money, slotColor, time } from "@/lib/format";
 import { type PayPalEvent, useLive } from "@/lib/live";
@@ -174,7 +174,7 @@ export function AgentFeed({
    */
   conversations?: string[];
 }) {
-  const { messages: live, connected } = useLive();
+  const { messages: live, connected, seeded } = useLive();
   const names = useNames();
   const inspect = useInspect();
   const [topic, setTopic] = useState<Topic>(initialTopic);
@@ -210,6 +210,8 @@ export function AgentFeed({
     () => messages.filter((m) => TOPICS[topic].match(m) && (!filter || filter(m))).slice(-120),
     [messages, topic, filter],
   );
+  // Still fetching: the conversations asked for, or the recent history of the live feed.
+  const loading = conversations?.length ? history === undefined : !seeded;
 
   // Follow the newest message unless the reader has scrolled up. Our own jumps are flagged
   // so the scroll handler doesn't mistake them for the reader.
@@ -271,6 +273,8 @@ export function AgentFeed({
             <div className="text-muted grid h-full min-h-40 place-items-center text-center text-sm">
               Connecting to the live stream...
             </div>
+          ) : loading ? (
+            <LoadingRows rows={3} className="pt-1" />
           ) : conversations?.length || topic !== "all" ? (
             <div className="text-muted grid h-full min-h-40 place-items-center text-center text-sm">
               Nothing here yet.
@@ -453,7 +457,9 @@ export function PayPalFeed({ className, limit = 40 }: { className?: string; limi
       role="log"
       aria-label="PayPal activity"
     >
-      {shown.length === 0 ? (
+      {shown.length === 0 && history === undefined ? (
+        <LoadingRows rows={3} className="pt-1" />
+      ) : shown.length === 0 ? (
         <ComingUp
           lead="No money has moved yet. This is what PayPal will do:"
           rows={[

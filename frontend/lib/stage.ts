@@ -44,6 +44,7 @@ export function stageLive(stream: StreamState): LiveState {
   return {
     connected: true,
     started: true,
+    seeded: true,
     messages: stream.messages,
     events: stream.events,
     activity: stream.activity,

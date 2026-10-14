@@ -22,7 +22,18 @@ import { NegotiationChart } from "@/components/charts/negotiation-chart";
 import { shortId } from "@/components/feeds";
 import { PaymentsGrid, QuotesGrid } from "@/components/grids";
 import { StatTile } from "@/components/stats";
-import { Card, CardHeader, cx, Empty, Missing, ModeBadge, Mono, StatusPill } from "@/components/ui";
+import {
+  Card,
+  CardHeader,
+  cx,
+  LoadingRows,
+  Missing,
+  ModeBadge,
+  Mono,
+  Empty,
+  Skeleton,
+  StatusPill,
+} from "@/components/ui";
 import {
   ApiError,
   type GroupOrder,
@@ -80,7 +91,7 @@ export function SupplierView({ code }: { code: string }) {
               aria-hidden
             />
             <h1 className="text-ink text-2xl font-semibold tracking-tight">
-              {supplier?.name ?? "..."}
+              {supplier?.name ?? <Skeleton className="h-6 w-44" />}
             </h1>
             {supplier ? <ModeBadge mode={supplier.mode} /> : null}
           </div>
@@ -91,6 +102,7 @@ export function SupplierView({ code }: { code: string }) {
       <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <StatTile
           label="Reliability"
+          loading={!supplier}
           value={supplier ? `${supplier.reliability}/100` : "-"}
           detail={
             supplier && supplier.reliability < 85
@@ -101,17 +113,20 @@ export function SupplierView({ code }: { code: string }) {
         />
         <StatTile
           label="Delivery"
+          loading={!supplier}
           value={money(supplier?.delivery_fee_cents ?? 0)}
           detail={supplier ? supplier.delivery_days.map(titleCase).join(", ") : undefined}
           accent={<Truck className="text-muted h-3.5 w-3.5" aria-hidden />}
         />
         <StatTile
           label="Group orders won"
+          loading={!summary}
           value={summary?.awards ?? 0}
           accent={<CalendarDays className="text-muted h-3.5 w-3.5" aria-hidden />}
         />
         <StatTile
           label="Paid out by PayPal"
+          loading={!summary}
           value={money(summary?.paid_out_cents ?? 0)}
           detail={
             supplier
@@ -128,6 +143,7 @@ export function SupplierView({ code }: { code: string }) {
           subtitle="Public list prices. The supplier agent's floor prices stay private, even from this page."
         />
         <div className="space-y-5 px-5 pb-5">
+          {supplier ? null : <LoadingRows rows={2} />}
           {categories.map((category) => (
             <div key={category}>
               <h3 className="text-muted mb-2 text-xs font-medium">
@@ -229,14 +245,16 @@ export function SupplierView({ code }: { code: string }) {
           icon={FileText}
         />
         <div className="px-5 pb-5">
-          {invoices && invoices.length ? (
+          {!invoices ? (
+            <LoadingRows />
+          ) : invoices.length ? (
             <ul className="space-y-3">
               {invoices.map((invoice) => (
                 <InvoiceCard key={invoice.id} invoice={invoice} />
               ))}
             </ul>
           ) : (
-            <Empty>No invoices yet. Suppliers invoice on Friday, after delivery.</Empty>
+            <Empty>No invoices yet. Suppliers invoice on Thursday, after delivery.</Empty>
           )}
         </div>
       </Card>
