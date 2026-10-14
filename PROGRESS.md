@@ -1027,3 +1027,15 @@ phone-sized pages, each in light and dark: 42 checks.
   and goods columns can be seen cancelling out. Columns with nothing in them this week are
   left out; on a phone each holder's accounts sit under its name.
 
+## Saying only what the code does
+
+**Fixed** (home page copy checked line by line against the implementation)
+- "Claims and swaps refund to the original PayPal payment": swaps are never refunded; only
+  an upheld damage claim is.
+- "Suppliers and neighbour sellers are paid out, minus a 2% fee": neighbour sales carry no
+  fee. Now: suppliers minus 2%, a neighbour who sells surplus is paid in full.
+- "Damage claims refund in minutes": without a model to read the photo, a person decides.
+  Now: refunded once the photo or a person confirms it.
+- "Money is held, never taken, until the delivery arrives": flash deals are charged at once
+  (there is no delivery to wait for). Now it says a group order is held until delivery.
+

@@ -63,7 +63,7 @@ const WEEK = [
   {
     day: "Thu",
     title: "Charged for what arrived",
-    body: "Short delivery? The capture is smaller, automatically. Damage claims refund in minutes.",
+    body: "Short delivery? The capture is smaller, automatically. Damaged goods are refunded once the photo or a person confirms it.",
     icon: Truck,
   },
   {
@@ -99,7 +99,7 @@ const PAYPAL = [
   {
     icon: Undo2,
     title: "Refunds",
-    body: "Claims and swaps refund to the original PayPal payment.",
+    body: "An upheld damage claim goes back onto the original PayPal payment.",
   },
   {
     icon: FileCheck2,
@@ -109,7 +109,7 @@ const PAYPAL = [
   {
     icon: Landmark,
     title: "Payouts",
-    body: "Suppliers and neighbour sellers are paid out, minus a 2% fee.",
+    body: "Suppliers are paid out minus a 2% fee; a neighbour who sells surplus is paid in full.",
   },
   {
     icon: Webhook,
@@ -204,8 +204,8 @@ export function Landing() {
             </h1>
             <p className="text-ink-2 mt-6 max-w-xl text-lg">
               AI agents pool a neighbourhood&apos;s weekly orders, negotiate with suppliers, and
-              settle every cent through PayPal. Money is held, never taken, until the delivery
-              arrives.
+              settle every cent through PayPal. A group order is held on PayPal, not charged, until
+              the delivery arrives.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <ButtonLink href="/watch?play=1" variant="honey" className="px-5 py-2.5">
