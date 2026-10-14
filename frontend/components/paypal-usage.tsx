@@ -72,7 +72,7 @@ export function PayPalUsageCard() {
   const real = rows.reduce((sum, row) => sum + row.real, 0);
 
   return (
-    <Card>
+    <Card id="capabilities" className="scroll-mt-24">
       <CardHeader
         title="PayPal, capability by capability"
         subtitle={

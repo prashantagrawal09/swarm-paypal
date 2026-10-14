@@ -221,7 +221,7 @@ export function SupplierDirectory() {
 /** The week's group orders, one per row: what each supplier's last quote was and who won. */
 function Contests({ suppliers, groups }: { suppliers: SupplierSummary[]; groups: GroupOrder[] }) {
   return (
-    <Card className="mt-6">
+    <Card id="contests" className="mt-6 scroll-mt-24">
       <CardHeader
         title="This week, order by order"
         subtitle="Each supplier's final landed price for the whole street's order, delivery included. The lowest price from a reliable supplier wins."

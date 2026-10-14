@@ -93,7 +93,7 @@ export function MoneyView() {
         />
       </div>
 
-      <Card className="mt-6">
+      <Card id="flow" className="mt-6 scroll-mt-24">
         <CardHeader
           title="Where the money went this week"
           subtitle="Shops are charged only for what arrived. It passes through Swarm's PayPal balance to suppliers, neighbours and refunds; Swarm keeps its fee."
@@ -147,7 +147,7 @@ export function MoneyView() {
       </Card>
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <Card>
+        <Card id="ledger" className="scroll-mt-24">
           <CardHeader
             title="Ledger balances"
             subtitle="Signed balances: debits positive, credits negative"

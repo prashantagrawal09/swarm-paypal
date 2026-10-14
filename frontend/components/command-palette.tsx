@@ -49,6 +49,52 @@ const PAGES = [
   { href: "/", label: "Home", keywords: "landing about" },
 ];
 
+/** Places inside pages, for searches by what is there rather than where. */
+const PLACES = [
+  {
+    href: "/demo#claims",
+    label: "Claims waiting for a person",
+    hint: "Demo panel",
+    keywords: "claim refund approve reject damaged photo",
+  },
+  {
+    href: "/demo#surprises",
+    label: "Surprises this week",
+    hint: "Demo panel",
+    keywords: "short delivery overcharged invoice flash deal surplus emergency damage claim refund",
+  },
+  {
+    href: "/demo#phone",
+    label: "Be the owner",
+    hint: "Demo panel",
+    keywords: "phone telegram chat owner message photo",
+  },
+  {
+    href: "/money#flow",
+    label: "Where the money went",
+    hint: "Money",
+    keywords: "flow sankey charged suppliers fee refunds neighbours",
+  },
+  {
+    href: "/money#capabilities",
+    label: "PayPal, capability by capability",
+    hint: "Money",
+    keywords: "vault authorize hold capture void reauthorize refund payouts invoicing webhooks api",
+  },
+  {
+    href: "/money#ledger",
+    label: "Ledger balances",
+    hint: "Money",
+    keywords: "double entry books balanced accounts",
+  },
+  {
+    href: "/suppliers#contests",
+    label: "How the suppliers competed",
+    hint: "Suppliers",
+    keywords: "quotes won lost scoreboard negotiation price",
+  },
+];
+
 export function CommandPalette() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -100,6 +146,15 @@ export function CommandPalette() {
         keywords: page.keywords,
         icon: ArrowRight,
         action: { go: page.href },
+      })),
+      ...PLACES.map((place) => ({
+        id: `place:${place.href}`,
+        group: "On a page",
+        label: place.label,
+        hint: place.hint,
+        keywords: place.keywords,
+        icon: ArrowRight,
+        action: { go: place.href },
       })),
       ...(shops ?? []).map((shop) => ({
         id: `shop:${shop.code}`,
@@ -239,7 +294,7 @@ export function CommandPalette() {
                           setActive(0);
                         }}
                         placeholder="Search shops, suppliers, pages..."
-                        className="text-ink placeholder:text-muted h-12 w-full bg-transparent text-sm outline-none"
+                        className="text-ink placeholder:text-muted quiet-focus h-12 w-full bg-transparent text-sm outline-none"
                         role="combobox"
                         aria-expanded="true"
                         aria-controls="command-list"

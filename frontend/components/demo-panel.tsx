@@ -14,6 +14,7 @@ import {
   Leaf,
   type LucideIcon,
   PackageMinus,
+  Play,
   RotateCcw,
   Send,
   ShieldCheck,
@@ -29,7 +30,16 @@ import useSWR from "swr";
 
 import { DemoKeyPrompt } from "@/components/demo-key-prompt";
 import { OwnerPhone } from "@/components/owner-phone";
-import { Button, Card, CardHeader, cx, Empty, ModeBadge, StatusPill } from "@/components/ui";
+import {
+  Button,
+  ButtonLink,
+  Card,
+  CardHeader,
+  cx,
+  Empty,
+  ModeBadge,
+  StatusPill,
+} from "@/components/ui";
 import { WeekStepper } from "@/components/week-stepper";
 import {
   ApiError,
@@ -168,22 +178,30 @@ export function DemoPanel() {
                   <SkipForward className="h-4 w-4" aria-hidden />
                   {finished ? "Start next week" : next ? `Next: ${next.title}` : "Next step"}
                 </Button>
-                <Button
-                  variant="honey"
-                  busy={busy === "run" || state?.running}
-                  disabled={locked || finished}
-                  onClick={() =>
-                    act(
-                      "run",
-                      "/api/demo/run-week",
-                      undefined,
-                      "Running the rest of the week. Watch the live board.",
-                    )
-                  }
-                >
-                  <FastForward className="h-4 w-4" aria-hidden />
-                  {state?.running ? "Running the week" : "Run the rest of the week"}
-                </Button>
+                {finished ? (
+                  // Nothing left to run: the useful next step is to watch what happened.
+                  <ButtonLink href="/watch" variant="honey">
+                    <Play className="h-4 w-4" aria-hidden />
+                    Watch this week
+                  </ButtonLink>
+                ) : (
+                  <Button
+                    variant="honey"
+                    busy={busy === "run" || state?.running}
+                    disabled={locked}
+                    onClick={() =>
+                      act(
+                        "run",
+                        "/api/demo/run-week",
+                        undefined,
+                        "Running the rest of the week. Watch the live board.",
+                      )
+                    }
+                  >
+                    <FastForward className="h-4 w-4" aria-hidden />
+                    {state?.running ? "Running the week" : "Run the rest of the week"}
+                  </Button>
+                )}
                 <Button
                   variant="danger"
                   className="ml-auto"
@@ -227,7 +245,7 @@ export function DemoPanel() {
         </div>
 
         {/* Owner's phone */}
-        <div className="lg:sticky lg:top-20 lg:self-start">
+        <div id="phone" className="scroll-mt-24 lg:sticky lg:top-20 lg:self-start">
           <div className="mb-3 flex items-baseline justify-between px-1">
             <h2 className="text-ink text-sm font-semibold">Be the owner</h2>
             <span className="text-muted text-xs">Same chat as Telegram</span>
@@ -526,7 +544,7 @@ function Injections({
   ];
 
   return (
-    <Card>
+    <Card id="surprises" className="scroll-mt-24">
       <CardHeader
         title="Surprises this week"
         subtitle="Each one is armed for its day. Change the details, then save; surplus, emergency and a damage claim can also happen right now."

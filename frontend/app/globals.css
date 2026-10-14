@@ -283,6 +283,11 @@ body {
   outline-offset: 2px;
 }
 
+/* A field that is the only thing in its dialog: the caret already says where focus is. */
+.quiet-focus:focus-visible {
+  outline: none;
+}
+
 /* Thin, quiet scrollbars inside feeds. */
 .feed {
   scrollbar-width: thin;

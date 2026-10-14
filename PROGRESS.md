@@ -989,3 +989,19 @@ phone-sized pages, each in light and dark: 42 checks.
 - The Suppliers page scoreboard is a block per order on a phone instead of a table that
   scrolls sideways.
 
+## Search and small fixes
+
+**Built**
+- **Search finds places inside pages.** "Jump to..." (⌘K) now has an "On a page" group:
+  typing "refund" offers Claims waiting for a person, "capture" the PayPal capability table,
+  "sankey" the money flow, "scoreboard" how the suppliers competed. Each goes straight to
+  that card.
+- The demo panel offers **Watch this week** once the week is finished, in place of a
+  disabled "Run the rest of the week" button.
+
+**Fixed**
+- The site-wide focus ring sits outside Tailwind's layers, so it also overrode the search
+  field's `outline-none` and drew a hard blue box inside the search dialog. That field is now
+  exempt (the caret shows focus); everything else keeps the ring, including the map pins and
+  chart nodes that rely on it.
+
