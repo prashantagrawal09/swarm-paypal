@@ -150,7 +150,6 @@ export function Theatre() {
     [playing, play, pause],
   );
 
-
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;

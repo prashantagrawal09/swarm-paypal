@@ -143,6 +143,11 @@ export function OwnerPhone({
             ref={scroller}
             className="feed min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3"
             aria-live="polite"
+            // Focusable, so the keyboard can scroll the history even when none of its
+            // buttons are still open.
+            tabIndex={0}
+            role="log"
+            aria-label="Chat with the shop's agent"
           >
             {thread.length === 0 ? (
               <p className="text-muted mt-16 px-6 text-center text-xs">
