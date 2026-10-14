@@ -156,3 +156,15 @@ def test_everyday_phrasings(text, intent, product):
 def test_thanks_gets_a_short_answer_not_the_help_text():
     assert keyword_intent("thank you").note.startswith("Any time")
     assert keyword_intent("hello there").note == ""
+
+
+def test_every_example_in_the_help_text_is_understood():
+    """The help text must never suggest a phrase the agent can't act on."""
+    import re
+
+    from app.owners.service import HELP
+
+    examples = re.findall(r'"([^"]+)"', HELP)
+    assert len(examples) >= 6
+    for example in examples:
+        assert keyword_intent(example).intent != "other", example

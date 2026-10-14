@@ -78,8 +78,11 @@ VERB_TEXT = {
 HELP = (
     "I'm your Swarm agent. I'll message you on Monday with next week's order and keep you "
     "posted. You can also tell me things like:\n"
-    '• "need extra oil this week"\n• "8 L milk expiring Sunday"\n'
-    '• "out of eggs, need 1 tray now"\n• "report" for your savings'
+    '• "4 L less milk" or "no eggs this week"\n'
+    '• "8 L milk expiring tomorrow"\n'
+    '• "out of eggs, need 1 tray now"\n'
+    '• "what\'s in my order?" or "what did I save?"\n'
+    "• a photo of anything that arrived damaged"
 )
 FRIENDLY_ERRORS = (rules.RuleViolation, NeedsOwnerApproval, LookupError, PayPalError, ValueError)
 
