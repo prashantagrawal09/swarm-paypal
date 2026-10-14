@@ -93,6 +93,10 @@ def test_quantity_arithmetic():
     assert adjusted(38, None, "more") == 48
     assert adjusted(38, 30, "set") == 30
     assert adjusted(38, None, None) == 48
+    assert adjusted(38, None, "half") == 19
+    assert adjusted(38, None, "double") == 76
+    assert adjusted(38, 0, "set") == 0
+    assert adjusted(38, None, "set") == 38  # a total without a number changes nothing
 
 
 async def test_less_means_less_and_units_are_never_guessed(db, world, ctx):
@@ -116,11 +120,40 @@ async def test_less_means_less_and_units_are_never_guessed(db, world, ctx):
         f"Done: {before - 4} L milk this week (was {before} L)."
     )
 
+    # "No X" is a total of nothing, not "a bit more".
+    await service.handle_text("cafe-mei", "no milk this week")
+    assert await milk() == 0
+    assert (await owner_messages(db, "cafe-mei"))[-1].text == (
+        f"Done: no milk this week (was {before - 4} L)."
+    )
+    await service.handle_text("cafe-mei", "milk 30")
+    assert await milk() == 30
+
     # A crate isn't a unit milk is ordered in: ask, change nothing.
     await service.handle_text("cafe-mei", "2 crates of milk less")
-    assert await milk() == before - 4
+    assert await milk() == 30
     reply = (await owner_messages(db, "cafe-mei"))[-1].text
     assert "can't tell how much 2 crates is" in reply and "Tell me in L" in reply
+
+
+async def test_what_is_in_my_order_and_products_the_shop_never_buys(db, world, ctx):
+    shop = (await shops_by_code(db))["teh-time"]
+    service = OwnerService(ctx)
+    await service.handle_text("teh-time", "what is in my order")
+    assert "Nothing is planned yet" in (await owner_messages(db, "teh-time"))[-1].text
+
+    await ctx.shop_agent(shop).weekly_proposal(db, DEMO_WEEK)
+    await service.handle_text("teh-time", "what is in my order")
+    reply = (await owner_messages(db, "teh-time"))[-1].text
+    assert reply.startswith("This week's order: ") and "L milk" in reply
+    assert reply.endswith("Waiting for your OK.")
+
+    # A tea house that never orders butter has no butter to cut.
+    await service.handle_text("teh-time", "cut the butter")
+    reply = (await owner_messages(db, "teh-time"))[-1].text
+    assert reply == (
+        "Butter isn't part of your usual weekly order, so there's nothing to change from here."
+    )
 
 
 async def test_a_change_after_the_order_is_placed_promises_nothing(db, world, ctx):

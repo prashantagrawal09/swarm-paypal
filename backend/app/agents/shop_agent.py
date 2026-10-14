@@ -35,7 +35,13 @@ from app.money.amount import Money
 MAX_FACTOR_WITHOUT_ASKING = 3  # more than 3x the usual quantity needs an explicit owner change
 
 Intent = Literal[
-    "adjust_needs", "skip_week", "report_surplus", "emergency_request", "question", "other"
+    "adjust_needs",
+    "skip_week",
+    "report_surplus",
+    "emergency_request",
+    "show_order",
+    "question",
+    "other",
 ]
 
 
@@ -49,7 +55,7 @@ class OwnerIntent(BaseModel):
     qty: int | None = None
     # For adjust_needs: "set" makes qty the week's total; "more" and "less" add or take
     # away qty (or a sensible step when no number was given).
-    change: Literal["set", "more", "less"] | None = None
+    change: Literal["set", "more", "less", "half", "double"] | None = None
     # The unit word the owner used with the number ("crates"), when there was one.
     unit: str | None = None
     note: str = ""
@@ -285,9 +291,11 @@ class ShopAgent(Agent):
         content = (
             "Classify the owner's message into one intent. Products: "
             + ", ".join(KEYWORDS)
-            + ". For adjust_needs, say whether the owner wants a new total (set) or more or "
-            "less than planned, give the number they wrote as qty, and the unit word they "
-            "used with it (for example crates or L), if any.\n"
+            + ". For adjust_needs, say whether the owner wants a new total (set; 'no eggs' "
+            "is a total of 0), more, less, half or double, give the number they wrote as qty, "
+            "and the unit word they used with it (for example crates or L), if any. "
+            "show_order is a question about what this week's order contains; question is any "
+            "other question, which is answered with the savings report.\n"
             + wrap_untrusted([(self.owner_channel, "TEXT", text)], tag="owner_message")
         )
         intent, _ = await self.ask(
@@ -300,7 +308,9 @@ class ShopAgent(Agent):
 
     def _validated(self, intent: OwnerIntent) -> OwnerIntent:
         product = intent.product_code if intent.product_code in KEYWORDS else None
-        qty = intent.qty if intent.qty is not None and 0 < intent.qty <= 500 else None
+        # Zero is a real answer to "how many" ("no eggs this week"); negatives and silly
+        # numbers are not.
+        qty = intent.qty if intent.qty is not None and 0 <= intent.qty <= 500 else None
         if intent.intent in ("adjust_needs", "report_surplus", "emergency_request") and not product:
             return OwnerIntent(intent="other", note="I couldn't tell which product you meant.")
         unit = (intent.unit or "").strip().lower()[:20] or None
@@ -353,6 +363,24 @@ class ShopAgent(Agent):
         return text
 
 
+SURPLUS_WORDS = (
+    "expiring",
+    "expire",
+    "surplus",
+    "too much",
+    "extra stock",
+    "going bad",
+    "go bad",
+    "spoil",
+    "leftover",
+    "left over",
+    "won't use",
+    "wont use",
+)
+THANKS = {"thanks", "thank", "you", "thx", "ty", "cheers", "ok", "okay", "great", "nice", "good"}
+WELCOME = "Any time. I'll message you on Monday with next week's order."
+
+
 def keyword_intent(text: str) -> OwnerIntent:
     """Deterministic fallback parser for owner messages."""
     lowered = text.lower()
@@ -371,20 +399,31 @@ def keyword_intent(text: str) -> OwnerIntent:
         return OwnerIntent(intent="skip_week")
     if any(word in lowered for word in ("out of", "ran out", "urgent", "need now", "emergency")):
         return OwnerIntent(intent="emergency_request", product_code=product, qty=qty)
-    if any(
-        word in lowered for word in ("expiring", "expire", "surplus", "too much", "extra stock")
-    ):
+    if any(word in lowered for word in SURPLUS_WORDS):
         return OwnerIntent(intent="report_surplus", product_code=product, qty=qty)
     words = set(re.findall(r"[a-z]+", lowered))
-    fewer = words & {"less", "fewer", "reduce", "cut", "lower", "minus"}
-    extra = words & {"more", "extra", "add", "another", "plus", "additional"}
-    if product and (fewer or extra or "need" in words):
-        change = "less" if fewer else "more" if extra or qty is None else "set"
-        return OwnerIntent(
-            intent="adjust_needs", product_code=product, qty=qty, change=change, unit=unit
-        )
-    if lowered.strip().endswith("?"):
+    if product:
+        adjust = {"intent": "adjust_needs", "product_code": product, "unit": unit}
+        none_of = re.search(r"\b(?:no|zero|don'?t need)\s+(?:more\s+)?([a-z]+)", lowered)
+        if none_of and any(word in none_of.group(1) for word in KEYWORDS[product]):
+            return OwnerIntent(**adjust, qty=0, change="set")
+        if words & {"half", "halve"}:
+            return OwnerIntent(**adjust, change="half")
+        if words & {"double", "twice"}:
+            return OwnerIntent(**adjust, change="double")
+        fewer = words & {"less", "fewer", "reduce", "cut", "lower", "minus"}
+        extra = words & {"more", "extra", "add", "another", "plus", "additional"}
+        if fewer or extra or "need" in words:
+            change = "less" if fewer else "more" if extra or qty is None else "set"
+            return OwnerIntent(**adjust, qty=qty, change=change)
+        if qty is not None:  # "milk 40"
+            return OwnerIntent(**adjust, qty=qty, change="set")
+    if words & {"order", "ordering", "ordered"} and words & {"what", "whats", "show", "my", "see"}:
+        return OwnerIntent(intent="show_order")
+    if words & {"save", "saved", "saving", "savings"} or lowered.strip().endswith("?"):
         return OwnerIntent(intent="question")
+    if words and words <= THANKS:
+        return OwnerIntent(intent="other", note=WELCOME)
     return OwnerIntent(intent="other")
 
 

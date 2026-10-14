@@ -1059,4 +1059,14 @@ phone-sized pages, each in light and dark: 42 checks.
 **Works**
 - 311 backend tests pass, including the parser on seven phrasings ("need more 12oz cups"
   doesn't read 12 as a quantity), the arithmetic, and both conversations end to end.
+- **Everyday phrasings, checked by talking to the agent.** Without a model key the agent
+  answered most of these with its help text. Now, in the offline parser and the model prompt
+  alike: "no eggs this week" (a total of none), "half the coffee", "double the napkins",
+  "milk 40", "5 kg tomatoes going bad tomorrow" (offered to neighbours), "how much did I
+  save" (the report), "what is in my order" (new: the week's order and whether it's
+  confirmed) and "thanks" (a one-line answer). "No, keep the milk" changes nothing.
+- "cut the butter" at a tea house that never orders butter said "already ordered"; it now
+  says butter isn't part of the usual order.
+- Zero is accepted as a quantity, and a "new total" with no number changes nothing instead of
+  adding a little. 323 backend tests.
 

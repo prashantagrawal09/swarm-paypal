@@ -48,7 +48,7 @@ from app.features import (
 )
 from app.features.context import Ctx
 from app.features.neighbours import uses
-from app.features.products import counted_in, describe, wording
+from app.features.products import counted_in, describe, describe_all, wording
 from app.money import rules
 from app.money.engine import NeedsOwnerApproval
 from app.paypal.errors import PayPalError
@@ -90,8 +90,13 @@ MAX_WEEKLY_QTY = 999
 def adjusted(current: int, qty: int | None, change: str | None) -> int:
     """This week's new quantity. `set` makes `qty` the total; `more` and `less` add or take
     away `qty`, or a quarter of the current amount (at least one) when no number was given."""
-    if change == "set" and qty is not None:
-        return min(MAX_WEEKLY_QTY, qty)
+    if change == "set":
+        # A total without a number changes nothing rather than guessing.
+        return current if qty is None else min(MAX_WEEKLY_QTY, qty)
+    if change == "half":
+        return round(current / 2)
+    if change == "double":
+        return min(MAX_WEEKLY_QTY, current * 2)
     step = qty if qty is not None else max(1, round(current * 0.25))
     if change == "less":
         return max(0, current - step)
@@ -295,6 +300,8 @@ class OwnerService:
             if intent.product_code == "eggs-tray-30" and qty >= 30:
                 qty = max(1, qty // 30)  # "30 eggs" means one tray
             await emergency_borrow.request(ctx, shop.code, intent.product_code, qty)
+        elif intent.intent == "show_order":
+            await self._show_order(shop)
         elif intent.intent == "question":
             await self.send_report(shop)
         else:
@@ -336,7 +343,15 @@ class OwnerService:
             .where(GroupOrder.week_start == week, Item.product_code == product)
         )
         locked = group is not None and group.status != GroupOrderStatus.COLLECTING
-        if row is None or locked:
+        if row is None:
+            await self._say(
+                shop,
+                f"{w.name.capitalize()} isn't part of your usual weekly order, so there's "
+                "nothing to change from here.",
+                kind="INFO",
+            )
+            return
+        if locked:
             await self._say(
                 shop,
                 f"This week's {w.name} is already ordered, so it can't change now. Tell me "
@@ -352,10 +367,43 @@ class OwnerService:
         await ctx.session.commit()
         await self._say(
             shop,
-            f"Done: {describe(product, new_qty)} this week "
+            f"Done: {describe(product, new_qty) if new_qty else f'no {w.name}'} this week "
             f"(was {current} {w.unit if current == 1 else w.units}).",
             kind="NEEDS_UPDATED",
         )
+
+    async def _show_order(self, shop: Shop) -> None:
+        """What this week's order holds, and where it stands."""
+        rows = (
+            await self.ctx.session.execute(
+                select(Item.product_code, DemandForecast)
+                .join(Item, Item.id == DemandForecast.item_id)
+                .where(
+                    DemandForecast.shop_id == shop.id,
+                    DemandForecast.week_start == week_start(self.ctx.now()),
+                )
+                .order_by(Item.product_code)
+            )
+        ).all()
+        if not rows:
+            await self._say(
+                shop, "Nothing is planned yet. I'll send this week's order on Monday.", kind="INFO"
+            )
+            return
+        quantities: dict[str, int] = {}
+        for product, row in rows:
+            qty = row.confirmed_qty if row.confirmed_qty is not None else row.predicted_qty
+            quantities[product] = quantities.get(product, 0) + qty
+        statuses = {row.status for _, row in rows}
+        where = (
+            "You skipped this week."
+            if statuses == {ForecastStatus.SKIPPED}
+            else "Waiting for your OK."
+            if ForecastStatus.PROPOSED in statuses
+            else "Confirmed."
+        )
+        listed = describe_all(quantities) or "nothing"
+        await self._say(shop, f"This week's order: {listed}. {where}", kind="INFO")
 
     # -- photos ---------------------------------------------------------------------------
 

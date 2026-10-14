@@ -92,6 +92,11 @@ def test_keyword_fallback_understands_common_messages(text, intent, product, qty
         ("add 2 trays of eggs", 2, "more", "trays"),
         ("fewer napkins please", None, "less", None),
         ("need more 12oz cups", None, "more", None),
+        ("no eggs this week", 0, "set", None),
+        ("don't need butter", 0, "set", None),
+        ("half the coffee", None, "half", None),
+        ("double the napkins", None, "double", None),
+        ("milk 40", 40, "set", None),
     ],
 )
 def test_quantity_changes_keep_their_direction_and_unit(text, qty, change, unit):
@@ -131,3 +136,23 @@ async def test_award_news_mentions_the_saving_and_skipped_brands(db, world, cloc
     text = await (await agent_for(db, "sunrise-bakes", clock, bus)).explain_award(db, group)
     assert "less than buying alone" in text
     assert "I left out milk" in text
+
+
+@pytest.mark.parametrize(
+    ("text", "intent", "product"),
+    [
+        ("we have 5 kg tomatoes going bad tomorrow", "report_surplus", "tomatoes-1kg"),
+        ("what is in my order", "show_order", None),
+        ("how much did I save", "question", None),
+        ("No, keep the milk", "other", None),
+        ("thanks!", "other", None),
+    ],
+)
+def test_everyday_phrasings(text, intent, product):
+    parsed = keyword_intent(text)
+    assert (parsed.intent, parsed.product_code if intent != "other" else None) == (intent, product)
+
+
+def test_thanks_gets_a_short_answer_not_the_help_text():
+    assert keyword_intent("thank you").note.startswith("Any time")
+    assert keyword_intent("hello there").note == ""
