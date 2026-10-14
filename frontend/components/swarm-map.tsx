@@ -504,7 +504,7 @@ export function SwarmMap({
         })}
 
         {/* The coordinator, which also holds the money through PayPal */}
-        <g transform={`translate(${HUB[0]} ${HUB[1]}) scale(${k})`} aria-label="Swarm coordinator">
+        <g transform={`translate(${HUB[0]} ${HUB[1]}) scale(${k})`} aria-hidden>
           {hubActive ? (
             <circle
               r={HUB_R}
@@ -599,7 +599,7 @@ export function SwarmMap({
         })}
 
         {/* The coordinator's name goes on top, so a pin drawn bigger on a phone can't hide it. */}
-        <g transform={`translate(${HUB[0]} ${HUB[1]}) scale(${k})`} aria-hidden>
+        <g transform={`translate(${HUB[0]} ${HUB[1]}) scale(${k})`}>
           <text
             y={HUB_R + 17}
             textAnchor="middle"
