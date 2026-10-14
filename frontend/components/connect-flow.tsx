@@ -228,7 +228,7 @@ export function ConnectFlow({ code, params }: { code: string; params: Params }) 
               <p className="text-ink-2 mt-1 text-sm">
                 {phase.email ? `${phase.email} is saved` : "Your PayPal is saved"} (reference …
                 {phase.vaultTail}). The S$1.00 check was released. Your agent will message you on
-                Monday with this week&apos;s order.
+                Monday with the coming week&apos;s order.
               </p>
               <ButtonLink href={`/shop/${code}`} variant="primary" className="mt-5">
                 See {shop?.name ?? "the shop"}
