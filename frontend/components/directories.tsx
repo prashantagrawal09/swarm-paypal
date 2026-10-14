@@ -235,73 +235,55 @@ function Contests({ suppliers, groups }: { suppliers: SupplierSummary[]; groups:
           </Empty>
         </div>
       ) : (
-        <div
-          className="overflow-x-auto px-5 pb-5"
-          // Focusable, so the keyboard can scroll it sideways on a narrow screen.
-          tabIndex={0}
-          role="region"
-          aria-label="This week's quotes by supplier"
-        >
-          <table className="w-full min-w-[620px] border-separate border-spacing-0 text-sm">
-            <thead>
-              <tr>
-                <th scope="col" className="text-muted pb-2 text-left text-xs font-medium">
-                  Group order
-                </th>
-                {suppliers.map((supplier) => (
-                  <th
-                    key={supplier.code}
-                    scope="col"
-                    className="text-ink-2 pb-2 pl-4 text-right text-xs font-medium"
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ background: slotColor(supplier.code) }}
-                        aria-hidden
-                      />
-                      {supplier.name}
-                    </span>
-                  </th>
-                ))}
-                <th scope="col" className="text-muted pb-2 pl-4 text-right text-xs font-medium">
-                  Won by negotiating
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((group) => {
-                const negotiated =
-                  group.opening_landed_cents && group.final_landed_cents
-                    ? group.opening_landed_cents - group.final_landed_cents
-                    : 0;
-                return (
-                  <tr key={group.id}>
-                    <th scope="row" className="border-line border-t py-3 text-left font-normal">
-                      <Link
-                        href={`/orders/${group.id}`}
-                        className="text-ink font-medium underline-offset-2 hover:underline"
-                      >
-                        <span aria-hidden>{CATEGORY_EMOJI[group.category] ?? "📦"} </span>
-                        {CATEGORY_LABEL[group.category] ?? group.category}
-                      </Link>
-                      <div className="text-muted text-xs">
-                        {group.shops} shops · {group.rounds}{" "}
-                        {group.rounds === 1 ? "round" : "rounds"}
-                      </div>
-                    </th>
+        <>
+          {/* On a phone: one block per order, one line per supplier. */}
+          <ul className="space-y-4 px-5 pb-5 sm:hidden">
+            {groups.map((group) => {
+              const negotiated =
+                group.opening_landed_cents && group.final_landed_cents
+                  ? group.opening_landed_cents - group.final_landed_cents
+                  : 0;
+              return (
+                <li key={group.id} className="border-line rounded-xl border p-3">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <Link
+                      href={`/orders/${group.id}`}
+                      className="text-ink text-sm font-medium underline-offset-2 hover:underline"
+                    >
+                      <span aria-hidden>{CATEGORY_EMOJI[group.category] ?? "📦"} </span>
+                      {CATEGORY_LABEL[group.category] ?? group.category}
+                    </Link>
+                    {negotiated > 0 ? (
+                      <span className="text-good-ink tabular text-xs font-medium">
+                        −{money(negotiated)} negotiated
+                      </span>
+                    ) : null}
+                  </div>
+                  <ul className="mt-2 space-y-1.5">
                     {suppliers.map((supplier) => {
                       const outcome = outcomeFor(group, supplier.code);
                       return (
-                        <td
-                          key={supplier.code}
-                          className="border-line border-t py-3 pl-4 text-right align-top"
-                        >
+                        <li key={supplier.code} className="flex items-center gap-2 text-sm">
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ background: slotColor(supplier.code) }}
+                            aria-hidden
+                          />
+                          <span className="text-ink-2 min-w-0 flex-1 truncate">
+                            {supplier.name}
+                          </span>
                           {outcome === null ? (
                             <span className="text-muted text-xs">Didn&apos;t quote</span>
                           ) : (
                             <>
-                              <div
+                              {outcome.result === "won" ? (
+                                <StatusPill tone="good">Won</StatusPill>
+                              ) : outcome.result === "lost" && outcome.behindCents !== null ? (
+                                <span className="text-muted tabular text-xs">
+                                  +{money(Math.max(0, outcome.behindCents))}
+                                </span>
+                              ) : null}
+                              <span
                                 className={cx(
                                   "tabular",
                                   outcome.result === "won"
@@ -310,38 +292,125 @@ function Contests({ suppliers, groups }: { suppliers: SupplierSummary[]; groups:
                                 )}
                               >
                                 {money(outcome.final)}
-                              </div>
-                              <div className="mt-0.5 text-xs">
-                                {outcome.result === "won" ? (
-                                  <StatusPill tone="good">Won</StatusPill>
-                                ) : outcome.result === "open" ? (
-                                  <span className="text-muted">still quoting</span>
-                                ) : (
-                                  <span className="text-muted tabular">
-                                    {outcome.behindCents !== null
-                                      ? `${money(Math.max(0, outcome.behindCents))} more`
-                                      : "not chosen"}
-                                  </span>
-                                )}
-                              </div>
+                              </span>
                             </>
                           )}
-                        </td>
+                        </li>
                       );
                     })}
-                    <td className="border-line tabular border-t py-3 pl-4 text-right align-top">
-                      {negotiated > 0 ? (
-                        <span className="text-good-ink font-medium">{money(negotiated)}</span>
-                      ) : (
-                        <span className="text-muted">-</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  </ul>
+                </li>
+              );
+            })}
+          </ul>
+          <div
+            className="hidden overflow-x-auto px-5 pb-5 sm:block"
+            // Focusable, so the keyboard can scroll it sideways if the window is narrow.
+            tabIndex={0}
+            role="region"
+            aria-label="This week's quotes by supplier"
+          >
+            <table className="w-full min-w-[620px] border-separate border-spacing-0 text-sm">
+              <thead>
+                <tr>
+                  <th scope="col" className="text-muted pb-2 text-left text-xs font-medium">
+                    Group order
+                  </th>
+                  {suppliers.map((supplier) => (
+                    <th
+                      key={supplier.code}
+                      scope="col"
+                      className="text-ink-2 pb-2 pl-4 text-right text-xs font-medium"
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ background: slotColor(supplier.code) }}
+                          aria-hidden
+                        />
+                        {supplier.name}
+                      </span>
+                    </th>
+                  ))}
+                  <th scope="col" className="text-muted pb-2 pl-4 text-right text-xs font-medium">
+                    Won by negotiating
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map((group) => {
+                  const negotiated =
+                    group.opening_landed_cents && group.final_landed_cents
+                      ? group.opening_landed_cents - group.final_landed_cents
+                      : 0;
+                  return (
+                    <tr key={group.id}>
+                      <th scope="row" className="border-line border-t py-3 text-left font-normal">
+                        <Link
+                          href={`/orders/${group.id}`}
+                          className="text-ink font-medium underline-offset-2 hover:underline"
+                        >
+                          <span aria-hidden>{CATEGORY_EMOJI[group.category] ?? "📦"} </span>
+                          {CATEGORY_LABEL[group.category] ?? group.category}
+                        </Link>
+                        <div className="text-muted text-xs">
+                          {group.shops} shops · {group.rounds}{" "}
+                          {group.rounds === 1 ? "round" : "rounds"}
+                        </div>
+                      </th>
+                      {suppliers.map((supplier) => {
+                        const outcome = outcomeFor(group, supplier.code);
+                        return (
+                          <td
+                            key={supplier.code}
+                            className="border-line border-t py-3 pl-4 text-right align-top"
+                          >
+                            {outcome === null ? (
+                              <span className="text-muted text-xs">Didn&apos;t quote</span>
+                            ) : (
+                              <>
+                                <div
+                                  className={cx(
+                                    "tabular",
+                                    outcome.result === "won"
+                                      ? "text-ink font-semibold"
+                                      : "text-ink-2",
+                                  )}
+                                >
+                                  {money(outcome.final)}
+                                </div>
+                                <div className="mt-0.5 text-xs">
+                                  {outcome.result === "won" ? (
+                                    <StatusPill tone="good">Won</StatusPill>
+                                  ) : outcome.result === "open" ? (
+                                    <span className="text-muted">still quoting</span>
+                                  ) : (
+                                    <span className="text-muted tabular">
+                                      {outcome.behindCents !== null
+                                        ? `${money(Math.max(0, outcome.behindCents))} more`
+                                        : "not chosen"}
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="border-line tabular border-t py-3 pl-4 text-right align-top">
+                        {negotiated > 0 ? (
+                          <span className="text-good-ink font-medium">{money(negotiated)}</span>
+                        ) : (
+                          <span className="text-muted">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </Card>
   );

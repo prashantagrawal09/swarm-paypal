@@ -982,4 +982,10 @@ phone-sized pages, each in light and dark: 42 checks.
 **Works**
 - Checked every page at 390px wide in light and dark: nothing scrolls sideways except inside
   a scroll box. `make a11y` passes, phone states included.
+- **The map on a phone.** The map scales with its box, so at phone width the shop pins and
+  supplier names were a few pixels high. Below about 520px wide they are now drawn up to
+  1.8 times bigger (the supplier boxes only as far as their third of the width allows), and
+  the coordinator's name is drawn on top of the pins. Desktop is unchanged.
+- The Suppliers page scoreboard is a block per order on a phone instead of a table that
+  scrolls sideways.
 

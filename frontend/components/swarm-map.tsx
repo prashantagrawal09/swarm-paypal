@@ -18,6 +18,7 @@ import type { ShopSummary, SupplierSummary } from "@/lib/api";
 import { initials, money, moneyWhole, slotColor } from "@/lib/format";
 import { type Flight, type FlightKind, useLive } from "@/lib/live";
 import { BAND, curve, H, PIN, project, relax, W } from "@/lib/map-geometry";
+import { useWidth } from "@/lib/use-width";
 import { useNow } from "@/lib/use-now";
 
 const HUB: [number, number] = [318, 289];
@@ -167,6 +168,13 @@ export function SwarmMap({
   const router = useRouter();
   const { activity, arcs, flights } = useLive();
   const [hover, setHover] = useState<string | null>(null);
+  // The map scales with its box, so on a phone pins and names would shrink to a few
+  // pixels. Below about 520px wide they are drawn bigger to make up for it.
+  const [frame, width] = useWidth<HTMLDivElement>(0);
+  const k = width > 0 ? Math.min(1.8, Math.max(1, 520 / width)) : 1;
+  // Three depots share the top band: they can grow only as far as their slot allows.
+  const kd = Math.min(k, ((W / Math.max(1, suppliers.length)) * 0.94) / DEPOT.w);
+  const kText = Math.min(k, 1.45);
   // Re-render while pulses, arcs and flights are fresh so they leave on time.
   const now = useNow(500);
 
@@ -177,8 +185,9 @@ export function SwarmMap({
           const [x, y] = project(shop.lat, shop.lng);
           return { code: shop.code, x, y };
         }),
+        PIN * k * 2 + 4,
       ),
-    [shops],
+    [shops, k],
   );
 
   const depots = useMemo(() => {
@@ -200,7 +209,7 @@ export function SwarmMap({
       return code === "*" ? Object.values(positions) : positions[code] ? [positions[code]] : [];
     }
     if (kind === "supplier") {
-      const docks = (p: [number, number]): [number, number] => [p[0], p[1] + DEPOT.h / 2];
+      const docks = (p: [number, number]): [number, number] => [p[0], DEPOT.y + DEPOT.h * kd];
       if (code === "*") return Object.values(depots).map(docks);
       return depots[code] ? [docks(depots[code])] : [];
     }
@@ -214,7 +223,7 @@ export function SwarmMap({
   const flightKinds = [...new Set(flying.map((f) => f.kind))];
 
   return (
-    <div className={cx("relative", className)}>
+    <div ref={frame} className={cx("relative", className)}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="h-auto w-full select-none"
@@ -286,7 +295,8 @@ export function SwarmMap({
                 y={label[1]}
                 transform={`rotate(${rotation} ${label[0]} ${label[1]})`}
                 textAnchor={vertical ? "middle" : "start"}
-                className="fill-[var(--muted)] text-[10px] tracking-wide uppercase"
+                className="fill-[var(--muted)] tracking-wide uppercase"
+                style={{ fontSize: 10 * kText }}
               >
                 {vertical ? (street.sign ?? street.name) : street.name}
               </text>
@@ -312,7 +322,8 @@ export function SwarmMap({
                 x={mx}
                 y={my - 38}
                 textAnchor="middle"
-                className="fill-[var(--muted)] text-[10px] tracking-wide uppercase"
+                className="fill-[var(--muted)] tracking-wide uppercase"
+                style={{ fontSize: 10 * kText }}
               >
                 Tiong Bahru Market
               </text>
@@ -337,7 +348,7 @@ export function SwarmMap({
           {Object.values(depots).map((position, index) => (
             <path
               key={index}
-              d={curve(HUB, [position[0], position[1] + DEPOT.h / 2], 0.06)}
+              d={curve(HUB, [position[0], DEPOT.y + DEPOT.h * kd], 0.06)}
               fill="none"
               stroke="var(--honey)"
               strokeOpacity={0.3}
@@ -440,7 +451,7 @@ export function SwarmMap({
           return (
             <g
               key={supplier.code}
-              transform={`translate(${position[0] - DEPOT.w / 2} ${DEPOT.y})`}
+              transform={`translate(${position[0] - (DEPOT.w * kd) / 2} ${DEPOT.y}) scale(${kd})`}
               className={interactive ? "cursor-pointer outline-none" : undefined}
               tabIndex={interactive ? 0 : undefined}
               role={interactive ? "link" : undefined}
@@ -493,7 +504,7 @@ export function SwarmMap({
         })}
 
         {/* The coordinator, which also holds the money through PayPal */}
-        <g transform={`translate(${HUB[0]} ${HUB[1]})`} aria-label="Swarm coordinator">
+        <g transform={`translate(${HUB[0]} ${HUB[1]}) scale(${k})`} aria-label="Swarm coordinator">
           {hubActive ? (
             <circle
               r={HUB_R}
@@ -519,28 +530,6 @@ export function SwarmMap({
             strokeLinejoin="round"
           />
           <circle r={2.2} fill="#1c1400" />
-          <text
-            y={HUB_R + 17}
-            textAnchor="middle"
-            className="fill-[var(--ink)] text-[10px] font-semibold"
-            stroke="var(--surface)"
-            strokeWidth={3}
-            paintOrder="stroke"
-          >
-            Coordinator
-          </text>
-          {heldCents > 0 ? (
-            <text
-              y={HUB_R + 29}
-              textAnchor="middle"
-              className="tabular fill-[var(--ink-2)] text-[9.5px]"
-              stroke="var(--surface)"
-              strokeWidth={3}
-              paintOrder="stroke"
-            >
-              holding {moneyWhole(heldCents)}
-            </text>
-          ) : null}
         </g>
 
         {/* Shop pins */}
@@ -555,7 +544,7 @@ export function SwarmMap({
           return (
             <g
               key={shop.code}
-              transform={`translate(${x} ${y})`}
+              transform={`translate(${x} ${y}) scale(${k})`}
               className={interactive ? "cursor-pointer outline-none" : undefined}
               tabIndex={interactive ? 0 : undefined}
               role={interactive ? "link" : undefined}
@@ -608,6 +597,32 @@ export function SwarmMap({
             </g>
           );
         })}
+
+        {/* The coordinator's name goes on top, so a pin drawn bigger on a phone can't hide it. */}
+        <g transform={`translate(${HUB[0]} ${HUB[1]}) scale(${k})`} aria-hidden>
+          <text
+            y={HUB_R + 17}
+            textAnchor="middle"
+            className="fill-[var(--ink)] text-[10px] font-semibold"
+            stroke="var(--surface)"
+            strokeWidth={3}
+            paintOrder="stroke"
+          >
+            Coordinator
+          </text>
+          {heldCents > 0 ? (
+            <text
+              y={HUB_R + 29}
+              textAnchor="middle"
+              className="tabular fill-[var(--ink-2)] text-[9.5px]"
+              stroke="var(--surface)"
+              strokeWidth={3}
+              paintOrder="stroke"
+            >
+              holding {moneyWhole(heldCents)}
+            </text>
+          ) : null}
+        </g>
       </svg>
 
       {/* Tooltip */}
