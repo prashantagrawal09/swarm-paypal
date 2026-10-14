@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy import select, update
@@ -85,6 +85,25 @@ FRIENDLY_ERRORS = (rules.RuleViolation, NeedsOwnerApproval, LookupError, PayPalE
 
 
 MAX_WEEKLY_QTY = 999
+DAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
+
+def expiry_from(text: str, today: date) -> date:
+    """When the owner says their stock expires: "today", "tomorrow", "in 3 days", a weekday
+    ("expiring Sunday"), or in two days when they don't say. Its price depends on it."""
+    lowered = text.lower()
+    words = set(re.findall(r"[a-z]+", lowered))
+    if "today" in words or "tonight" in words:
+        return today
+    if words & {"tomorrow", "tmr", "tmrw", "tomoro"}:
+        return today + timedelta(days=1)
+    within = re.search(r"\bin (\d{1,2}) days?\b", lowered)
+    if within:
+        return today + timedelta(days=min(14, int(within.group(1))))
+    for index, day in enumerate(DAYS):
+        if words & {day, day[:3], day[:4], day[:5]}:  # "wed", "tues", "thurs"
+            return today + timedelta(days=(index - today.weekday()) % 7)
+    return today + timedelta(days=2)
 
 
 def adjusted(current: int, qty: int | None, change: str | None) -> int:
@@ -293,7 +312,7 @@ class OwnerService:
             )
         elif intent.intent == "report_surplus" and intent.product_code:
             qty = intent.qty or max(1, uses(shop, intent.product_code) // 4)
-            expires = local_time(ctx.now()).date() + timedelta(days=2)
+            expires = expiry_from(text, local_time(ctx.now()).date())
             await surplus_swap.offer(ctx, shop.code, intent.product_code, qty, expires)
         elif intent.intent == "emergency_request" and intent.product_code:
             qty = intent.qty or 1

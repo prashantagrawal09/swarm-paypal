@@ -1074,4 +1074,8 @@ phone-sized pages, each in light and dark: 42 checks.
   are placed it lists what was ordered and where the money is; after delivery, what actually
   arrived ("This week you received: ... 34 L milk ... Delivered, and you paid for what
   arrived."). 324 backend tests.
+- "10 L milk expiring tomorrow" (said on a Sunday) was offered as expiring Tuesday: the agent
+  always assumed two days, and the discount depends on it. The expiry now comes from the
+  message: today, tomorrow, "in 3 days", or a weekday ("wed", "thurs", "Sunday"); two days
+  only when the owner doesn't say. 325 backend tests.
 

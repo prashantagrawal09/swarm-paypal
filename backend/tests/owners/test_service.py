@@ -83,6 +83,21 @@ async def test_skip_and_free_text_intents(db, world, ctx):
     assert milk is not None
 
 
+def test_expiry_follows_the_owners_words():
+    from datetime import date
+
+    from app.owners.service import expiry_from
+
+    sunday = date(2026, 10, 18)
+    assert expiry_from("10 L milk expiring tomorrow", sunday) == date(2026, 10, 19)
+    assert expiry_from("lettuce going bad today", sunday) == sunday
+    assert expiry_from("8 L milk expiring Sunday", sunday) == sunday
+    assert expiry_from("eggs expire wed", sunday) == date(2026, 10, 21)
+    assert expiry_from("butter expires thurs", sunday) == date(2026, 10, 22)
+    assert expiry_from("butter expires in 3 days", sunday) == date(2026, 10, 21)
+    assert expiry_from("too much lettuce", sunday) == date(2026, 10, 20)
+
+
 def test_quantity_arithmetic():
     from app.owners.service import adjusted
 
