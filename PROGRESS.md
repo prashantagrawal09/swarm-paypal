@@ -1118,3 +1118,14 @@ phone-sized pages, each in light and dark: 42 checks.
 - Lines for things that didn't happen (S$0.00 given back, 0 neighbour sales) are left out,
   and a refunded claim gets its own line. README screenshot refreshed. 78 frontend tests.
 
+## Surprise settings are checked
+
+**Fixed**
+- A cleared number box on the demo panel (quantity, days to expiry, units damaged) gave
+  "Something went wrong on our side" (a server error). Out-of-range values were saved as
+  they were: a 95% flash discount, or a short delivery of 500%, which would have broken
+  Thursday's scripted delivery mid-week.
+- Every surprise's numbers now have limits (`LIMITS` in `app/demo/controls.py`); a bad value
+  gets a plain answer on the panel ("Quantity must be between 1 and 500") and nothing is
+  saved. Numbers typed as text ("12") are read as numbers. 338 backend tests.
+

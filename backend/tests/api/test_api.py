@@ -337,3 +337,28 @@ async def test_saved_scenarios_pick_up_surprises_added_later(client, db):
     assert scenario["damage_claim"]["shop"] == "bakery-lim"  # filled in from the defaults
     assert scenario["surplus"] is None  # switched off on purpose: stays off
     assert scenario["emergency"] == {"shop": "teh-time"}
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ({"kind": "surplus", "params": {"qty": ""}, "now": True}, "Quantity must be between"),
+        ({"kind": "surplus", "params": {"days_left": ""}}, "Days to expiry must be between"),
+        ({"kind": "damage_claim", "params": {"qty": ""}, "now": True}, "Units damaged must"),
+        ({"kind": "flash_deal", "params": {"discount_pct": 95}}, "Discount must be between"),
+        ({"kind": "short_delivery", "params": {"fraction": 5}}, "Share delivered must be"),
+        ({"kind": "emergency", "params": {"qty": 2.5}}, "Quantity must be between"),
+    ],
+)
+async def test_bad_surprise_settings_get_a_plain_answer_and_are_not_saved(client, body, message):
+    api, _ = client
+    before = (await api.get("/api/demo/state")).json()["scenario"]
+    response = await api.post("/api/demo/inject", json=body)
+    assert response.status_code == 409 and message in response.json()["detail"]
+    assert (await api.get("/api/demo/state")).json()["scenario"] == before
+
+
+async def test_surprise_numbers_typed_as_text_are_read_as_numbers(client):
+    api, _ = client
+    saved = await api.post("/api/demo/inject", json={"kind": "surplus", "params": {"qty": "12"}})
+    assert saved.json()["scenario"]["qty"] == 12

@@ -188,11 +188,51 @@ def start_run_step(runtime: Runtime) -> bool:
     return _start(runtime, 1)
 
 
+# What each surprise's numbers may be. Checked before anything is saved or run, so a blank
+# box or a stray value on the panel gets a plain answer instead of breaking the week later.
+LIMITS: dict[str, dict[str, tuple[float, float, str]]] = {
+    "short_delivery": {"fraction": (0.05, 0.99, "Share delivered must be between 5% and 99%")},
+    "wrong_price_invoice": {
+        "markup_cents": (1, 500, "Extra per unit must be between 1 and 500 cents")
+    },
+    "flash_deal": {
+        "qty": (1, 500, "Quantity must be between 1 and 500"),
+        "discount_pct": (5, 70, "Discount must be between 5% and 70%"),
+    },
+    "surplus": {
+        "qty": (1, 500, "Quantity must be between 1 and 500"),
+        "days_left": (0, 14, "Days to expiry must be between 0 and 14"),
+    },
+    "emergency": {"qty": (1, 50, "Quantity must be between 1 and 50")},
+    "damage_claim": {"qty": (1, 50, "Units damaged must be between 1 and 50")},
+}
+
+
+def checked(kind: str, merged: dict[str, Any]) -> dict[str, Any]:
+    """The surprise's settings with its numbers as numbers, or a RuleViolation saying why not."""
+    out = dict(merged)
+    for key, (low, high, message) in LIMITS.get(kind, {}).items():
+        raw = out.get(key)
+        try:
+            value = float(raw if isinstance(raw, (int, float, str)) else "")
+        except (TypeError, ValueError):
+            raise rules.RuleViolation("INVALID_SETTING", message) from None
+        if not low <= value <= high:
+            raise rules.RuleViolation("INVALID_SETTING", message)
+        whole = isinstance(low, int) and isinstance(high, int)
+        if whole and value != int(value):
+            raise rules.RuleViolation("INVALID_SETTING", message)
+        out[key] = int(value) if whole else value
+    return out
+
+
 async def inject(ctx: Ctx, kind: str, params: dict[str, Any], now: bool = False) -> dict[str, Any]:
     if kind not in INJECTIONS:
         raise ValueError(f"Unknown injection {kind}")
     current = await scenario(ctx)
-    merged = {**DEFAULT_SCENARIO.get(kind, {}), **(current.get(kind) or {}), **params}
+    merged = checked(
+        kind, {**DEFAULT_SCENARIO.get(kind, {}), **(current.get(kind) or {}), **params}
+    )
     current[kind] = merged
     await save_scenario(ctx, current)
     result: dict[str, Any] = {"scenario": merged}
