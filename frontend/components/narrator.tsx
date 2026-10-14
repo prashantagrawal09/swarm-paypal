@@ -86,6 +86,10 @@ export function Narrator({ overview }: { overview: Overview }) {
   const done = overview.steps.filter((s) => s.status === "done").length;
   const next = overview.steps.find((s) => s.status === "next");
   const finished = done === overview.steps.length;
+  // The number goes with the caption: between steps the caption is still about the one
+  // that just finished, and "Step 2" next to Monday's caption would contradict it.
+  const captioned = caption.step ? overview.steps.findIndex((s) => s.key === caption.step) : -1;
+  const stepNumber = captioned >= 0 ? captioned + 1 : Math.min(done + 1, overview.steps.length);
   const locked = overview.running || busy !== null;
 
   async function act(label: string, ...paths: string[]) {
@@ -123,7 +127,7 @@ export function Narrator({ overview }: { overview: Overview }) {
             <span className="tabular">{overview.local}</span>
             <span aria-hidden>·</span>
             <span>
-              {finished ? "Week complete" : `Step ${Math.min(done + 1, 8)} of 8`}
+              {finished ? "Week complete" : `Step ${stepNumber} of ${overview.steps.length}`}
               {overview.running ? " · running" : ""}
             </span>
           </div>

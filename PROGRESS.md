@@ -1129,3 +1129,18 @@ phone-sized pages, each in light and dark: 42 checks.
   gets a plain answer on the panel ("Quantity must be between 1 and 500") and nothing is
   saved. Numbers typed as text ("12") are read as numbers. 338 backend tests.
 
+## The live board's narrator, run by run
+
+**Fixed** (found by running the week on the live board and reading the narrator every few
+seconds)
+- Between steps the narrator said "Step 2 of 8" beside Monday's caption: the number came
+  from progress, the caption from the last thing that happened. The number now follows the
+  caption's own step.
+- Friday's surplus sale was captioned "Café Mei helps Brew Lab", wording meant for
+  Saturday's emergency, and had no step (so it showed as step 7). The swap event now says
+  which kind it was: "Café Mei sells surplus to Brew Lab" on Friday, "Little Pasta helps
+  Kopi Corner out" on Saturday.
+- Other fixes this round: a press of a button a shop was never sent is ignored (it used to
+  leave a junk bubble), and the connect page says "the coming week's order" when you connect
+  on a weekend. 339 backend and 79 frontend tests.
+

@@ -117,6 +117,27 @@ describe("describeStory", () => {
     expect(caption?.title).toBe("Café Mei helps Brew Lab: S$9.68, paid on the spot.");
   });
 
+  it("says which kind of swap it was, and which day it belongs to", () => {
+    const swap = (kind?: string) =>
+      event("swap_completed", {
+        seller: "cafe-mei",
+        buyer: "brew-lab",
+        amount_cents: 968,
+        ...(kind ? { swap_kind: kind } : {}),
+      });
+    expect(describeStory(swap("SURPLUS"), names, steps)).toMatchObject({
+      title: "Café Mei sells surplus to Brew Lab: S$9.68, paid on the spot.",
+      step: "surplus",
+    });
+    expect(describeStory(swap("EMERGENCY"), names, steps)).toMatchObject({
+      title: "Café Mei helps Brew Lab out: S$9.68, paid on the spot.",
+      step: "emergency",
+    });
+    expect(describeStory(swap(), names, steps)?.title).toBe(
+      "Café Mei helps Brew Lab: S$9.68, paid on the spot.",
+    );
+  });
+
   it("falls back to the code for a shop it has no name for", () => {
     const caption = describeStory(
       event("refunded", { shop: "new-shop", amount_cents: 500 }),

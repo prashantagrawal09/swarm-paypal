@@ -1087,6 +1087,7 @@ class MoneyEngine:
             buyer=buyer.code,
             seller=seller.code,
             swap_id=swap.id,
+            swap_kind=swap.kind.value,
             amount_cents=swap.price_cents,
             capture_paypal_id=charge.paypal_id,
             payout_paypal_id=payout.paypal_id,

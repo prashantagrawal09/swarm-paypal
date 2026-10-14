@@ -90,7 +90,7 @@ the rules the choice passed before it was sent.
 **Stack.** Python, FastAPI, PostgreSQL and SQLAlchemy on the back; Next.js, TypeScript,
 Tailwind and AG Grid on the front, with live updates over Server-Sent Events. Telegram for
 the owners. Hosted on Render. 339 backend tests (including four simulated weeks that must
-keep the ledger balanced) and 78 frontend tests.
+keep the ledger balanced) and 79 frontend tests.
 
 **Honest about what is real.** Four shops, the three suppliers and the platform use the
 real PayPal sandbox. The other eight shops run on a simulator that follows the same rules

@@ -124,6 +124,25 @@ export function describeStory(item: StoryItem, names: Names, steps: Step[]): Cap
             step: "settlement",
           };
     case "swap_completed":
+      // Recordings made before swaps said their kind get the general wording.
+      if (event.swap_kind === "SURPLUS") {
+        return {
+          title: `${name(names, event.seller)} sells surplus to ${name(names, event.buyer)}: ${amount}, paid on the spot.`,
+          detail:
+            "Stock that would have expired goes down the street; PayPal charges the buyer and pays the seller.",
+          tone: "honey",
+          step: "surplus",
+        };
+      }
+      if (event.swap_kind === "EMERGENCY") {
+        return {
+          title: `${name(names, event.seller)} helps ${name(names, event.buyer)} out: ${amount}, paid on the spot.`,
+          detail:
+            "The nearest neighbour with stock to spare; PayPal charges the buyer and pays the seller.",
+          tone: "honey",
+          step: "emergency",
+        };
+      }
       return {
         title: `${name(names, event.seller)} helps ${name(names, event.buyer)}: ${amount}, paid on the spot.`,
         detail: "The buyer is charged and the seller is paid out through PayPal.",
