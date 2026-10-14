@@ -156,6 +156,25 @@ async def test_what_is_in_my_order_and_products_the_shop_never_buys(db, world, c
     )
 
 
+async def test_after_delivery_the_order_summary_says_what_arrived(db, world, ctx):
+    runner = WeekRunner(ctx, DEMO_WEEK)
+    for key in ("forecasts", "negotiation", "holds"):
+        await runner.run(key)
+    service = OwnerService(ctx)
+    await service.handle_text("cafe-mei", "what's in my order?")
+    held = (await owner_messages(db, "cafe-mei"))[-1].text
+    assert held.startswith("This week's order: ") and "38 L milk" in held
+    assert held.endswith("Held on your PayPal until it's delivered.")
+
+    for key in ("delivery", "settlement"):
+        await runner.run(key)
+    await service.handle_text("cafe-mei", "what's in my order?")
+    got = (await owner_messages(db, "cafe-mei"))[-1].text
+    # Café Mei's milk came short: the summary is what arrived, not what was planned.
+    assert got.startswith("This week you received: ") and "34 L milk" in got
+    assert got.endswith("Delivered, and you paid for what arrived.")
+
+
 async def test_a_change_after_the_order_is_placed_promises_nothing(db, world, ctx):
     runner = WeekRunner(ctx, DEMO_WEEK)
     for key in ("forecasts", "negotiation"):

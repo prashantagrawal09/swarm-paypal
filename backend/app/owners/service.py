@@ -24,7 +24,7 @@ from sqlalchemy.orm import selectinload
 from app.agents.shop_agent import KEYWORDS
 from app.clock import local_time, week_start
 from app.db.app_state import get_state, set_state
-from app.db.enums import ClaimType, ForecastStatus, GroupOrderStatus
+from app.db.enums import ClaimType, ForecastStatus, GroupOrderStatus, ShopOrderStatus
 from app.db.models import (
     AgentMessage,
     DemandForecast,
@@ -373,15 +373,46 @@ class OwnerService:
         )
 
     async def _show_order(self, shop: Shop) -> None:
-        """What this week's order holds, and where it stands."""
+        """What this week's order holds, and where it stands. Once the group orders are
+        placed, that is what was actually ordered and delivered, not the plan."""
+        week = week_start(self.ctx.now())
+        lines = (
+            await self.ctx.session.execute(
+                select(Item.product_code, GroupOrderLine, ShopOrder.status)
+                .join(Item, Item.id == GroupOrderLine.item_id)
+                .join(ShopOrder, ShopOrder.id == GroupOrderLine.shop_order_id)
+                .join(GroupOrder, GroupOrder.id == ShopOrder.group_order_id)
+                .where(ShopOrder.shop_id == shop.id, GroupOrder.week_start == week)
+                .order_by(Item.product_code)
+            )
+        ).all()
+        quantities: dict[str, int] = {}
+        if lines:
+            for product, line, _ in lines:
+                got = line.qty_delivered if line.qty_delivered is not None else line.qty_requested
+                quantities[product] = quantities.get(product, 0) + got
+            money = {status for _, _, status in lines}
+            paid = {ShopOrderStatus.CAPTURED, ShopOrderStatus.SETTLED, ShopOrderStatus.REFUNDED}
+            delivered = any(line.qty_delivered is not None for _, line, _ in lines)
+            where = (
+                "Delivered, and you paid for what arrived."
+                if money <= paid
+                else "Held on your PayPal until it's delivered."
+                if ShopOrderStatus.AUTHORIZED in money
+                else "Ordered with the neighbours."
+            )
+            heading = (
+                "This week you received" if delivered and money <= paid else "This week's order"
+            )
+            await self._say(
+                shop, f"{heading}: {describe_all(quantities) or 'nothing'}. {where}", kind="INFO"
+            )
+            return
         rows = (
             await self.ctx.session.execute(
                 select(Item.product_code, DemandForecast)
                 .join(Item, Item.id == DemandForecast.item_id)
-                .where(
-                    DemandForecast.shop_id == shop.id,
-                    DemandForecast.week_start == week_start(self.ctx.now()),
-                )
+                .where(DemandForecast.shop_id == shop.id, DemandForecast.week_start == week)
                 .order_by(Item.product_code)
             )
         ).all()
@@ -390,7 +421,6 @@ class OwnerService:
                 shop, "Nothing is planned yet. I'll send this week's order on Monday.", kind="INFO"
             )
             return
-        quantities: dict[str, int] = {}
         for product, row in rows:
             qty = row.confirmed_qty if row.confirmed_qty is not None else row.predicted_qty
             quantities[product] = quantities.get(product, 0) + qty
@@ -400,7 +430,7 @@ class OwnerService:
             if statuses == {ForecastStatus.SKIPPED}
             else "Waiting for your OK."
             if ForecastStatus.PROPOSED in statuses
-            else "Confirmed."
+            else "Confirmed; it goes to the suppliers on Tuesday."
         )
         listed = describe_all(quantities) or "nothing"
         await self._say(shop, f"This week's order: {listed}. {where}", kind="INFO")

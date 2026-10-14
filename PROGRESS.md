@@ -1068,5 +1068,10 @@ phone-sized pages, each in light and dark: 42 checks.
 - "cut the butter" at a tea house that never orders butter said "already ordered"; it now
   says butter isn't part of the usual order.
 - Zero is accepted as a quantity, and a "new total" with no number changes nothing instead of
-  adding a little. 323 backend tests.
+  adding a little.
+- "What's in my order?" is a quick reply on the phone (it replaces "report", which gave the
+  same answer as "what did I save?"). Before the group orders it lists the plan; once they
+  are placed it lists what was ordered and where the money is; after delivery, what actually
+  arrived ("This week you received: ... 34 L milk ... Delivered, and you paid for what
+  arrived."). 324 backend tests.
 

@@ -14,7 +14,8 @@ import { type AgentMessage, ApiError, post, postForm, type ShopSummary } from "@
 import { initials, time } from "@/lib/format";
 import { useLive } from "@/lib/live";
 
-const QUICK_REPLIES = ["report", "help", "what did I save?"];
+// "report" and "what did I save?" get the same answer, so one of them is enough.
+const QUICK_REPLIES = ["what did I save?", "what's in my order?", "help"];
 
 export function OwnerPhone({
   shop,
