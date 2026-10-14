@@ -27,6 +27,7 @@ from app.db.enums import ApprovalKind, ApprovalStatus
 from app.db.models import ApprovalRequest, DemandForecast, GroupOrder, Item, Shop
 from app.features import demand, group_buy
 from app.features.actions import WEEKLY_NEEDS, action
+from app.features.buttons import close_buttons
 from app.features.demand import ProductForecast
 from app.features.products import ANY_UNIT, describe_all, wording
 from app.llm.client import LLM
@@ -247,7 +248,9 @@ class ShopAgent(Agent):
         confirmed = await demand.confirm_week(
             session, self.shop.id, week, self.clock.now(), overrides
         )
-        await self._close_weekly_approval(session, ApprovalStatus.APPROVED)
+        await self._close_weekly_approval(
+            session, ApprovalStatus.APPROVED, "chg" if owner_changed else "ok"
+        )
         await self.require(session, Action("join_group_order", {"week": str(week)}))
         joined = describe_all(quantities)
         await self.say(
@@ -262,7 +265,7 @@ class ShopAgent(Agent):
 
     async def skip_week(self, session: AsyncSession, week: date) -> None:
         await demand.skip_week(session, self.shop.id, week, self.clock.now())
-        await self._close_weekly_approval(session, ApprovalStatus.REJECTED)
+        await self._close_weekly_approval(session, ApprovalStatus.REJECTED, "skip")
         await self.say(
             session,
             conversation_id=f"pool:{week}",
@@ -271,7 +274,9 @@ class ShopAgent(Agent):
             text=f"{self.shop.name} is sitting this week out.",
         )
 
-    async def _close_weekly_approval(self, session: AsyncSession, status: ApprovalStatus) -> None:
+    async def _close_weekly_approval(
+        self, session: AsyncSession, status: ApprovalStatus, chosen: str
+    ) -> None:
         approval = await session.scalar(
             select(ApprovalRequest).where(
                 ApprovalRequest.shop_id == self.shop.id,
@@ -284,6 +289,9 @@ class ShopAgent(Agent):
             approval.decided_at = self.clock.now()
             approval.decided_by = f"owner:{self.shop.code}"
             await session.commit()
+            await close_buttons(
+                session, WEEKLY_NEEDS, approval.id, chosen, owner=f"owner:{self.shop.code}"
+            )
 
     # -- free text from the owner -------------------------------------------------------
 

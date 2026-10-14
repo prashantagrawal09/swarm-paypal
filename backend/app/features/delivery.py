@@ -20,6 +20,7 @@ from app.db.enums import GroupOrderStatus, ShopOrderStatus
 from app.db.models import GroupOrderLine, ShopOrder
 from app.features import actions as act
 from app.features import group_buy
+from app.features.buttons import close_buttons
 from app.features.context import Ctx
 from app.features.products import describe, describe_all
 from app.money import rules
@@ -118,7 +119,9 @@ async def confirm(
     """Record what arrived (None = everything)."""
     so = await _shop_order(ctx, shop_order_id)
     if so.group_order.status != GroupOrderStatus.OUT_FOR_DELIVERY:
-        raise rules.RuleViolation("NOT_OUT_FOR_DELIVERY", "This delivery is already settled")
+        raise rules.RuleViolation(
+            "NOT_OUT_FOR_DELIVERY", "This delivery is already settled: you paid for what arrived."
+        )
     if so.status != ShopOrderStatus.AUTHORIZED:
         raise rules.RuleViolation("NOT_HELD", "There is no hold for this order")
     short: list[str] = []
@@ -135,6 +138,9 @@ async def confirm(
     so.delivery_confirmed_at = ctx.now()
     so.delivery_note = note
     await ctx.session.commit()
+    await close_buttons(
+        ctx.session, act.DELIVERY, so.id, "short" if short else "all", owner=f"owner:{so.shop.code}"
+    )
     if short:
         text = (
             f"Noted: {', '.join(short)}. You'll only pay for what arrived; the rest of "
@@ -168,6 +174,9 @@ async def finalize(ctx: Ctx, group_id: uuid.UUID) -> BatchResult:
     await group_buy.record_delivery(ctx.session, group_id, ctx.now(), confirmed)
     result = await ctx.engine.capture_group_order(group_id)
     group = await group_buy.load_group(ctx.session, group_id)
+    for so in group.shop_orders:
+        # Settled now: a delivery nobody confirmed counts as complete, and can't be answered.
+        await close_buttons(ctx.session, act.DELIVERY, so.id, owner=f"owner:{so.shop.code}")
     for so in group.shop_orders:
         if so.status != ShopOrderStatus.CAPTURED:
             continue

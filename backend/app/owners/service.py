@@ -84,6 +84,16 @@ HELP = (
     '• "what\'s in my order?" or "what did I save?"\n'
     "• a photo of anything that arrived damaged"
 )
+# The reply to a tap on a button whose question has already been settled.
+ALREADY = {
+    act.WEEKLY_NEEDS: "This week's order has already been answered.",
+    act.OVER_LIMIT: "That's already been answered.",
+    act.DELIVERY: "That delivery is already settled: you paid for what arrived.",
+    act.SWAP_OFFER: "That offer has already been answered.",
+    act.HANDOVER: "Already done: you were paid when it was handed over.",
+    act.EMERGENCY: "That one's already sorted.",
+    act.FLASH_DEAL: "That deal has already been answered.",
+}
 FRIENDLY_ERRORS = (rules.RuleViolation, NeedsOwnerApproval, LookupError, PayPalError, ValueError)
 
 
@@ -164,23 +174,28 @@ class OwnerService:
             payload=payload or {},
         )
 
-    async def _mark_answered(self, shop: Shop, action_id: str) -> None:
+    async def _asked(self, shop: Shop, action_id: str) -> AgentMessage | None:
+        """The message whose button this is."""
         rows = await self.ctx.session.scalars(
             select(AgentMessage)
             .where(AgentMessage.to_agent == f"owner:{shop.code}")
             .order_by(AgentMessage.seq.desc())
-            .limit(40)
+            .limit(400)
         )
         for message in rows:
-            ids = [a.get("id") for a in message.payload.get("actions", [])]
-            if action_id in ids:
-                await self.ctx.session.execute(
-                    update(AgentMessage)
-                    .where(AgentMessage.id == message.id)
-                    .values(payload={**message.payload, "answered": action_id})
-                )
-                await self.ctx.session.commit()
-                return
+            if action_id in [a.get("id") for a in message.payload.get("actions", [])]:
+                return message
+        return None
+
+    async def _mark_answered(self, shop: Shop, action_id: str) -> None:
+        message = await self._asked(shop, action_id)
+        if message is not None:
+            await self.ctx.session.execute(
+                update(AgentMessage)
+                .where(AgentMessage.id == message.id)
+                .values(payload={**message.payload, "answered": action_id})
+            )
+            await self.ctx.session.commit()
 
     async def _say(self, shop: Shop, text: str, **kwargs: Any) -> None:
         await self.ctx.say_to_owner(shop, text, **kwargs)
@@ -190,6 +205,16 @@ class OwnerService:
     async def handle_action(self, shop_code: str, action_id: str) -> None:
         shop = await self.ctx.shop(shop_code)
         parsed = act.parse_action(action_id)
+        if parsed.kind != act.REPORT:
+            # A tap on an old message (Telegram keeps them): its question is settled.
+            asked = await self._asked(shop, action_id)
+            if asked is not None and asked.payload.get("answered"):
+                await self._say(
+                    shop,
+                    ALREADY.get(parsed.kind, "That's already been taken care of."),
+                    kind="INFO",
+                )
+                return
         await self._record(
             shop, VERB_TEXT.get((parsed.kind, parsed.verb), parsed.verb), {"action": action_id}
         )

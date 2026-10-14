@@ -23,6 +23,7 @@ from app.clock import at_local, local_time, week_start
 from app.db.enums import PayPalModeEnum, SwapKind, SwapStatus
 from app.db.models import Item, Shop, SwapOffer
 from app.features import actions as act
+from app.features.buttons import close_buttons
 from app.features.context import Ctx
 from app.features.group_buy import shop_accepts
 from app.features.neighbours import neighbours, reference_price, shop_item, uses
@@ -195,6 +196,9 @@ async def accept(ctx: Ctx, swap_id: uuid.UUID, buyer_code: str) -> SwapOffer:
     swap.to_shop_id = buyer.id
     swap.status = SwapStatus.ACCEPTED
     await ctx.session.commit()
+    # This buyer said yes; everyone else's offer is no longer open.
+    await close_buttons(ctx.session, act.SWAP_OFFER, swap.id, "yes", owner=f"owner:{buyer.code}")
+    await close_buttons(ctx.session, act.SWAP_OFFER, swap.id)
     try:
         await ctx.engine.authorize_swap(swap.id)
     except (rules.RuleViolation, NeedsOwnerApproval):
@@ -241,6 +245,7 @@ async def decline(ctx: Ctx, swap_id: uuid.UUID, buyer_code: str) -> None:
         type="DECLINE",
         text="No thanks this time.",
     )
+    await close_buttons(ctx.session, act.SWAP_OFFER, swap.id, "no", owner=f"owner:{buyer.code}")
     await ctx.say_to_owner(buyer, "No problem, I'll let them know.", kind="SWAP_DECLINED")
 
 
@@ -253,6 +258,7 @@ async def handover(ctx: Ctx, swap_id: uuid.UUID) -> SwapOffer:
     buyer = await ctx.session.get(Shop, swap.to_shop_id)
     seller = await ctx.session.get(Shop, swap.from_shop_id)
     assert buyer is not None and seller is not None
+    await close_buttons(ctx.session, act.HANDOVER, swap.id, "done", owner=f"owner:{seller.code}")
     kg = swap.food_saved_grams / 1000
     await ctx.say_to_owner(
         seller,

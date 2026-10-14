@@ -16,6 +16,8 @@ from sqlalchemy import select
 from app.db.enums import ApprovalKind, ApprovalStatus, SwapKind
 from app.db.models import ApprovalRequest, FlashDeal, Shop, ShopOrder, SwapOffer
 from app.features import emergency_borrow, flash_deals, surplus_swap
+from app.features.actions import OVER_LIMIT
+from app.features.buttons import close_buttons
 from app.features.context import Ctx
 from app.money.amount import Money
 
@@ -41,6 +43,9 @@ async def decide_over_limit(ctx: Ctx, approval_id: uuid.UUID, approve: bool, by:
     await ctx.session.commit()
     shop = await ctx.session.get(Shop, approval.shop_id)
     assert shop is not None
+    await close_buttons(
+        ctx.session, OVER_LIMIT, approval.id, "ok" if approve else "no", owner=f"owner:{shop.code}"
+    )
     related = approval.related_id
     over = Money(int(approval.payload.get("over_by_cents", 0)))
 
@@ -89,7 +94,9 @@ async def respond_weekly(
     shop = await ctx.shop(shop_code)
     approvals = await pending(ctx, shop, ApprovalKind.WEEKLY_NEEDS)
     if not approvals:
-        return "There's no weekly order waiting for you."
+        text = "There's no weekly order waiting for you. I'll send the next one on Monday."
+        await ctx.say_to_owner(shop, text, kind="INFO")
+        return text
     week = date.fromisoformat(approvals[-1].payload["week"])
     agent = ctx.shop_agent(shop)
     if verb == "skip":

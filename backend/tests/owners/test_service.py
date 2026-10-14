@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.agents.claims_agent import ClaimAssessment
 from app.db.enums import ApprovalKind, ClaimDecision, ForecastStatus, ShopOrderStatus, SwapStatus
@@ -331,3 +331,92 @@ async def test_a_lone_photo_can_be_called_off(db, world, ctx):
     await service.handle_text("bakery-lim", "never mind")
     assert (await db.scalar(select(Claim))) is None
     assert (await owner_messages(db, "bakery-lim"))[-1].text.startswith("OK, no claim.")
+
+
+async def open_buttons(db, code):
+    return [
+        m
+        for m in await owner_messages(db, code)
+        if m.payload.get("actions") and not m.payload.get("answered")
+    ]
+
+
+async def test_after_the_scripted_week_no_question_is_left_open(db, world, ctx):
+    """The demo's simulated owners answer for themselves; their buttons must close too."""
+    runner = WeekRunner(ctx, DEMO_WEEK)
+    for key in ("forecasts", "negotiation", "holds", "delivery", "settlement", "surplus"):
+        await runner.run(key)
+    for code in ("cafe-mei", "brew-lab", "bakery-lim"):
+        assert [m.type for m in await open_buttons(db, code)] == [], code
+    weekly = next(m for m in await owner_messages(db, "cafe-mei") if m.type == "WEEKLY_NEEDS")
+    assert weekly.payload["answered"].startswith("wn:ok:")
+    # Café Mei's milk was short: its dairy delivery is answered with that button.
+    answers = [
+        m.payload["answered"].split(":")[1]
+        for m in await owner_messages(db, "cafe-mei")
+        if m.type == "DELIVERY"
+    ]
+    assert sorted(answers) == ["all", "all", "short"]
+
+
+async def test_a_late_tap_gets_a_clear_answer_and_changes_nothing(db, world, ctx):
+    runner = WeekRunner(ctx, DEMO_WEEK)
+    for key in ("forecasts", "negotiation", "holds", "delivery", "settlement"):
+        await runner.run(key)
+    delivery = next(m for m in await owner_messages(db, "cafe-mei") if m.type == "DELIVERY")
+    short = next(a["id"] for a in delivery.payload["actions"] if a["id"].startswith("dl:short"))
+    taps_before = await db.scalar(
+        select(func.count())
+        .select_from(AgentMessage)
+        .where(AgentMessage.from_agent == "owner:cafe-mei")
+    )
+    await OwnerService(ctx).handle_action("cafe-mei", short)
+    assert (await owner_messages(db, "cafe-mei"))[-1].text == (
+        "That delivery is already settled: you paid for what arrived."
+    )
+    taps_after = await db.scalar(
+        select(func.count())
+        .select_from(AgentMessage)
+        .where(AgentMessage.from_agent == "owner:cafe-mei")
+    )
+    assert taps_after == taps_before  # not recorded as an answer
+
+
+async def test_closing_buttons_answers_the_chooser_and_closes_the_rest(db, world, ctx):
+    import uuid
+
+    from app.features import actions as act
+    from app.features.buttons import close_buttons
+
+    offer, other = uuid.uuid4(), uuid.uuid4()
+    for code, ref in (("cafe-mei", offer), ("brew-lab", offer), ("teh-time", other)):
+        await ctx.bus.publish(
+            db,
+            conversation_id=f"swap:{ref}",
+            from_agent=f"shop:{code}",
+            to_agent=f"owner:{code}",
+            type="SURPLUS_OFFER",
+            text="Want it?",
+            payload={
+                "actions": [
+                    act.action(act.SWAP_OFFER, "yes", ref, "Yes"),
+                    act.action(act.SWAP_OFFER, "no", ref, "No"),
+                ]
+            },
+        )
+    # Café Mei takes it; the offer is then closed for everyone else it was sent to.
+    await close_buttons(db, act.SWAP_OFFER, offer, "yes", owner="owner:cafe-mei")
+    await close_buttons(db, act.SWAP_OFFER, offer)
+    answered = {
+        m.to_agent: m.payload.get("answered")
+        for m in await db.scalars(
+            select(AgentMessage)
+            .where(AgentMessage.type == "SURPLUS_OFFER")
+            .execution_options(populate_existing=True)
+        )
+    }
+    assert answered == {
+        "owner:cafe-mei": f"sw:yes:{offer.hex}",
+        "owner:brew-lab": "closed",
+        "owner:teh-time": None,  # a different offer: still open
+    }

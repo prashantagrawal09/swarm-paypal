@@ -23,6 +23,7 @@ from app.config import get_settings
 from app.db.enums import FlashDealStatus, PayPalModeEnum, ShopStatus
 from app.db.models import FlashDeal, Item, Shop, SupplierItem
 from app.features import actions as act
+from app.features.buttons import close_buttons
 from app.features.context import Ctx
 from app.features.group_buy import shop_accepts
 from app.features.neighbours import reference_price, uses
@@ -191,6 +192,9 @@ async def buy(ctx: Ctx, deal_id: uuid.UUID, shop_code: str, qty: int | None = No
         deal.details = {**deal.details, "purchases": purchases, "pending": pending}
         await ctx.session.commit()
         raise
+    await close_buttons(ctx.session, act.FLASH_DEAL, deal.id, "buy", owner=f"owner:{shop.code}")
+    if deal.status == FlashDealStatus.SOLD_OUT:
+        await close_buttons(ctx.session, act.FLASH_DEAL, deal.id)
     await ctx.say_to_owner(
         shop,
         f"⚡ Bought {describe(item.product_code, qty)} of {item.brand} for {Money(amount)} "

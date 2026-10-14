@@ -1086,3 +1086,22 @@ phone-sized pages, each in light and dark: 42 checks.
 - A claim waiting for a person tells the owner what it is for and how much: "Your claim: 2
   trays of eggs, S$15.50. Nothing is refunded until it's decided." 327 backend tests.
 
+## Buttons that close when their question is settled
+
+**Fixed**
+- **Old buttons stayed live.** When the demo's simulated owners answered for themselves,
+  their buttons were never marked, so on Sunday Café Mei's phone still offered Approve /
+  Change / Skip for Monday's order, "Something's missing" for deliveries already paid for,
+  and "Handed over ✓" for a finished swap. Tapping them asked for changes to a past week,
+  did nothing at all, or replied bluntly.
+- Now whatever settles a question closes its buttons (`app/features/buttons.py`): the
+  owner's tap or typed answer, a simulated owner, Thursday's settlement, or another
+  neighbour taking the offer or helping first. The phone shows the answer given and dims the
+  rest. A tap that still arrives late (an old Telegram message) gets a plain reply ("That
+  delivery is already settled: you paid for what arrived.") and changes nothing.
+- Typing changes when there's no weekly order waiting now says so instead of saying nothing.
+
+**Works**
+- After the scripted week no shop has an open question left; Café Mei's dairy delivery shows
+  "Something's missing" as its answer. 331 backend tests.
+

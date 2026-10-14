@@ -20,6 +20,7 @@ from sqlalchemy import select
 from app.db.enums import PayPalModeEnum, SwapKind, SwapStatus
 from app.db.models import Item, Shop, SwapOffer
 from app.features import actions as act
+from app.features.buttons import close_buttons
 from app.features.context import Ctx
 from app.features.neighbours import distance_m, neighbours, reference_price, shop_item, uses
 from app.features.products import describe
@@ -140,6 +141,9 @@ async def accept(ctx: Ctx, swap_id: uuid.UUID, helper_code: str) -> SwapOffer:
     swap.status = SwapStatus.ACCEPTED
     swap.food_saved_grams = 0
     await ctx.session.commit()
+    # The first neighbour to say yes helps; the others' requests are closed.
+    await close_buttons(ctx.session, act.EMERGENCY, swap.id, "help", owner=f"owner:{helper.code}")
+    await close_buttons(ctx.session, act.EMERGENCY, swap.id)
     await ctx.bus.publish(
         ctx.session,
         conversation_id=f"emergency:{swap.id}",
