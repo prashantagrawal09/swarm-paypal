@@ -12,7 +12,7 @@ import {
   step,
 } from "@/lib/replay";
 import { EMPTY_STREAM, FLIGHT_MS, ingest, type StreamItem } from "@/lib/stream-state";
-import { advance, EMPTY_WORLD, shopsAt } from "@/lib/world-state";
+import { advance, EMPTY_WORLD, negotiationSummary, shopsAt } from "@/lib/world-state";
 
 // A real recording of the demo week (GET /api/timeline after a fresh run). To refresh it:
 // reset, run the week, then save that response here.
@@ -97,6 +97,14 @@ describe("the world worked out from events", () => {
     expect(end.refundedCents).toBe(end.stats?.refunds_cents);
     expect(end.heldCents).toBe(0);
     expect(end.invoicesRejected).toBe(1);
+  });
+
+  it("sums up the negotiations as they happened", () => {
+    // Four pooled orders; FreshDairy and Johor Farm bid against each other on two of them.
+    expect(negotiationSummary(end.negotiations)).toBe(
+      "4 pooled orders, negotiated over 3 rounds; on 2 of them, supplier agents bid against each other.",
+    );
+    expect(negotiationSummary([])).toBe("No order was negotiated this week.");
   });
 
   it("follows the negotiation: every supplier's quotes only come down, and one wins", () => {

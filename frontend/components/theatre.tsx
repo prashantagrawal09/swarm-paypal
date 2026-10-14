@@ -74,7 +74,7 @@ export function Theatre() {
   );
   const player = usePlayer(items, { follow, autoplay: true });
   const { frame, atEnd, catchUp, toggle, skip, setSpeed } = player;
-  const restartPlayer = player.restart;
+  const restart = player.restart;
   const { stream, world } = frame;
 
   // Joining a week that is already running: show where it has got to, then follow.
@@ -150,11 +150,6 @@ export function Theatre() {
     [playing, play, pause],
   );
 
-  const [finaleClosed, setFinaleClosed] = useState(false);
-  const restart = useCallback(() => {
-    setFinaleClosed(false);
-    restartPlayer();
-  }, [restartPlayer]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -261,7 +256,9 @@ export function Theatre() {
   }, [items, world.releasedCents]);
 
   const ready = loaded && overview && stagedShops;
-  const showFinale = complete && atEnd && items.length > 0 && !finaleClosed;
+  // Whenever playback reaches the end of a whole week, however it got there (playing
+  // through, or jumping to Sunday first), the week's summary comes up.
+  const showFinale = complete && atEnd && items.length > 0;
   const pausedPartWay = !complete && !running && atEnd && items.length > 0;
   const progress = items.length ? frame.cursor / items.length : 0;
 
@@ -312,7 +309,6 @@ export function Theatre() {
               onPick={(step) => {
                 const mark = marks.find((m) => m.step === step);
                 if (mark && !follow) {
-                  setFinaleClosed(true);
                   player.jump(mark.index);
                   player.play();
                 }
@@ -335,10 +331,7 @@ export function Theatre() {
               fullscreen={fullscreen}
               onToggle={atEnd && complete ? restart : player.toggle}
               onSpeed={player.setSpeed}
-              onSkip={(direction) => {
-                setFinaleClosed(direction === -1 ? true : finaleClosed);
-                player.skip(direction);
-              }}
+              onSkip={player.skip}
               onRestart={restart}
               onFullscreen={toggleFullscreen}
               onHelp={() => showHelp(!help)}

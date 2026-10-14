@@ -1105,3 +1105,16 @@ phone-sized pages, each in light and dark: 42 checks.
 - After the scripted week no shop has an open question left; Café Mei's dairy delivery shows
   "Something's missing" as its answer. 331 backend tests.
 
+## The week's summary on the watch page
+
+**Fixed**
+- Jumping to a day (or stepping back) hid the week's summary for the rest of that viewing,
+  so "jump to Sunday" ended on a blank stage. It now comes up whenever playback reaches the
+  end of a whole week.
+- "Three supplier agents competed over three rounds for one pooled order" was a fixed
+  sentence, and wrong: there were four pooled orders and two had more than one bidder. It is
+  now worked out from the week ("4 pooled orders, negotiated over 3 rounds; on 2 of them,
+  supplier agents bid against each other"), tested against the recorded week.
+- Lines for things that didn't happen (S$0.00 given back, 0 neighbour sales) are left out,
+  and a refunded claim gets its own line. README screenshot refreshed. 78 frontend tests.
+

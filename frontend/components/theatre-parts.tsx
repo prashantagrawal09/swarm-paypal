@@ -10,6 +10,7 @@ import {
   Leaf,
   Maximize2,
   Minimize2,
+  PackageX,
   Pause,
   Play,
   RotateCcw,
@@ -29,7 +30,12 @@ import type { AgentMessage, Step } from "@/lib/api";
 import { agentName, CATEGORY_LABEL, kg, money, moneyWhole, slotColor } from "@/lib/format";
 import type { PayPalEvent } from "@/lib/live";
 import { SPEEDS, type Speed } from "@/lib/replay";
-import type { Negotiation, StepProgress, World } from "@/lib/world-state";
+import {
+  type Negotiation,
+  negotiationSummary,
+  type StepProgress,
+  type World,
+} from "@/lib/world-state";
 
 // ---------------------------------------------------------------------------------------
 // Day strip
@@ -645,13 +651,17 @@ export function Finale({
     {
       icon: <Trophy className="h-4 w-4" aria-hidden />,
       title: `${money(stats.negotiation_saved_cents)} won by negotiating`,
-      detail: "Three supplier agents competed over three rounds for one pooled order.",
+      detail: negotiationSummary(world.negotiations),
     },
-    {
-      icon: <Undo2 className="h-4 w-4" aria-hidden />,
-      title: `${money(facts.releasedCents)} given back for a short delivery`,
-      detail: "Shops were charged for what arrived, and the rest of each hold was released.",
-    },
+    ...(facts.releasedCents > 0
+      ? [
+          {
+            icon: <Undo2 className="h-4 w-4" aria-hidden />,
+            title: `${money(facts.releasedCents)} given back for a short delivery`,
+            detail: "Shops were charged for what arrived, and the rest of each hold was released.",
+          },
+        ]
+      : []),
     ...(facts.rejectedInvoices
       ? [
           {
@@ -662,11 +672,27 @@ export function Finale({
           },
         ]
       : []),
-    {
-      icon: <Leaf className="h-4 w-4" aria-hidden />,
-      title: `${kg(stats.food_saved_grams)} of food not wasted`,
-      detail: `${facts.swaps} neighbour-to-neighbour ${facts.swaps === 1 ? "sale" : "sales"}, paid on the spot.`,
-    },
+    ...(world.refundedCents > 0
+      ? [
+          {
+            icon: <PackageX className="h-4 w-4" aria-hidden />,
+            title: `${money(world.refundedCents)} refunded for a claim`,
+            detail: "A person upheld it, and PayPal put it back onto the original payment.",
+          },
+        ]
+      : []),
+    ...(facts.swaps > 0
+      ? [
+          {
+            icon: <Leaf className="h-4 w-4" aria-hidden />,
+            title:
+              stats.food_saved_grams > 0
+                ? `${kg(stats.food_saved_grams)} of food not wasted`
+                : "Neighbours helped each other",
+            detail: `${facts.swaps} neighbour-to-neighbour ${facts.swaps === 1 ? "sale" : "sales"}, paid on the spot.`,
+          },
+        ]
+      : []),
     {
       icon: <BookCheck className="h-4 w-4" aria-hidden />,
       title: stats.books_balanced ? "Every cent accounted for" : "The books need a look",

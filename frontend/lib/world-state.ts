@@ -308,3 +308,21 @@ export function suppliersAt(suppliers: SupplierSummary[], world: World): Supplie
     awards: world.negotiations.filter((n) => n.winner === supplier.code).length,
   }));
 }
+
+/**
+ * How the week's negotiations went, in one sentence: how many pooled orders, how many
+ * rounds, and on how many of them suppliers actually bid against each other.
+ */
+export function negotiationSummary(negotiations: Negotiation[]): string {
+  const orders = negotiations.length;
+  if (!orders) return "No order was negotiated this week.";
+  const rounds = Math.max(...negotiations.map((n) => n.round));
+  const contested = negotiations.filter(
+    (n) => n.trails.filter((t) => !t.declined && t.landed.length > 0).length > 1,
+  ).length;
+  const pooled = orders === 1 ? "1 pooled order" : `${orders} pooled orders`;
+  const over = `over ${rounds} ${rounds === 1 ? "round" : "rounds"}`;
+  if (!contested) return `${pooled}, each negotiated ${over} with a single supplier.`;
+  const which = contested === orders ? "all of them" : `${contested} of them`;
+  return `${pooled}, negotiated ${over}; on ${which}, supplier agents bid against each other.`;
+}
