@@ -292,3 +292,42 @@ async def test_a_photo_claim_is_about_the_product_named_not_the_latest_charge(
     refunded = await claims.operator_decision(ctx, claim.id, approve=True)
     assert refunded.decision == ClaimDecision.REFUNDED
     assert refunded.amount_cents == 2 * line.agreed_unit_price_cents
+
+
+async def test_a_photo_on_its_own_is_kept_and_the_owner_is_asked_what_is_wrong(db, world, ctx):
+    from sqlalchemy import func
+
+    from app.db.models import GroupOrderLine, Item, MediaBlob
+
+    runner = WeekRunner(ctx, DEMO_WEEK)
+    for key in ("forecasts", "negotiation", "holds", "delivery", "settlement"):
+        await runner.run(key)
+    service = OwnerService(ctx)
+
+    await service.handle_photo("bakery-lim", b"jpeg", "image/jpeg")
+    sent = [m for m in await db.scalars(select(AgentMessage)) if m.from_agent == "owner:bakery-lim"]
+    assert sent[-1].payload["photo_url"].startswith("/api/media/")
+    assert "What's wrong, and with what?" in (await owner_messages(db, "bakery-lim"))[-1].text
+    assert await db.scalar(select(func.count()).select_from(Claim)) == 0
+
+    await service.handle_text("bakery-lim", "2 trays of eggs arrived cracked")
+    claim = await db.scalar(select(Claim))
+    line = await db.get(GroupOrderLine, claim.group_order_line_id)
+    item = await db.get(Item, line.item_id)
+    assert item.product_code == "eggs-tray-30" and claim.qty_affected == 2
+    # The photo sent first is the claim's photo, stored once.
+    assert claim.photo_url == sent[-1].payload["photo_url"]
+    assert await db.scalar(select(func.count()).select_from(MediaBlob)) == 1
+    reply = (await owner_messages(db, "bakery-lim"))[-1].text
+    assert "Your claim: 2 trays of eggs, S$15.50. Nothing is refunded until it's decided." in reply
+
+
+async def test_a_lone_photo_can_be_called_off(db, world, ctx):
+    runner = WeekRunner(ctx, DEMO_WEEK)
+    for key in ("forecasts", "negotiation", "holds", "delivery", "settlement"):
+        await runner.run(key)
+    service = OwnerService(ctx)
+    await service.handle_photo("bakery-lim", b"jpeg", "image/jpeg")
+    await service.handle_text("bakery-lim", "never mind")
+    assert (await db.scalar(select(Claim))) is None
+    assert (await owner_messages(db, "bakery-lim"))[-1].text.startswith("OK, no claim.")

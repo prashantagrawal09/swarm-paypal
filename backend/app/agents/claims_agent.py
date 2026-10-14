@@ -31,6 +31,7 @@ from app.agents.prompting import wrap_untrusted
 from app.clock import Clock
 from app.db.enums import ClaimDecision, ClaimType
 from app.db.models import Claim, GroupOrderLine, Shop, ShopOrder
+from app.features.products import describe
 from app.llm.client import LLM, Content
 from app.money.amount import Money
 from app.money.engine import MoneyEngine
@@ -241,6 +242,11 @@ class ClaimsAgent(Agent):
             + (
                 f" {Money(outcome.refund_cents)} is on its way back to your PayPal."
                 if outcome.decision == ClaimDecision.AUTO_REFUNDED
+                else f" Your claim: {describe(line.item.product_code, outcome.qty)}, "
+                f"{Money(outcome.refund_cents)}. Nothing is refunded until it's decided."
+                if outcome.refund_cents
+                and outcome.decision
+                in (ClaimDecision.ESCALATED_OPERATOR, ClaimDecision.ESCALATED_SUPPLIER)
                 else ""
             ),
             payload={

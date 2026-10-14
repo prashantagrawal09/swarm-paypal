@@ -1078,4 +1078,11 @@ phone-sized pages, each in light and dark: 42 checks.
   always assumed two days, and the discount depends on it. The expiry now comes from the
   message: today, tomorrow, "in 3 days", or a weekday ("wed", "thurs", "Sunday"); two days
   only when the owner doesn't say. 325 backend tests.
+- **A photo on its own asks before it claims.** A photo with no words used to file a claim
+  straight away against whichever line came first, for one unit. Now the photo is kept and
+  the agent asks what's wrong ("2 trays of eggs arrived cracked"); the claim is filed from
+  the answer with that photo, stored once. "Never mind" calls it off.
+- The owner's own message shows the photo, not "📷 Photo".
+- A claim waiting for a person tells the owner what it is for and how much: "Your claim: 2
+  trays of eggs, S$15.50. Nothing is refunded until it's decided." 327 backend tests.
 

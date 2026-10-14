@@ -60,7 +60,9 @@ async def file_claim(
     description: str = "",
     photo: bytes | None = None,
     media_type: str | None = None,
+    photo_url: str | None = None,
 ) -> Claim:
+    """`photo_url`: the photo is already stored (sent before the owner said what was wrong)."""
     shop = await ctx.shop(shop_code)
     line = await ctx.session.get(GroupOrderLine, line_id)
     if line is None or line.shop_id != shop.id:
@@ -71,8 +73,7 @@ async def file_claim(
         raise rules.RuleViolation("NOT_PAID", "You can claim once a delivery has been charged")
     if qty <= 0 or qty > (line.qty_delivered or 0):
         raise rules.RuleViolation("INVALID_QTY", "Claim at most what was delivered")
-    photo_url = None
-    if photo is not None and media_type:
+    if photo_url is None and photo is not None and media_type:
         photo_url = await store_photo(ctx, photo, media_type, shop.id)
     claim = Claim(
         shop_id=shop.id,
@@ -277,3 +278,12 @@ async def _refund(ctx: Ctx, claim: Claim, decision: ClaimDecision, note: str) ->
             extra={"claim_id": str(claim.id), "paypal_id": payment.paypal_id},
         )
     return claim
+
+
+async def stored_photo(ctx: Ctx, url: str) -> tuple[bytes, str] | None:
+    """A photo stored by `store_photo`, by its URL: its bytes and media type."""
+    try:
+        blob = await ctx.session.get(MediaBlob, uuid.UUID(url.rsplit("/", 1)[-1]))
+    except ValueError:
+        return None
+    return (blob.data, blob.content_type) if blob is not None else None

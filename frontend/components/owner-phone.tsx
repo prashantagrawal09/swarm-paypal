@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { cx, Skeleton } from "@/components/ui";
-import { type AgentMessage, ApiError, post, postForm, type ShopSummary } from "@/lib/api";
+import { type AgentMessage, ApiError, mediaUrl, post, postForm, type ShopSummary } from "@/lib/api";
 import { initials, time } from "@/lib/format";
 import { useLive } from "@/lib/live";
 
@@ -155,6 +155,12 @@ export function OwnerPhone({
               const mine = message.from === owner;
               const actions = message.payload.actions ?? [];
               const answered = message.payload.answered;
+              const photo =
+                typeof message.payload.photo_url === "string"
+                  ? mediaUrl(message.payload.photo_url)
+                  : null;
+              // With the picture shown, the "📷 Photo" label is only in the way.
+              const words = photo ? message.text.replace(/^📷 Photo:? ?/u, "") : message.text;
               return (
                 <div
                   key={message.id}
@@ -168,7 +174,16 @@ export function OwnerPhone({
                         : "border-line bg-surface text-ink rounded-bl-md border",
                     )}
                   >
-                    {message.text}
+                    {photo ? (
+                      // Media comes from the API's store, which next/image can't optimise.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={photo}
+                        alt="Photo sent by the owner"
+                        className={cx("max-h-44 w-full rounded-xl object-cover", words && "mb-1.5")}
+                      />
+                    ) : null}
+                    {words}
                     <span
                       className={cx(
                         "tabular mt-1 flex items-center justify-end gap-1 text-[10px]",

@@ -114,8 +114,9 @@ agent's say-so when there is no evidence. A person decides; PayPal moves the mon
 supplier has already been paid in full by then, so the Money page says plainly that the
 supplier owes the S$15.50 back.
 
-**With a photo.** Demo panel → **Be the owner** → pick **Bakery Lim** → attach any photo with
-the message `2 trays of eggs arrived cracked`. With `ANTHROPIC_API_KEY` set, the claims agent
+**With a photo.** Demo panel → **Be the owner** → pick **Bakery Lim** → press the camera
+and send any photo. The agent asks what's wrong; answer `2 trays of eggs arrived cracked`
+(or type that first and then send the photo). With `ANTHROPIC_API_KEY` set, the claims agent
 looks at the photo and refunds a clear case by itself (up to S$50). Without a key, or if the
 photo is unclear, the claim waits under **Claims waiting for a person**.
 

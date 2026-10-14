@@ -293,6 +293,17 @@ class OwnerService:
             await self._set_state(shop, {})
             await delivery.confirm(ctx, so.id, delivered, note=text)
             return
+        if awaiting == "photo_caption":
+            if lowered in ("cancel", "never mind", "nevermind", "no", "nothing"):
+                await self._set_state(shop, {})
+                await self._say(shop, "OK, no claim. The photo is kept with the chat.", kind="INFO")
+                return
+            photo = await claims.stored_photo(ctx, state["photo_url"])
+            if photo is None:
+                await self._set_state(shop, {})
+            else:
+                await self._claim_from_photo(shop, text, photo[0], photo[1], state["photo_url"])
+                return
         if awaiting == "claim_photo":
             if lowered in ("no photo", "none"):
                 await self._file_claim(
@@ -460,42 +471,65 @@ class OwnerService:
         self, shop_code: str, data: bytes, media_type: str, caption: str = ""
     ) -> None:
         shop = await self.ctx.shop(shop_code)
+        # Stored first, so the owner's own message can show the picture.
+        url = await claims.store_photo(self.ctx, data, media_type, shop.id)
         await self._record(
             shop,
             f"📷 Photo{': ' + caption if caption else ''}",
-            {"photo": True, "media_type": media_type},
+            {"photo": True, "photo_url": url, "media_type": media_type},
         )
         state = await self._state(shop)
         try:
             if state.get("awaiting") == "claim_photo":
                 description = caption or state.get("description", "")
-                await self._file_claim(shop, state["ref"], description, data, media_type)
+                await self._file_claim(shop, state["ref"], description, data, media_type, url)
                 return
-            charged = list(
-                await self.ctx.session.scalars(
-                    select(ShopOrder)
-                    .where(ShopOrder.shop_id == shop.id, ShopOrder.captured_amount_cents > 0)
-                    .options(selectinload(ShopOrder.lines).selectinload(GroupOrderLine.item))
-                    .order_by(ShopOrder.captured_at.desc())
-                    .limit(RECENT_ORDERS)
+            if not caption:
+                # A photo on its own says nothing about what or how many: ask, keep the photo.
+                await self._set_state(
+                    shop, {"awaiting": "photo_caption", "photo_url": url, "media_type": media_type}
                 )
-            )
-            if not charged:
-                await self._say(shop, "Thanks for the photo! Nothing to claim yet.", kind="INFO")
+                await self._say(
+                    shop,
+                    "Got the photo. What's wrong, and with what? For example \"2 trays of "
+                    'eggs arrived cracked".',
+                    kind="ASK",
+                )
                 return
-            # The delivery the owner is talking about: the newest one with the product they
-            # named ("2 trays of eggs cracked" is about the dairy order, even if packaging
-            # was charged after it). With nothing to go on, the newest delivery.
-            about = next((so for so in charged if _named_line(so, caption)), charged[0])
-            await self._set_state(
-                shop, {"awaiting": "claim_photo", "ref": about.id.hex, "pending_photo": True}
-            )
-            await self._file_claim(shop, about.id.hex, caption, data, media_type)
+            await self._claim_from_photo(shop, caption, data, media_type, url)
         except FRIENDLY_ERRORS as exc:
             await self._say(shop, _friendly(exc), kind="ERROR")
 
+    async def _claim_from_photo(
+        self, shop: Shop, caption: str, data: bytes, media_type: str, url: str
+    ) -> None:
+        charged = list(
+            await self.ctx.session.scalars(
+                select(ShopOrder)
+                .where(ShopOrder.shop_id == shop.id, ShopOrder.captured_amount_cents > 0)
+                .options(selectinload(ShopOrder.lines).selectinload(GroupOrderLine.item))
+                .order_by(ShopOrder.captured_at.desc())
+                .limit(RECENT_ORDERS)
+            )
+        )
+        if not charged:
+            await self._set_state(shop, {})
+            await self._say(shop, "Thanks for the photo! Nothing to claim yet.", kind="INFO")
+            return
+        # The delivery the owner is talking about: the newest one with the product they
+        # named ("2 trays of eggs cracked" is about the dairy order, even if packaging
+        # was charged after it). With nothing to go on, the newest delivery.
+        about = next((so for so in charged if _named_line(so, caption)), charged[0])
+        await self._file_claim(shop, about.id.hex, caption, data, media_type, url)
+
     async def _file_claim(
-        self, shop: Shop, ref: str, description: str, data: bytes | None, media_type: str | None
+        self,
+        shop: Shop,
+        ref: str,
+        description: str,
+        data: bytes | None,
+        media_type: str | None,
+        photo_url: str | None = None,
     ) -> None:
         so = await self._shop_order(ref)
         line = _pick_line(so, description)
@@ -504,7 +538,15 @@ class OwnerService:
         qty = min(qty, line.qty_delivered or line.qty_requested)
         await self._set_state(shop, {})
         await claims.file_claim(
-            self.ctx, shop.code, line.id, claim_type, qty, description, data, media_type
+            self.ctx,
+            shop.code,
+            line.id,
+            claim_type,
+            qty,
+            description,
+            data,
+            media_type,
+            photo_url=photo_url,
         )
 
     async def _shop_order(self, ref: str) -> ShopOrder:
