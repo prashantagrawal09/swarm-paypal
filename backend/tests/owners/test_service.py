@@ -420,3 +420,14 @@ async def test_closing_buttons_answers_the_chooser_and_closes_the_rest(db, world
         "owner:brew-lab": "closed",
         "owner:teh-time": None,  # a different offer: still open
     }
+
+
+async def test_a_button_the_shop_was_never_sent_does_nothing(db, world, ctx):
+    before = len(await owner_messages(db, "cafe-mei"))
+    await OwnerService(ctx).handle_action("cafe-mei", "zz:qq:notahex")
+    sent = [
+        m
+        for m in await db.scalars(select(AgentMessage))
+        if m.from_agent == "owner:cafe-mei" or m.to_agent == "owner:cafe-mei"
+    ]
+    assert len(sent) == before  # no "qq" bubble, no reply

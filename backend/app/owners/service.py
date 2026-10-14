@@ -205,16 +205,15 @@ class OwnerService:
     async def handle_action(self, shop_code: str, action_id: str) -> None:
         shop = await self.ctx.shop(shop_code)
         parsed = act.parse_action(action_id)
-        if parsed.kind != act.REPORT:
-            # A tap on an old message (Telegram keeps them): its question is settled.
-            asked = await self._asked(shop, action_id)
-            if asked is not None and asked.payload.get("answered"):
-                await self._say(
-                    shop,
-                    ALREADY.get(parsed.kind, "That's already been taken care of."),
-                    kind="INFO",
-                )
-                return
+        asked = await self._asked(shop, action_id)
+        if asked is None:
+            return  # not a button this shop was ever sent: nothing to answer
+        # A tap on an old message (Telegram keeps them) whose question is settled.
+        if parsed.kind != act.REPORT and asked.payload.get("answered"):
+            await self._say(
+                shop, ALREADY.get(parsed.kind, "That's already been taken care of."), kind="INFO"
+            )
+            return
         await self._record(
             shop, VERB_TEXT.get((parsed.kind, parsed.verb), parsed.verb), {"action": action_id}
         )
