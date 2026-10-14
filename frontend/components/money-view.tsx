@@ -22,20 +22,126 @@ const ACCOUNT_LABEL: Record<string, string> = {
   "platform:holds": "Holds outstanding (memo)",
 };
 
-const SUB_LABEL: Record<string, string> = {
-  paypal: "PayPal wallet",
-  purchases: "goods received",
-  on_hold: "held (memo)",
-  receivable: "owed by Swarm",
-  sales: "sales",
-  payable: "owed by Swarm",
-};
+type BalanceRow = { key: string; name: string; values: Record<string, number> };
+type BalanceColumn = { key: string; label: string };
 
-function accountName(account: string, names: Record<string, string>): string {
-  if (ACCOUNT_LABEL[account]) return ACCOUNT_LABEL[account];
-  const [kind, code, sub] = account.split(":");
-  const who = names[code] ?? code ?? kind;
-  return sub ? `${who} · ${SUB_LABEL[sub] ?? sub.replaceAll("_", " ")}` : who;
+const PLATFORM_COLUMNS: BalanceColumn[] = [{ key: "balance", label: "Balance" }];
+const SUPPLIER_COLUMNS: BalanceColumn[] = [
+  { key: "paypal", label: "PayPal" },
+  { key: "sales", label: "Sales" },
+  { key: "payable", label: "Owed by Swarm" },
+];
+const SHOP_COLUMNS: BalanceColumn[] = [
+  { key: "paypal", label: "PayPal" },
+  { key: "purchases", label: "Goods in" },
+  { key: "sales", label: "Sales" },
+  { key: "receivable", label: "Owed by Swarm" },
+  { key: "on_hold", label: "Held (memo)" },
+];
+
+/** Swarm's own accounts, one per row. */
+function platformRows(balances: Record<string, number>): BalanceRow[] {
+  return Object.entries(balances)
+    .filter(([, value]) => value !== 0)
+    .map(([account, value]) => ({
+      key: account,
+      name: ACCOUNT_LABEL[account] ?? account,
+      values: { balance: value },
+    }));
+}
+
+/** "shop:cafe-mei:paypal" and friends, folded into one row per shop or supplier. */
+function holderRows(balances: Record<string, number>, names: Record<string, string>): BalanceRow[] {
+  const rows = new Map<string, BalanceRow>();
+  for (const [account, value] of Object.entries(balances)) {
+    const [, code, sub] = account.split(":");
+    if (!code || !sub) continue;
+    const row = rows.get(code) ?? { key: code, name: names[code] ?? code, values: {} };
+    row.values[sub] = (row.values[sub] ?? 0) + value;
+    rows.set(code, row);
+  }
+  return [...rows.values()]
+    .filter((row) => Object.values(row.values).some((value) => value !== 0))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function BalanceTable({
+  title,
+  rows,
+  columns,
+}: {
+  title: string;
+  rows: BalanceRow[];
+  columns: BalanceColumn[];
+}) {
+  // Only the accounts that have moved at all this week get a column.
+  const shown = columns.filter((column) => rows.some((row) => row.values[column.key]));
+  return (
+    <section>
+      <h3 className="text-muted mb-1.5 text-xs font-medium">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="text-muted text-sm">Nothing yet.</p>
+      ) : (
+        <>
+          <table className="hidden w-full text-sm sm:table">
+            <thead>
+              <tr className="text-muted text-[11px]">
+                <th scope="col" className="pb-1 text-left font-medium">
+                  <span className="sr-only">Account holder</span>
+                </th>
+                {shown.map((column) => (
+                  <th key={column.key} scope="col" className="pb-1 pl-3 text-right font-medium">
+                    {column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.key} className="border-line border-t">
+                  <th scope="row" className="text-ink-2 truncate py-1.5 text-left font-normal">
+                    {row.name}
+                  </th>
+                  {shown.map((column) => {
+                    const value = row.values[column.key] ?? 0;
+                    return (
+                      <td
+                        key={column.key}
+                        className={cx(
+                          "tabular py-1.5 pl-3 text-right",
+                          value ? "text-ink" : "text-muted",
+                        )}
+                      >
+                        {value ? money(value) : "-"}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {/* On a phone: one line per holder, its accounts underneath. */}
+          <ul className="divide-line divide-y text-sm sm:hidden">
+            {rows.map((row) => (
+              <li key={row.key} className="py-1.5">
+                <div className="text-ink-2">{row.name}</div>
+                <div className="tabular text-ink mt-0.5 flex flex-wrap gap-x-3 text-xs">
+                  {shown
+                    .filter((column) => row.values[column.key])
+                    .map((column) => (
+                      <span key={column.key}>
+                        <span className="text-muted">{column.label}</span>{" "}
+                        {money(row.values[column.key])}
+                      </span>
+                    ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  );
 }
 
 export function MoneyView() {
@@ -159,39 +265,28 @@ export function MoneyView() {
             title="Ledger balances"
             subtitle="Signed balances: debits positive, credits negative"
           />
-          <div className="grid grid-cols-1 gap-5 px-5 pb-5 sm:grid-cols-2">
-            {ledger
-              ? (["platform", "suppliers", "shops"] as const).map((group) => {
-                  const entries = Object.entries(ledger.balances[group]).filter(([, v]) => v !== 0);
-                  return (
-                    <div key={group} className={group === "shops" ? "sm:col-span-2" : undefined}>
-                      <h3 className="text-muted mb-1.5 text-xs font-medium capitalize">{group}</h3>
-                      {entries.length ? (
-                        <ul
-                          className={cx(
-                            "divide-line divide-y text-sm",
-                            group === "shops" && "sm:columns-2 sm:gap-6 sm:divide-y-0",
-                          )}
-                        >
-                          {entries.map(([account, value]) => (
-                            <li
-                              key={account}
-                              className="flex break-inside-avoid justify-between gap-3 py-1.5"
-                            >
-                              <span className="text-ink-2 truncate">
-                                {accountName(account, names)}
-                              </span>
-                              <span className="tabular text-ink">{money(value)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-muted text-sm">Nothing yet.</p>
-                      )}
-                    </div>
-                  );
-                })
-              : null}
+          <div className="space-y-5 px-5 pb-5">
+            {ledger ? (
+              <>
+                <BalanceTable
+                  title="Swarm"
+                  rows={platformRows(ledger.balances.platform)}
+                  columns={PLATFORM_COLUMNS}
+                />
+                <BalanceTable
+                  title="Suppliers"
+                  rows={holderRows(ledger.balances.suppliers, names)}
+                  columns={SUPPLIER_COLUMNS}
+                />
+                <BalanceTable
+                  title="Shops"
+                  rows={holderRows(ledger.balances.shops, names)}
+                  columns={SHOP_COLUMNS}
+                />
+              </>
+            ) : (
+              <LoadingRows rows={3} />
+            )}
           </div>
         </Card>
         <Card>

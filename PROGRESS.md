@@ -1021,4 +1021,9 @@ phone-sized pages, each in light and dark: 42 checks.
 **Works**
 - Checked with every API response held back for six seconds: no page shows a figure or a
   "nothing here" message it doesn't have yet. `make a11y` passes.
+- **Ledger balances as tables.** The Money page listed two dozen "Café Mei · PayPal wallet",
+  "Café Mei · goods received" lines. It now has one row per shop and per supplier and one
+  column per account (PayPal, goods in, sales, owed by Swarm, held), so each shop's PayPal
+  and goods columns can be seen cancelling out. Columns with nothing in them this week are
+  left out; on a phone each holder's accounts sit under its name.
 
