@@ -257,7 +257,8 @@ It prints a signed `/start` invite for Telegram and a signed Connect PayPal link
 ### Deploy
 
 `render.yaml` deploys the API (with the bot and scheduler), the web app and Postgres to
-Render's free tier. Step by step: [docs/deploy.md](docs/deploy.md).
+Render (always-on plans, paid with the hackathon's Render credits). Step by step:
+[docs/deploy.md](docs/deploy.md).
 
 ### Checks
 

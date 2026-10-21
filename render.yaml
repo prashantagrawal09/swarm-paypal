@@ -9,7 +9,8 @@ databases:
   - name: swarm-db
     databaseName: swarm
     user: swarm
-    plan: free
+    # Paid, so it doesn't expire after 30 days (paid for with the hackathon's Render credits).
+    plan: 0.1c-256mb
     region: singapore
     postgresMajorVersion: "16"
 
@@ -17,7 +18,8 @@ services:
   - type: web
     name: swarm-api
     runtime: python
-    plan: free
+    # Always on: a free service sleeps after 15 minutes and takes a minute to wake.
+    plan: 0.5c-512mb
     region: singapore
     rootDir: backend
     # Editable, so the running app is this checkout (the seed data and alembic live in it)
@@ -117,7 +119,7 @@ services:
   - type: web
     name: swarm-web
     runtime: node
-    plan: free
+    plan: 0.5c-512mb
     region: singapore
     rootDir: frontend
     # The build needs the dev dependencies (TypeScript, Tailwind) even when NODE_ENV=production.
